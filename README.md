@@ -6,9 +6,9 @@
 
 - **Video** never stutters in QuickTime. Every rip is verified after
   download; a defective stream gets fixed automatically.
-- **Audio** pulls the best stream the source serves → AAC-320 through
-  Apple's encoder, artwork squared, real source bitrate in the tags. One
-  output, no flags, plays on everything.
+- **Audio** downloads become clean .m4a files: AAC-320 through Apple's
+  encoder, square album artwork, and the original source bitrate noted in
+  the tags. No options to pick — every file plays everywhere.
 
 Every rip prints a receipt, and every run keeps a log in `~/.slipmat/logs` —
 toss a fail log at an AI agent and slipmat becomes self-diagnosing.
@@ -26,17 +26,17 @@ brew install ffmpeg yt-dlp
 (Prefer pip? `pip3 install -U "yt-dlp[default,curl-cffi]"` adds the
 browser-impersonation extras — just make sure pip's bin dir is on your PATH.)
 
-`slipmat hello` is the whole setup: it asks where video and audio rips should
-land (Enter takes the defaults; audio can go straight into your Music
-library), checks the toolchain, and **installs the four menu-bar Shortcuts** —
-built for your machine, signed locally, pre-pinned to the menu bar; you click
-"Add Shortcut" on each. Details and the manual path: `shortcuts/SETUP.md`.
+`./slipmat hello` is a short guided setup. It asks where downloads should
+go (pressing Enter accepts the defaults; audio can be sent straight into
+your Music library), checks that everything is installed, and then sets up
+the four slipmat Shortcuts in your menu bar — macOS shows an "Add Shortcut"
+button for each one, and you click it. That's the whole install. If you'd
+rather set the Shortcuts up by hand, see `shortcuts/SETUP.md`.
 
-One habit worth keeping: **log in to your video sites (YouTube etc.) in
-Firefox and stay logged in.** slipmat borrows Firefox's cookies, so sites
-treat it like you — members-only, age-gated and premium-tier streams just
-work. (A different browser or none at all: set `COOKIE_BROWSER` /
-`USE_COOKIES` in `~/.slipmat/config`.)
+Tip: slipmat uses your **Firefox** cookies. If you're logged in to a site
+in Firefox, slipmat can download things that need your account — members-only
+videos, age-restricted content, premium streams. To use a different browser
+(or no cookies), set `COOKIE_BROWSER` / `USE_COOKIES` in `~/.slipmat/config`.
 
 `python3` is used for stream selection and artwork; the zoom-crop feature
 also needs a python with `numpy` + `scipy` (set `SLIPMAT_PYTHON` in
@@ -74,16 +74,18 @@ browser cookies, quality, naming style, your own embed-page hosts.
 
 ## What's under the hood
 
-- Format-aware stream selection: real renditions enumerated, exact ids picked
-  by QuickTime-codec preference; the post-download probe is the authority.
+- Careful stream selection: slipmat lists the streams a source actually
+  serves and picks by QuickTime compatibility — then verifies the downloaded
+  file itself instead of trusting the site's metadata.
 - A stutter detector that checks real frame timestamps (container metadata
   often reports a broken stream as fine).
 - A re-encode concierge that samples *your* file at the target size before
   quoting numbers; estimates are typically within a few percent.
-- Live streams capture direct to mp4 and finalize cleanly on Ctrl-C.
-- Embed rescue: a page that won't probe gets read directly and hunted for its
-  embedded video (og:video, JSON-LD, iframes, raw manifests, and several
-  site-specific handlers).
+- Live streams record straight to mp4; press Ctrl-C to stop, and the file
+  is finalized and playable.
+- Embed rescue: when a page's video can't be reached the normal way,
+  slipmat reads the page itself and finds the embedded video (og:video,
+  JSON-LD, iframes, raw manifests, and several site-specific handlers).
 - Auto-crop: finds the actual video inside a screen recording — the
   picture-in-picture box — and crops to exactly that, one file or a whole
   folder unattended.
