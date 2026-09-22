@@ -73,6 +73,6 @@ osascript "REPO/shortcuts/launch.applescript" "REPO" audio
 
 All four delegate to one on-disk launcher (`shortcuts/launch.applescript`),
 so a `git pull` updates every Shortcut's behavior without touching the
-Shortcuts app again. If a Shortcut ever behaves differently from the
-terminal, suspect a stale hand-built Shortcut with logic pasted *inline*
-first — keep them as one-line delegators.
+Shortcuts app again. If a Shortcut ever behaves differently from running
+slipmat in the terminal, it's usually a hand-built Shortcut with an old
+command pasted inline — keep Shortcuts as one-line delegators.

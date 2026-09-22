@@ -1,12 +1,12 @@
 # Testing slipmat
 
 The engines are exercised by small, rebuildable harnesses — no network needed
-for most of it. The iron rules first, learned the hard way:
+for most of it. Ground rules first:
 
 - **Never wrap the engine in `script`(1)/pty recorders for logging** — on
   Ctrl-C the pty tears and ffmpeg dies mid-finalize, corrupting live captures.
 - **Never pipe the download or live capture; never trap INT** in the video
-  engine — the Ctrl-C→finalize flow is sacred.
+  engine — Ctrl-C must finalize the file, not kill the writer mid-write.
 - Simulated Ctrl-C = process-group INT with the pty master held open.
 
 ## Offline encode fixture (no network)

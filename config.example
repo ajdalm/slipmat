@@ -17,11 +17,11 @@
 # engine auto-tries each as a Referer before asking you:
 #SLIPMAT_EMBED_HOSTS="https://example-site.com/"
 
-# A python3 with numpy+scipy, for the zoom-crop box hunt:
+# A python3 with numpy+scipy, for zoom-crop analysis:
 #SLIPMAT_PYTHON="$HOME/miniforge3/bin/python3"
 
-# Quality dials (videotoolbox -q:v — HIGHER = better = bigger; defaults are
-# eye-calibrated: q40 everyday, q30 small, q50 high):
+# Quality dials (videotoolbox -q:v — HIGHER = better = bigger;
+# q40 everyday, q30 small, q50 high):
 #Q_AUTO=40
 
 # Filename style for video rips: standard | dated-first | tight

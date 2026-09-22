@@ -15,8 +15,8 @@ toss a fail log at an AI agent and slipmat becomes self-diagnosing.
 
 ## Install
 
-You'll need a Mac and [Homebrew](https://brew.sh). Apple Silicon is the
-fast path — slipmat uses Apple's built-in encoders under the hood.
+Any Mac with [Homebrew](https://brew.sh). slipmat uses your Mac's built-in
+hardware encoder, so it runs fastest on Apple Silicon.
 
 ```
 brew install ffmpeg yt-dlp
@@ -39,7 +39,7 @@ work. (A different browser or none at all: set `COOKIE_BROWSER` /
 `USE_COOKIES` in `~/.slipmat/config`.)
 
 `python3` is used for stream selection and artwork; the zoom-crop feature
-additionally wants a python with `numpy` + `scipy` (set `SLIPMAT_PYTHON` in
+also needs a python with `numpy` + `scipy` (set `SLIPMAT_PYTHON` in
 `~/.slipmat/config`). Run `./slipmat doctor` — it checks everything and prints
 the exact command for anything missing.
 
@@ -56,7 +56,7 @@ your content is heading your way.** The dropdown shortcut suite:
 | [SLIPMAT VIDEO] STUDIO | the picker plus a re-encode concierge — shrink or optimize (sizes/ETAs probed from YOUR file, not guessed), or crop away the dead screen around a small video box. Works without a URL too: ⌘C any bloated file in Finder, click STUDIO |
 | [SLIPMAT AUDIO] AUTO(BEST) | copied link → a clean .m4a with real artwork. AAC-320 — the highest AAC rate CDJ hardware accepts, so files are deck-compatible as delivered |
 
-The same doors from the command line:
+The same tools, from the command line:
 
 ```
 ./slipmat hello                      # (re)run setup any time
@@ -76,13 +76,14 @@ browser cookies, quality, naming style, your own embed-page hosts.
 
 - Format-aware stream selection: real renditions enumerated, exact ids picked
   by QuickTime-codec preference; the post-download probe is the authority.
-- A stutter detector (sorted-PTS gap analysis — container duration lies).
-- A re-encode concierge that samples *your* file at the target geometry before
-  quoting sizes; estimates have landed within a few percent for months.
+- A stutter detector that checks real frame timestamps (container metadata
+  often reports a broken stream as fine).
+- A re-encode concierge that samples *your* file at the target size before
+  quoting numbers; estimates are typically within a few percent.
 - Live streams capture direct to mp4 and finalize cleanly on Ctrl-C.
 - Embed rescue: a page that won't probe gets read directly and hunted for its
   embedded video (og:video, JSON-LD, iframes, raw manifests, and several
-  site-specific doors).
+  site-specific handlers).
 - Auto-crop: finds the actual video inside a screen recording — the
   picture-in-picture box — and crops to exactly that, one file or a whole
   folder unattended.
