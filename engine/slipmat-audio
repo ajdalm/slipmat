@@ -1,0 +1,274 @@
+#!/bin/bash
+# =============================================================================
+#  slipmat-audio — one-command audio ripper (the slipmat suite's audio door)
+#
+#    slipmat audio <url>   →   a .m4a that plays everywhere: AAC-320 through
+#                              Apple's encoder (never above 320k — CDJ decks
+#                              skip on higher-rate AAC), library-style
+#                              "Artist - Title.m4a" naming, square artwork
+#                              with letterbox bars trimmed, and the TRUE
+#                              source bitrate stamped where you can see it.
+#
+#  There is no mode flag to remember. Web sources are lossy (~130-160k opus),
+#  so AAC-320 loses nothing audible — and the same file that sounds right at
+#  home is the one that won't skip in a DJ booth. One output, no bad files.
+#  The doctrine is hardware-tested by a private collective of DJs.
+# =============================================================================
+set -u
+[ "${LC_ALL:-}" = "C" ] && unset LC_ALL
+export LC_CTYPE="en_US.UTF-8"
+
+YTDLP="${YTDLP:-/opt/homebrew/bin/yt-dlp}"
+[ -x "$YTDLP" ] || YTDLP="$(command -v yt-dlp || printf '%s' "$YTDLP")"   # pip installs live on PATH, not in /opt/homebrew
+FFMPEG="${FFMPEG:-/opt/homebrew/bin/ffmpeg}"
+FFPROBE="${FFPROBE:-/opt/homebrew/bin/ffprobe}"
+[ -x "$FFMPEG"  ] || FFMPEG="$(command -v ffmpeg  || printf '%s' "$FFMPEG")"
+[ -x "$FFPROBE" ] || FFPROBE="$(command -v ffprobe || printf '%s' "$FFPROBE")"
+OUTDIR="$HOME/Downloads/SLIPMAT"   # video rips share this folder by default
+AUDIO_OUTDIR=""             # set in ~/.slipmat/config to give audio its own folder
+AUDIO_AUTO_ADD=""           # optional: your Music.app "Automatically Add" folder —
+                            # finished files atomic-rename into it, so the library
+                            # never sees a partial. `slipmat hello` can set this.
+COOKIE_BROWSER=firefox
+USE_COOKIES=1
+[ -f "$HOME/.slipmat/config" ] && . "$HOME/.slipmat/config"
+[ -n "${AUDIO_OUTDIR:-}" ] && OUTDIR="$AUDIO_OUTDIR"
+
+URL="${1:-}"
+[ -n "$URL" ] || { printf '[slipmat-audio] no URL. usage: slipmat audio <url>\n' >&2; exit 1; }
+
+# no Firefox profile on this Mac → --cookies-from-browser would error on every
+# rip; stand down silently (hello's "log in in Firefox" guidance brings it back)
+[ "$COOKIE_BROWSER" = "firefox" ] && [ ! -d "$HOME/Library/Application Support/Firefox/Profiles" ] && USE_COOKIES=0
+COOKIES=""; [ "${USE_COOKIES:-1}" = "1" ] && COOKIES="--cookies-from-browser $COOKIE_BROWSER"
+
+# URL scrub: YouTube playlist/radio/tracking params are
+# never wanted — reduce to the bare originating video before yt-dlp sees it.
+VID=""
+case "$URL" in
+  *youtube.com/watch*[?\&]v=*|*music.youtube.com/watch*[?\&]v=*)
+    VID=$(printf '%s' "$URL" | sed -E 's/.*[?&]v=([^&]+).*/\1/') ;;
+  *youtu.be/*)
+    VID=$(printf '%s' "$URL" | sed -E 's|.*youtu\.be/([^?&/]+).*|\1|') ;;
+esac
+if [ -n "$VID" ]; then
+  CLEANURL="https://www.youtube.com/watch?v=$VID"
+  [ "$CLEANURL" != "$URL" ] && printf '  scrubbed → %s\n' "$CLEANURL"
+  URL="$CLEANURL"
+fi
+
+mkdir -p "$OUTDIR"
+
+IS_TTY=0; [ -t 1 ] && IS_TTY=1
+title() { [ "$IS_TTY" = "1" ] && printf '\033]0;%s\007' "$1" > /dev/tty 2>/dev/null || true; }
+
+# suite-naming helpers (engine parity: fullwidth sanitize, byte-safe abridge,
+# short platform tag, URL-path @handle)
+lc() { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
+cf() { printf '%s' "$1" | tr '\n\r\t' '   ' \
+  | sed -e 's/:/：/g' -e 's/?/？/g' -e 's#/#⧸#g' -e 's/"/＂/g' \
+        -e 's/</＜/g' -e 's/>/＞/g' -e 's/|/｜/g' -e 's/\*/＊/g' \
+        -e 's/  */ /g' -e 's/^[ .]*//' -e 's/[ .]*$//'; }
+abridge() {
+  _s="$1"; _max="$2"
+  _b=$(printf '%s' "$_s" | LC_ALL=C wc -c | tr -d ' ')
+  [ "$_b" -le "$_max" ] && { printf '%s' "$_s"; return; }
+  _cut=$((_max-3))
+  while [ "$_b" -gt "$_cut" ] && [ -n "$_s" ]; do
+    if [ $((_b - _cut)) -gt 32 ]; then _s="${_s%????????}"; else _s="${_s%?}"; fi
+    _b=$(printf '%s' "$_s" | LC_ALL=C wc -c | tr -d ' ')
+  done
+  printf '%s...' "$(printf '%s' "$_s" | sed 's/ *$//')"
+}
+ptag() { case "$(lc "$URL")" in *youtube.com*|*youtu.be*) printf 'YT';; \
+  *soundcloud.com*) printf 'SC';; *instagram.com*) printf 'IG';; *tiktok.com*) printf 'TT';; \
+  *vimeo.com*) printf 'VM';; *x.com*|*twitter.com*) printf 'X';; *facebook.com*|*fb.watch*) printf 'FB';; \
+  *rumble.com*) printf 'Rumble';; *) printf '';; esac; }
+
+LOGDAY="$HOME/.slipmat/logs/$(date +%Y-%m-%d)"; mkdir -p "$LOGDAY" 2>/dev/null
+RUNLOG="$LOGDAY/$(date +%H%M%S)_audio_$$.log"
+log() { printf '%s\n' "$*" >> "$RUNLOG" 2>/dev/null; }
+say() { printf '%s\n' "$*"; log "$*"; }
+T0=$SECONDS
+
+say ""
+say " SLIPMAT AUDIO  ·  AAC-320 m4a · plays everywhere (booth-safe)"
+say "  $URL"
+log "start: $(date '+%Y-%m-%d %H:%M:%S')"
+
+# one metadata read for naming/tags (yt-dlp prints NA for gaps)
+META=$("$YTDLP" $COOKIES --no-playlist --no-warnings --skip-download \
+  --print $'%(extractor_key)s\037%(title)s\037%(artist,uploader,creator|)s\037%(id)s\037%(uploader_id)s\037%(channel)s\037%(uploader)s\037%(upload_date)s\037%(acodec|?)s\037%(abr|0)s' \
+  "$URL" 2>/dev/null | head -1)
+OLDIFS=$IFS; IFS=$'\037'
+read -r M_EXTRACTOR M_TITLE M_ARTIST M_ID M_UPID M_CHANNEL M_UPLOADER M_UPDATE M_ACODEC M_ABR <<EOF
+$META
+EOF
+IFS=$OLDIFS
+for _v in M_EXTRACTOR M_TITLE M_ARTIST M_ID M_UPID M_CHANNEL M_UPLOADER M_UPDATE M_ACODEC M_ABR; do
+  eval "[ \"\$$_v\" = NA ] && $_v=''" || true
+done
+
+# ---- naming: library-style "Artist - Title" (what any player — or a booth
+# browser — shows). SoundCloud keeps its uploader provenance in the title.
+TAG_ARTIST=""; TAG_TITLE=""
+case "$M_EXTRACTOR" in
+  Soundcloud*|soundcloud*)
+    TAG_TITLE="$M_TITLE [SC@${M_ARTIST:-$M_UPLOADER}]"
+    TAG_ARTIST="${M_ARTIST:-$M_UPLOADER}" ;;
+  *)
+    case "$M_TITLE" in
+      *" - "*) TAG_ARTIST=${M_TITLE%% - *}; TAG_TITLE=${M_TITLE#* - } ;;
+      *)       TAG_TITLE="$M_TITLE"; TAG_ARTIST="$M_ARTIST" ;;
+    esac ;;
+esac
+BASE="$TAG_TITLE"; [ -n "$TAG_ARTIST" ] && BASE="$TAG_ARTIST - $TAG_TITLE"
+case "$TAG_TITLE" in "$TAG_ARTIST - "*) BASE="$TAG_TITLE";; esac   # avoid "Artist - Artist - Title"
+STEM=$(cf "$BASE"); [ -n "$STEM" ] || STEM="SLIPMAT AUDIO - $(date '+%-m.%-d.%y - %-I.%M%p')"
+TRY="$STEM"; N=2
+while [ -e "$OUTDIR/${TRY}.m4a" ]; do TRY="${STEM} (${N})"; N=$((N+1)); done
+NAME="$TRY"
+
+# partial-file hygiene: downloads go straight into the output folder, so a
+# Ctrl-C / failure must never leave .part/.ytdl ghosts. A finished .m4a is
+# never touched. (Trapping INT here is safe — no live-capture finalize.)
+cleanup_partials() {
+  [ -n "${NAME:-}" ] || return 0
+  [ -s "$OUTDIR/${NAME}.m4a" ] && return 0
+  rm -f "$OUTDIR/${NAME}".m4a.part "$OUTDIR/${NAME}".m4a.ytdl "$OUTDIR/${NAME}".*.ytdl \
+        "$OUTDIR/${NAME}".webm "$OUTDIR/${NAME}".m4a.part-Frag* 2>/dev/null
+  [ -n "${TMPD:-}" ] && rm -rf "$TMPD" 2>/dev/null
+  return 0
+}
+trap cleanup_partials EXIT
+trap 'cleanup_partials; exit 130' INT
+trap 'cleanup_partials; exit 143' TERM
+trap 'cleanup_partials; exit 129' HUP
+title "AUDIO · $(abridge "${M_TITLE:-$STEM}" 60)"
+say "  → ${NAME}.m4a"
+say ""
+
+PROG="--quiet --no-warnings"; [ "$IS_TTY" = "1" ] && PROG="--quiet --progress --no-warnings"
+
+# Raw bestaudio into a temp, then ONE encode to AAC-320 with the Apple
+# encoder + square artwork. Never above 320k AAC — the hardware law. The
+# selector FALLS THROUGH to muxed formats: TikTok-class sources have NO
+# audio-only streams, so plain `bestaudio` would die there.
+TMPD=$(mktemp -d)
+{
+  "$YTDLP" $COOKIES --no-playlist -f "bestaudio/bestaudio*/best" --write-thumbnail \
+    --retries 10 --fragment-retries 10 $PROG \
+    -o "$TMPD/src.%(ext)s" -o "thumbnail:$TMPD/art.%(ext)s" "$URL" 2>>"$RUNLOG"
+  RC=$?
+  SRC=$(ls "$TMPD"/src.* 2>/dev/null | grep -v -E '\.(jpg|jpeg|png|webp)$' | head -1)
+  [ -n "$SRC" ] || RC=1
+  OUT="$OUTDIR/${NAME}.m4a"
+  if [ "$RC" -eq 0 ]; then
+    # source-quality stamp: the comment carries what the web really served
+    ABR_INT=${M_ABR%%.*}
+    SRCQ="src=${M_ACODEC:-?} ${ABR_INT:-?}kbps"
+    LQ=""; TAG_ALBUM="${ABR_INT:-?}kbps"
+    if [ "${ABR_INT:-0}" -gt 0 ] 2>/dev/null && [ "${ABR_INT:-0}" -lt 128 ] 2>/dev/null; then
+      LQ="⚠️LOW QUALITY SOURCE — "; TAG_ALBUM="⚠️ ${ABR_INT}kbps"
+    fi
+    case "$M_EXTRACTOR" in
+      Soundcloud*|soundcloud*) TAG_COMMENT="${LQ}$SRCQ | [SC@${M_ARTIST:-$M_UPLOADER}] id $M_ID" ;;
+      *) TAG_COMMENT="${LQ}$SRCQ | [$(ptag)@${M_UPID#@}] id $M_ID" ;;
+    esac
+    # artwork: trim near-black letterbox bars FIRST (a plain center-crop keeps
+    # them and yields a fake square), then true-square, cap 800, baseline JPEG
+    ART_FILE=""
+    ARTSRC=$(ls "$TMPD"/art.* 2>/dev/null | head -1 || true)
+    if [ -n "$ARTSRC" ]; then
+      if python3 - "$ARTSRC" "$TMPD/art_final.jpg" <<'ARTPY' 2>>"$RUNLOG"
+import sys, statistics
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+w, h = im.size
+px = im.load()
+def bar_row(y):
+    vals = [sum(px[x, y]) / 3 for x in range(0, w, 3)]
+    return statistics.pstdev(vals) < 4 and statistics.mean(vals) < 24
+def bar_col(x):
+    vals = [sum(px[x, y]) / 3 for y in range(0, h, 3)]
+    return statistics.pstdev(vals) < 4 and statistics.mean(vals) < 24
+t = 0
+while t < h // 3 and bar_row(t): t += 1
+b = h - 1
+while b > 2 * h // 3 and bar_row(b): b -= 1
+l = 0
+while l < w // 3 and bar_col(l): l += 1
+r = w - 1
+while r > 2 * w // 3 and bar_col(r): r -= 1
+im = im.crop((l, t, r + 1, b + 1))
+w, h = im.size
+side = min(w, h)
+im = im.crop(((w - side) // 2, (h - side) // 2, (w - side) // 2 + side, (h - side) // 2 + side))
+if side > 800: im = im.resize((800, 800), Image.LANCZOS)
+im.save(sys.argv[2], 'JPEG', quality=92, progressive=False)
+ARTPY
+      then ART_FILE="$TMPD/art_final.jpg"
+      elif "$FFMPEG" -hide_banner -loglevel error -i "$ARTSRC" -frames:v 1 \
+          -vf "crop='min(iw,ih)':'min(iw,ih)',scale='min(iw,800)':'min(ih,800)'" \
+          -q:v 2 "$TMPD/art_final.jpg" 2>>"$RUNLOG"; then ART_FILE="$TMPD/art_final.jpg"; fi
+    fi
+    STAGE="$TMPD/out.m4a"
+    if [ -n "$ART_FILE" ]; then
+      "$FFMPEG" -hide_banner -loglevel error -i "$SRC" -i "$ART_FILE" \
+        -map 0:a -map 1:v -c:v copy -disposition:v attached_pic \
+        -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" \
+        -c:a aac_at -b:a 320k \
+        -metadata title="$TAG_TITLE" -metadata artist="$TAG_ARTIST" \
+        -metadata comment="$TAG_COMMENT" -metadata album="$TAG_ALBUM" \
+        "$STAGE" 2>>"$RUNLOG" || RC=1
+    else
+      "$FFMPEG" -hide_banner -loglevel error -i "$SRC" -map 0:a \
+        -c:a aac_at -b:a 320k \
+        -metadata title="$TAG_TITLE" -metadata artist="$TAG_ARTIST" \
+        -metadata comment="$TAG_COMMENT" -metadata album="$TAG_ALBUM" \
+        "$STAGE" 2>>"$RUNLOG" || RC=1
+    fi
+    if [ "$RC" -eq 0 ]; then
+      # optional Music delivery: fully converted AND tagged before the library
+      # can see it (atomic rename on the same volume)
+      if [ -n "${AUDIO_AUTO_ADD:-}" ] && [ -d "$AUDIO_AUTO_ADD" ]; then
+        AA_OUT="$AUDIO_AUTO_ADD/${NAME}.m4a"
+        n=2; while [ -e "$AA_OUT" ]; do AA_OUT="$AUDIO_AUTO_ADD/${NAME} ($n).m4a"; n=$((n+1)); done
+        mv "$STAGE" "$AA_OUT" && OUT="$AA_OUT" && say "  → delivered to Music (auto-import)"
+      else
+        mv "$STAGE" "$OUT"
+      fi
+    fi
+  fi
+}
+
+if [ "${RC:-1}" -ne 0 ] || [ ! -s "$OUT" ]; then
+  say ""
+  say "✗ audio rip failed (yt-dlp exit ${RC:-?}) — the link may be expired, private, or need a login."
+  tail -5 "$RUNLOG" 2>/dev/null | sed 's/^/    /'
+  # login-shaped failure → the same sentence `slipmat hello` uses at setup
+  if [ "${USE_COOKIES:-1}" = "1" ] && grep -qiE 'sign[ -]?in|log[ -]?in|age[ -]?restrict|confirm your age|members[ -]?only|private video|premium|authenticat|this account|subscriber' "$RUNLOG" 2>/dev/null; then
+    say "  ↳ This looks login-gated. slipmat borrows Firefox's cookies: log in to this site in Firefox itself, then re-run — the site will treat slipmat like you."
+  fi
+  title "✗ AUDIO failed"
+  mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) ✗ audio $(abridge "${M_TITLE:-$NAME}" 60).log" 2>/dev/null
+  exit 1
+fi
+
+# the bitrate-probe receipt: what did "best audio" actually get us?
+AC=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$OUT")
+BR=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=bit_rate -of csv=p=0 "$OUT")
+[ -n "$BR" ] && [ "$BR" != "N/A" ] || BR=$("$FFPROBE" -v error -show_entries format=bit_rate -of csv=p=0 "$OUT")
+DU=$("$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$OUT" | cut -d. -f1)
+SZ=$(stat -f %z "$OUT" 2>/dev/null || echo 0)
+say ""
+say "── DONE ─────────────────────────────────────────────"
+say "  audio   ${AC:-?} · $(( ${BR:-0} / 1000 )) kbps   (source: ${M_ACODEC:-?} ${M_ABR%%.*}kbps)"
+say "  length  $(( ${DU:-0} / 60 )):$(printf '%02d' $(( ${DU:-0} % 60 )))   size $(( SZ / 1048576 ))MB"
+say "  took    $(( SECONDS - T0 ))s"
+say "  file    $(basename "$OUT")"
+say "─────────────────────────────────────────────────────"
+say "  $OUT"
+title "✓ AUDIO done · $(abridge "${M_TITLE:-$NAME}" 60)"
+mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) AUDIO $(abridge "$NAME" 140).log" 2>/dev/null
+exit 0

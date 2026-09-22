@@ -1,0 +1,32 @@
+# slipmat config — copy to ~/.slipmat/config and edit. Plain shell, sourced
+# over the engine defaults; set only what you want to change.
+
+# Where finished rips land (video + audio share it). `slipmat hello` sets this:
+#OUTDIR="$HOME/Downloads/SLIPMAT"
+
+# Give audio rips their own folder; or deliver them straight into Music.app's
+# "Automatically Add" folder (files arrive fully converted + tagged, atomically):
+#AUDIO_OUTDIR="$HOME/Downloads/SLIPMAT AUDIO"
+#AUDIO_AUTO_ADD="$HOME/Music/Music/Media.localized/Automatically Add to Music.localized"
+
+# Browser whose cookies yt-dlp reads (firefox/chrome/safari); 0 disables cookies:
+#COOKIE_BROWSER=firefox
+#USE_COOKIES=1
+
+# Sites you KNOW embed locked Vimeo players (space-separated page URLs) — the
+# engine auto-tries each as a Referer before asking you:
+#SLIPMAT_EMBED_HOSTS="https://example-site.com/"
+
+# A python3 with numpy+scipy, for the zoom-crop box hunt:
+#SLIPMAT_PYTHON="$HOME/miniforge3/bin/python3"
+
+# Quality dials (videotoolbox -q:v — HIGHER = better = bigger; defaults are
+# eye-calibrated: q40 everyday, q30 small, q50 high):
+#Q_AUTO=40
+
+# Filename style for video rips: standard | dated-first | tight
+#NAMING_STYLE="standard"
+
+# An executable that maps a source title to your own naming convention (gets
+# the title as $1, prints the new name or nothing to keep the template):
+#   ~/.slipmat/title-hook

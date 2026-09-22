@@ -1,0 +1,38 @@
+#!/bin/bash
+# slipmat — copy a link, get a file that just works on your gear.
+#   slipmat hello                                 first-run setup (folders,
+#                                                 menu-bar shortcuts) — start here
+#   slipmat video <url|file> [best|auto|studio]   rip video (QuickTime-safe)
+#   slipmat audio <url>                           rip audio (AAC-320 m4a,
+#                                                 square art, booth-safe)
+#   slipmat z-batch [opts] <folder>               unattended zoom-crop / re-encode batch
+#   slipmat doctor                                check the toolchain
+# A bare URL or file path routes to video: `slipmat <url> best` works.
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"
+CMD="${1:-}"
+usage() { sed -n '2,10p' "$0" | sed 's/^# //;s/^#//'; }
+case "$CMD" in
+  hello|setup) shift; exec /bin/bash "$HERE/tools/hello.sh" "$@" ;;
+  ""|help)
+    # a human typing bare `slipmat` or `slipmat help` gets the concierge;
+    # a pipe/script (no tty) gets plain usage — a wizard that self-answers
+    # with defaults inside someone's script would be a menace
+    if [ -t 0 ] && [ -t 1 ]; then exec /bin/bash "$HERE/tools/hello.sh"; fi
+    usage; exit 0 ;;
+  video)   shift; exec "$HERE/engine/slipmat-video" "$@" ;;
+  audio)   shift; exec "$HERE/engine/slipmat-audio" "$@" ;;
+  z-batch) shift; exec /bin/bash "$HERE/tools/z-batch.sh" "$@" ;;
+  doctor)
+    "$HERE/engine/slipmat-video" --doctor
+    FF=/opt/homebrew/bin/ffmpeg; [ -x "$FF" ] || FF="$(command -v ffmpeg || printf '%s' "$FF")"
+    printf '  %s aac_at encoder (audio rips): %s\n' \
+      "$("$FF" -hide_banner -encoders 2>/dev/null | grep -q aac_at && printf '✓' || printf '✗')" \
+      "$("$FF" -hide_banner -encoders 2>/dev/null | grep -q aac_at && echo present || echo 'missing — audio rips need ffmpeg with AudioToolbox')"
+    exit 0 ;;
+  -h|--help)
+    usage; exit 0 ;;
+  *)
+    # bare URL or file path → video engine
+    exec "$HERE/engine/slipmat-video" "$@" ;;
+esac
