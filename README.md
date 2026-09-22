@@ -23,8 +23,17 @@ brew install ffmpeg yt-dlp
 ./slipmat hello
 ```
 
-(Prefer pip? `pip3 install -U "yt-dlp[default,curl-cffi]"` adds the
-browser-impersonation extras — just make sure pip's bin dir is on your PATH.)
+The Homebrew version of yt-dlp handles nearly every site. A few stubborn
+sites only respond to real web browsers — for those, the pip version of
+yt-dlp can impersonate one:
+
+```
+pip3 install -U "yt-dlp[default,curl-cffi]"
+```
+
+You can skip that until a site actually refuses you. If you do install it,
+run `./slipmat doctor` afterwards — it will tell you whether slipmat can
+see it.
 
 `./slipmat hello` is a short guided setup. It asks where downloads should
 go (pressing Enter accepts the defaults; audio can be sent straight into
