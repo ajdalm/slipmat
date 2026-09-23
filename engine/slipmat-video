@@ -45,7 +45,8 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.6"           # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
+VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
+                        # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
                         # re-probe · live receipt = video duration · TS probe short-circuit ·
                         # honest blind-probe death · stage-on-source-volume (his quiz rulings)
                         # every ask opens with a bold-purple question word; the default WEARS
@@ -1939,9 +1940,16 @@ def out(label, u):
 import re as _re
 m = _re.search(r'c-span\.org/.*/(\d{4,})/?$', url)
 if m:
-    cand = "https://m3u8-0.c-spanvideo.org/program/program.%s.tsc.m3u8" % m.group(1)
+    # 9.22.26: their VOD CDN split — NEW programs answer only on m3u8-1, older ones
+    # still answer on both. Try -1 first, keep -0 as the fallback; the #EXTM3U check
+    # below stays the authority either way.
     try:
-        rr = requests.get(cand, impersonate="chrome", timeout=15)
+        rr = None
+        for _h in ("m3u8-1", "m3u8-0"):
+            cand = "https://%s.c-spanvideo.org/program/program.%s.tsc.m3u8" % (_h, m.group(1))
+            rr = requests.get(cand, impersonate="chrome", timeout=15)
+            if rr.status_code == 200 and rr.text.lstrip().startswith("#EXTM3U"):
+                break
         if rr.status_code == 200 and rr.text.lstrip().startswith("#EXTM3U"):
             # title: the page headline when it renders; the URL slug otherwise (their
             # pages are intermittently blank — the slug is always there and is the title)
