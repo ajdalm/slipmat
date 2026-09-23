@@ -1,0 +1,115 @@
+#!/bin/bash
+# =============================================================================
+#  slipmat-spotify — the Spotify door of the slipmat audio suite
+#
+#    slipmat spotify <link>   track, album or playlist link →
+#                             AAC-320 .m4a files, the same treatment as
+#                             `slipmat audio`: Apple's encoder, full tags,
+#                             true-square art, source stamp in Composer.
+#
+#  The ripper is mr-rippah by cvdub (github.com/cvdub/mr-rippah), extended —
+#  see ripper/slipmat_ripper/rippah.py for what this version adds. It needs
+#  a Spotify Premium account; the first rip opens Spotify's login page in
+#  your browser once, and the login is remembered after that.
+#
+#  Its Python lives in its own environment (~/.slipmat/spotify-env), built
+#  by `uv` on first use and rebuilt only when ripper/requirements.txt changes.
+# =============================================================================
+set -u
+[ "${LC_ALL:-}" = "C" ] && unset LC_ALL
+export LC_CTYPE="en_US.UTF-8"
+HERE="$(cd "$(dirname "$0")" && pwd)"; REPO="$(cd "$HERE/.." && pwd)"
+# pydub finds ffmpeg on PATH — a menu-bar launch can arrive with a thin one
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+OUTDIR="$HOME/Downloads/SLIPMAT"
+AUDIO_OUTDIR=""; AUDIO_AUTO_ADD=""
+SPOTIFY_TO_MUSIC=0     # 1 = Spotify rips go to Music even if other audio doesn't
+SPOTIFY_SPOT_TAG=0     # 1 = append " [SPOT]" to the album name
+SPOTIFY_GHOSTS=""      # a file path = keep a list of tracks Spotify no longer plays
+SPOTIFY_LEDGER="$HOME/.slipmat/spotify-ledger.txt"
+[ -f "$HOME/.slipmat/config" ] && . "$HOME/.slipmat/config"
+[ -n "${AUDIO_OUTDIR:-}" ] && OUTDIR="$AUDIO_OUTDIR"
+
+LINK="${1:-}"
+[ -n "$LINK" ] || { printf '[slipmat-spotify] no link. usage: slipmat spotify <track|album|playlist link>\n' >&2; exit 1; }
+shift
+
+IS_TTY=0; [ -t 1 ] && IS_TTY=1
+title() { [ "$IS_TTY" = "1" ] && printf '\033]0;%s\007' "$1" > /dev/tty 2>/dev/null || true; }
+LOGDAY="$HOME/.slipmat/logs/$(date +%Y-%m-%d)"; mkdir -p "$LOGDAY" 2>/dev/null
+RUNLOG="$LOGDAY/$(date +%H%M%S)_spotify_$$.log"
+log() { printf '%s\n' "$*" >> "$RUNLOG" 2>/dev/null; }
+say() { printf '%s\n' "$*"; log "$*"; }
+die() { say ""; say "✗ $*"; title "✗ SPOTIFY failed"
+        mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) ✗ spotify.log" 2>/dev/null; exit 1; }
+T0=$SECONDS
+
+case "$LINK" in
+  *open.spotify.com/*|spotify:*) ;;
+  *spotify.link/*) die "that's a Spotify short link — open it in a browser and copy the full open.spotify.com address instead." ;;
+  *) die "not a Spotify link: $LINK  (copy a track, album or playlist link from Spotify: Share → Copy link)" ;;
+esac
+
+say ""
+say " SLIPMAT SPOTIFY  ·  AAC-320 m4a · plays everywhere (booth-safe)"
+say "  $LINK"
+log "start: $(date '+%Y-%m-%d %H:%M:%S')"
+
+# ---- the ripper's own python environment ------------------------------------
+VENV="$HOME/.slipmat/spotify-env"; REQ="$REPO/ripper/requirements.txt"
+PY="$VENV/bin/python"
+want=$(shasum "$REQ" | cut -c1-16)
+if [ ! -x "$PY" ] || [ "$(cat "$VENV/.req" 2>/dev/null)" != "$want" ]; then
+  UV="$(command -v uv 2>/dev/null)"
+  [ -n "$UV" ] || die "the Spotify ripper needs uv to set itself up:  brew install uv   (then run this again)"
+  say "  first run: setting up the Spotify ripper (about a minute, once) …"
+  # built beside the live one and swapped in whole, so a rip starting in
+  # another window never sees a half-built environment
+  NEW="$VENV.new.$$"; rm -rf "$NEW"
+  if "$UV" venv -q --relocatable --python '>=3.13' "$NEW" >>"$RUNLOG" 2>&1 \
+     && "$UV" pip install -q --python "$NEW/bin/python" -r "$REQ" >>"$RUNLOG" 2>&1; then
+    printf '%s' "$want" > "$NEW/.req"
+    rm -rf "$VENV.old.$$"; [ -d "$VENV" ] && mv "$VENV" "$VENV.old.$$"
+    mv "$NEW" "$VENV" && rm -rf "$VENV.old.$$"
+    say "  ✓ ripper ready"
+  else
+    rm -rf "$NEW"
+    die "couldn't set up the Spotify ripper — the log has uv's reason: $RUNLOG"
+  fi
+fi
+
+# ---- where the files go -----------------------------------------------------
+AA=""
+if [ -n "${AUDIO_AUTO_ADD:-}" ]; then AA="$AUDIO_AUTO_ADD"
+elif [ "${SPOTIFY_TO_MUSIC:-0}" = "1" ]; then
+  for cand in "$HOME/Music/Music/Media.localized/Automatically Add to Music.localized" \
+              "$HOME/Music/iTunes/iTunes Media/Automatically Add to iTunes.localized"; do
+    [ -d "$cand" ] && { AA="$cand"; break; }
+  done
+fi
+if [ -n "$AA" ] && [ -d "$AA" ]; then say "  → Music library (tagged before Music ever sees the file)"
+else AA=""; mkdir -p "$OUTDIR"; say "  → $OUTDIR"; fi
+case "$SPOTIFY_GHOSTS" in 1|yes|on) SPOTIFY_GHOSTS="$HOME/.slipmat/spotify-ghosts.txt" ;; esac
+title "SPOTIFY · ripping"
+say ""
+
+SLIPMAT_LOG="$RUNLOG" SLIPMAT_AUTO_ADD="$AA" SLIPMAT_SPOTIFY_OUTDIR="$OUTDIR" \
+SLIPMAT_SPOTIFY_LEDGER="$SPOTIFY_LEDGER" SLIPMAT_SPOTIFY_GHOSTS="$SPOTIFY_GHOSTS" \
+SLIPMAT_SPOT_TAG="$SPOTIFY_SPOT_TAG" PYTHONPATH="$REPO/ripper" \
+  "$PY" -m slipmat_ripper "$LINK" "$@"
+RC=$?
+
+say ""
+if [ "$RC" -eq 0 ]; then
+  say "── DONE ── took $(( (SECONDS - T0) / 60 ))m$(( (SECONDS - T0) % 60 ))s ─────────────────────────"
+  title "✓ SPOTIFY done"
+  mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) SPOTIFY.log" 2>/dev/null
+else
+  say "✗ nothing ripped. Common causes: the account isn't Premium, the link is"
+  say "  private, or Spotify is rate-limiting — wait a few minutes, run it again."
+  say "  (Finished tracks are remembered, so a rerun picks up where this stopped.)"
+  title "✗ SPOTIFY failed"
+  mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) ✗ spotify.log" 2>/dev/null
+fi
+exit "$RC"

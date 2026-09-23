@@ -166,12 +166,15 @@ TMPD=$(mktemp -d)
   [ -n "$SRC" ] || RC=1
   OUT="$OUTDIR/${NAME}.m4a"
   if [ "$RC" -eq 0 ]; then
-    # source-quality stamp: the comment carries what the web really served
+    # source-quality stamp: what the web REALLY served (the file's own bitrate
+    # always reads 320 — it's a transcode). It rides in COMPOSER: the one spare
+    # text field rekordbox shows as a column for both m4a (©wrt) and AIFF
+    # (TCOM), and one stores almost never fill — Album/Comments stay the DJ's.
     ABR_INT=${M_ABR%%.*}
     SRCQ="src=${M_ACODEC:-?} ${ABR_INT:-?}kbps"
-    LQ=""; TAG_ALBUM="${ABR_INT:-?}kbps"
+    LQ=""; TAG_STAMP="src ${M_ACODEC:-?} ${ABR_INT:-?}kbps"
     if [ "${ABR_INT:-0}" -gt 0 ] 2>/dev/null && [ "${ABR_INT:-0}" -lt 128 ] 2>/dev/null; then
-      LQ="⚠️LOW QUALITY SOURCE — "; TAG_ALBUM="⚠️ ${ABR_INT}kbps"
+      LQ="⚠️LOW QUALITY SOURCE — "; TAG_STAMP="⚠️ $TAG_STAMP"
     fi
     case "$M_EXTRACTOR" in
       Soundcloud*|soundcloud*) TAG_COMMENT="${LQ}$SRCQ | [SC@${M_ARTIST:-$M_UPLOADER}] id $M_ID" ;;
@@ -221,13 +224,13 @@ ARTPY
         -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" \
         -c:a aac_at -b:a 320k \
         -metadata title="$TAG_TITLE" -metadata artist="$TAG_ARTIST" \
-        -metadata comment="$TAG_COMMENT" -metadata album="$TAG_ALBUM" \
+        -metadata comment="$TAG_COMMENT" -metadata composer="$TAG_STAMP" \
         "$STAGE" 2>>"$RUNLOG" || { RC=1; FAIL_AT=encode; }
     else
       "$FFMPEG" -hide_banner -loglevel error -i "$SRC" -map 0:a \
         -c:a aac_at -b:a 320k \
         -metadata title="$TAG_TITLE" -metadata artist="$TAG_ARTIST" \
-        -metadata comment="$TAG_COMMENT" -metadata album="$TAG_ALBUM" \
+        -metadata comment="$TAG_COMMENT" -metadata composer="$TAG_STAMP" \
         "$STAGE" 2>>"$RUNLOG" || { RC=1; FAIL_AT=encode; }
     fi
     if [ "$RC" -eq 0 ]; then

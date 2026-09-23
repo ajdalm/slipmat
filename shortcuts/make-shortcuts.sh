@@ -1,5 +1,5 @@
 #!/bin/bash
-# make-shortcuts.sh — generate + sign the four slipmat menu-bar Shortcuts.
+# make-shortcuts.sh — generate + sign the five slipmat menu-bar Shortcuts.
 # (the crop launcher mode still exists; an AUTO CROP shortcut may return later)
 #
 # A .shortcut file is a plist; Apple's `shortcuts sign` (macOS 12+) signs a
@@ -75,6 +75,7 @@ make_one "[SLIPMAT VIDEO] AUTO(BEST)"     best   4274264319 || fail=1
 make_one "[SLIPMAT VIDEO] PICKER"         picker 4271458815 || fail=1
 make_one "[SLIPMAT VIDEO] STUDIO"         studio 4274264319 || fail=1
 make_one "[SLIPMAT AUDIO] AUTO(BEST)"     audio  463140863  || fail=1   # blue
+make_one "[SLIPMAT AUDIO] SPOTIFY"        spotify 4292093695 || fail=1   # green
 
 if [ "$fail" = "1" ]; then
   cat <<EOF

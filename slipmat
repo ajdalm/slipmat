@@ -5,13 +5,15 @@
 #   slipmat video <url|file> [best|auto|studio]   rip video (QuickTime-safe)
 #   slipmat audio <url>                           rip audio (AAC-320 m4a,
 #                                                 square art, booth-safe)
+#   slipmat spotify <link>                        Spotify track/album/playlist
+#                                                 → the same AAC-320 m4a
 #   slipmat z-batch [opts] <folder>               unattended zoom-crop / re-encode batch
 #   slipmat doctor                                check the toolchain
 # A bare URL or file path routes to video: `slipmat <url> best` works.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CMD="${1:-}"
-usage() { sed -n '2,10p' "$0" | sed 's/^# //;s/^#//'; }
+usage() { sed -n '2,12p' "$0" | sed 's/^# //;s/^#//'; }
 case "$CMD" in
   hello|setup) shift; exec /bin/bash "$HERE/tools/hello.sh" "$@" ;;
   ""|help)
@@ -22,6 +24,7 @@ case "$CMD" in
     usage; exit 0 ;;
   video)   shift; exec "$HERE/engine/slipmat-video" "$@" ;;
   audio)   shift; exec "$HERE/engine/slipmat-audio" "$@" ;;
+  spotify) shift; exec "$HERE/engine/slipmat-spotify" "$@" ;;
   z-batch) shift; exec /bin/bash "$HERE/tools/z-batch.sh" "$@" ;;
   doctor)
     "$HERE/engine/slipmat-video" --doctor
@@ -29,9 +32,18 @@ case "$CMD" in
     printf '  %s aac_at encoder (audio rips): %s\n' \
       "$("$FF" -hide_banner -encoders 2>/dev/null | grep -q aac_at && printf '✓' || printf '✗')" \
       "$("$FF" -hide_banner -encoders 2>/dev/null | grep -q aac_at && echo present || echo 'missing — audio rips need ffmpeg with AudioToolbox')"
+    if [ -x "$HOME/.slipmat/spotify-env/bin/python" ]; then
+      printf '  ✓ Spotify ripper: ready\n'
+    elif command -v uv >/dev/null 2>&1; then
+      printf '  · Spotify ripper: sets itself up on the first Spotify rip\n'
+    else
+      printf '  · Spotify ripper: needs uv (only for Spotify rips) — brew install uv\n'
+    fi
     exit 0 ;;
   -h|--help)
     usage; exit 0 ;;
+  *open.spotify.com/*|spotify:*)
+    exec "$HERE/engine/slipmat-spotify" "$@" ;;
   *)
     # bare URL or file path → video engine
     exec "$HERE/engine/slipmat-video" "$@" ;;

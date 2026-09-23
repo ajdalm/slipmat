@@ -7,8 +7,12 @@
 - **Video** never stutters in QuickTime. Every rip is verified after
   download; a defective stream gets fixed automatically.
 - **Audio** downloads become clean .m4a files: AAC-320 through Apple's
-  encoder, square album artwork, and the original source bitrate noted in
-  the tags. No options to pick — every file plays everywhere.
+  encoder, square album artwork, and the original source quality stamped in
+  the **Composer** field — a column rekordbox shows, and one stores almost
+  never fill, so Album and Comments stay yours. No options to pick — every
+  file plays everywhere.
+- **Spotify** tracks, albums and playlists get the same treatment, straight
+  from Spotify's 320k stream.
 
 Every rip prints a receipt, and every run keeps a log in `~/.slipmat/logs` —
 toss a fail log at an AI agent and slipmat becomes self-diagnosing.
@@ -40,7 +44,7 @@ see it.
 `./slipmat hello` is a short guided setup. It asks where downloads should
 go (pressing Enter accepts the defaults; audio can be sent straight into
 your Music library), checks that everything is installed, and then sets up
-the four slipmat Shortcuts in your menu bar — macOS shows an "Add Shortcut"
+the five slipmat Shortcuts in your menu bar — macOS shows an "Add Shortcut"
 button for each one, and you click it. That's the whole install. If you'd
 rather set the Shortcuts up by hand, see `shortcuts/SETUP.md`.
 
@@ -48,6 +52,15 @@ Tip: slipmat uses your **Firefox** cookies. If you're logged in to a site
 in Firefox, slipmat can download things that need your account — members-only
 videos, age-restricted content, premium streams. To use a different browser
 (or no cookies), set `COOKIE_BROWSER` / `USE_COOKIES` in `~/.slipmat/config`.
+
+**Spotify rips** need a Spotify Premium account and `brew install uv` (it
+builds the ripper's own Python the first time you use it). The first rip
+opens Spotify's login page in your browser; after that the login is
+remembered. Stopping mid-playlist is safe — finished tracks are remembered
+and skipped next time. The ripper is [mr-rippah](https://github.com/cvdub/mr-rippah)
+by cvdub, with upgrades: a quality guard that rejects anything Spotify
+serves below 320k, rate-limit pacing and stall recovery, album links, and
+Music.app delivery.
 
 `python3` is used for stream selection and artwork (with Pillow installed,
 artwork letterbox-trimming is sharper; without it, ffmpeg crops); the zoom-crop feature
@@ -67,6 +80,7 @@ your content is heading your way.** The dropdown shortcut suite:
 | [SLIPMAT VIDEO] PICKER | see the source's REAL resolutions (1080p, 720p, …), pick one, the rest is automatic |
 | [SLIPMAT VIDEO] STUDIO | the picker plus a re-encode concierge — shrink or optimize (sizes/ETAs probed from YOUR file, not guessed), or crop away the dead screen around a small video box. Works without a URL too: ⌘C any bloated file in Finder, click STUDIO |
 | [SLIPMAT AUDIO] AUTO(BEST) | copied link → a clean .m4a with real artwork. AAC-320 — the highest AAC rate CDJ hardware accepts, so files are deck-compatible as delivered |
+| [SLIPMAT AUDIO] SPOTIFY | a copied Spotify track, album or playlist link → the same deck-ready .m4a files |
 
 The same tools, from the command line:
 
@@ -77,6 +91,7 @@ The same tools, from the command line:
 ./slipmat video <url>  studio        # menu + re-encode concierge
 ./slipmat video <file> studio        # local file → the same concierge
 ./slipmat audio <url>                # AAC-320 m4a, square art, source stamp
+./slipmat spotify <link>             # Spotify track / album / playlist
 ./slipmat z-batch -c 50 <folder>     # unattended zoom-crop/re-encode a folder
 ```
 

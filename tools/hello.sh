@@ -204,6 +204,11 @@ else ok=0; printf '   ✗ ffmpeg — install:  brew install ffmpeg\n'; fi
 if [ -x /opt/homebrew/bin/yt-dlp ] || command -v yt-dlp >/dev/null 2>&1; then
   printf '   %s✓%s yt-dlp\n' "$GN" "$RS"
 else ok=0; printf '   ✗ yt-dlp — install:  brew install yt-dlp\n'; fi
+if command -v uv >/dev/null 2>&1 || [ -x /opt/homebrew/bin/uv ]; then
+  printf '   %s✓%s uv %s(for Spotify rips)%s\n' "$GN" "$RS" "$DM" "$RS"
+else
+  printf '   · uv — only needed for Spotify rips:  brew install uv\n'
+fi
 [ "$ok" = "0" ] && printf '   %s(`slipmat doctor` rechecks everything whenever you like)%s\n' "$DM" "$RS"
 if ls "$HOME/Library/Application Support/Firefox/Profiles" >/dev/null 2>&1; then
   printf '   %s✓%s Firefox — slipmat borrows its cookies. %sStay logged in to your video\n' "$GN" "$RS" "$B"
@@ -244,8 +249,13 @@ printf '      copied link → a clean .m4a with artwork, AAC-320 via Apple'\''s 
 printf '      320k is the highest AAC rate CDJ hardware accepts — the files are\n'
 printf '      deck-compatible as delivered.\n'
 echo
+printf '   %s[SLIPMAT AUDIO] SPOTIFY%s\n' "$BL" "$RS"
+printf '      a Spotify track, album or playlist link → the same deck-ready .m4a,\n'
+printf '      straight from Spotify'\''s 320k stream. Needs Spotify Premium; the first\n'
+printf '      rip opens Spotify'\''s login page once. %s(powered by cvdub'\''s mr-rippah)%s\n' "$DM" "$RS"
+echo
 printf ' Installing takes %sunder a minute%s: press Enter, then click %s"Add Shortcut"%s\n' "$B" "$RS" "$B" "$RS"
-printf ' each time one pops up. Four pops. That'\''s the whole job.\n'
+printf ' each time one pops up. Five pops. That'\''s the whole job.\n'
 ask "install" "the shortcut suite?"
 printf '   %s[Enter/Y]%s  %sYES%s — the blissful two-click experience\n' "$PB" "$RS" "$B" "$RS"
 printf '   %s[N]%s        %sNO%s  — I enjoy typing commands into Terminal by hand, every single time\n' "$PB" "$RS" "$B" "$RS"
@@ -256,12 +266,13 @@ NAMES_1="[SLIPMAT VIDEO] AUTO(BEST)"
 NAMES_2="[SLIPMAT VIDEO] PICKER"
 NAMES_3="[SLIPMAT VIDEO] STUDIO"
 NAMES_4="[SLIPMAT AUDIO] AUTO(BEST)"
+NAMES_5="[SLIPMAT AUDIO] SPOTIFY"
 if [ -z "$a" ] || [ "$a" = "y" ] || [ "$a" = "Y" ]; then
   SCDIR="$CONF_DIR/shortcuts"
   echo
   if /bin/bash "$REPO/shortcuts/make-shortcuts.sh" "$SCDIR"; then
     echo
-    for i in 1 2 3 4; do
+    for i in 1 2 3 4 5; do
       eval "name=\$NAMES_$i"
       f="$SCDIR/$name.shortcut"
       [ -e "$f" ] || continue
@@ -330,8 +341,8 @@ if [ -z "$a" ] || [ "$a" = "y" ] || [ "$a" = "Y" ]; then
     printf '   control Terminal — that'\''s the one-time permission handshake.%s\n' "$RS"
   else
     printf '   Signing didn'\''t work on this Mac (it needs an iCloud login). No drama:\n'
-    printf '   %sshortcuts/SETUP.md%s builds the same four by hand — four paste blocks,\n' "$B" "$RS"
-    printf '   about two minutes.\n'
+    printf '   %sshortcuts/SETUP.md%s builds the same five by hand — five short blocks,\n' "$B" "$RS"
+    printf '   about three minutes.\n'
   fi
 else
   printf '   suit yourself — the terminal'\''s all yours.\n'
@@ -359,6 +370,7 @@ if [ "$INSTALLED" = "1" ]; then
   printf '   the same, but you choose 1080p / 720p / …       %s[SLIPMAT VIDEO] PICKER%s\n' "$PB" "$RS"
   printf '   something to shrink, optimize, or crop down     %s[SLIPMAT VIDEO] STUDIO%s\n' "$PB" "$RS"
   printf '   a track for your library (or your DJ crate)     %s[SLIPMAT AUDIO] AUTO(BEST)%s\n' "$BL" "$RS"
+  printf '   the same, from a Spotify track/album/playlist    %s[SLIPMAT AUDIO] SPOTIFY%s\n' "$BL" "$RS"
   echo
   printf '   %sno URL needed:%s\n' "$B" "$RS"
   printf '   ⌘C a bloated file in Finder, click %sSTUDIO%s — optimize or PiP-crop\n' "$PB" "$RS"
@@ -371,6 +383,7 @@ else
   printf '   %s./slipmat <url> studio%s        shrink, optimize, or crop — the concierge\n' "$B" "$RS"
   printf '   %s./slipmat <file> studio%s       the concierge for a bloated file already on disk\n' "$B" "$RS"
   printf '   %s./slipmat audio <url>%s         a track for your library (or your DJ crate)\n' "$B" "$RS"
+  printf '   %s./slipmat spotify <link>%s      a Spotify track, album or playlist\n' "$B" "$RS"
 fi
 echo
 printf ' Every rip prints a receipt — what the source really served, what landed,\n'

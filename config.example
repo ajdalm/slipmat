@@ -9,6 +9,13 @@
 #AUDIO_OUTDIR="$HOME/Downloads/SLIPMAT AUDIO"
 #AUDIO_AUTO_ADD="$HOME/Music/Music/Media.localized/Automatically Add to Music.localized"
 
+# Spotify rips (slipmat spotify / [SLIPMAT AUDIO] SPOTIFY) follow the audio
+# settings above. Extras, all off by default:
+#SPOTIFY_TO_MUSIC=1          # Spotify rips go to Music even if other audio doesn't
+#SPOTIFY_SPOT_TAG=1          # append " [SPOT]" to album names
+#SPOTIFY_GHOSTS=1            # list tracks Spotify no longer plays (~/.slipmat/spotify-ghosts.txt, or give a path)
+#SPOTIFY_LEDGER="$HOME/.slipmat/spotify-ledger.txt"   # finished-track list (resume + no double rips)
+
 # Browser whose cookies yt-dlp reads (firefox/chrome/safari); 0 disables cookies:
 #COOKIE_BROWSER=firefox
 #USE_COOKIES=1
