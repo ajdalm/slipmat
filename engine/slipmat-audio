@@ -133,11 +133,13 @@ NAME="$TRY"
 # Ctrl-C / failure must never leave .part/.ytdl ghosts. A finished .m4a is
 # never touched. (Trapping INT here is safe — no live-capture finalize.)
 cleanup_partials() {
+  # the scratch dir goes on EVERY exit, success included — it holds the whole
+  # source download plus artwork, and nothing reads it after the final mv
+  [ -n "${TMPD:-}" ] && [ -d "$TMPD" ] && rm -rf "$TMPD" 2>/dev/null
   [ -n "${NAME:-}" ] || return 0
   [ -s "$OUTDIR/${NAME}.m4a" ] && return 0
   rm -f "$OUTDIR/${NAME}".m4a.part "$OUTDIR/${NAME}".m4a.ytdl "$OUTDIR/${NAME}".*.ytdl \
         "$OUTDIR/${NAME}".webm "$OUTDIR/${NAME}".m4a.part-Frag* 2>/dev/null
-  [ -n "${TMPD:-}" ] && rm -rf "$TMPD" 2>/dev/null
   return 0
 }
 trap cleanup_partials EXIT
@@ -220,13 +222,13 @@ ARTPY
         -c:a aac_at -b:a 320k \
         -metadata title="$TAG_TITLE" -metadata artist="$TAG_ARTIST" \
         -metadata comment="$TAG_COMMENT" -metadata album="$TAG_ALBUM" \
-        "$STAGE" 2>>"$RUNLOG" || RC=1
+        "$STAGE" 2>>"$RUNLOG" || { RC=1; FAIL_AT=encode; }
     else
       "$FFMPEG" -hide_banner -loglevel error -i "$SRC" -map 0:a \
         -c:a aac_at -b:a 320k \
         -metadata title="$TAG_TITLE" -metadata artist="$TAG_ARTIST" \
         -metadata comment="$TAG_COMMENT" -metadata album="$TAG_ALBUM" \
-        "$STAGE" 2>>"$RUNLOG" || RC=1
+        "$STAGE" 2>>"$RUNLOG" || { RC=1; FAIL_AT=encode; }
     fi
     if [ "$RC" -eq 0 ]; then
       # optional Music delivery: fully converted AND tagged before the library
@@ -244,7 +246,11 @@ ARTPY
 
 if [ "${RC:-1}" -ne 0 ] || [ ! -s "$OUT" ]; then
   say ""
-  say "✗ audio rip failed (yt-dlp exit ${RC:-?}) — the link may be expired, private, or need a login."
+  if [ "${FAIL_AT:-}" = "encode" ]; then
+    say "✗ audio rip failed at the encode — the download worked, ffmpeg's AAC step didn't (\`slipmat doctor\` checks for aac_at)."
+  else
+    say "✗ audio rip failed (yt-dlp exit ${RC:-?}) — the link may be expired, private, or need a login."
+  fi
   tail -5 "$RUNLOG" 2>/dev/null | sed 's/^/    /'
   # login-shaped failure → the same sentence `slipmat hello` uses at setup
   if [ "${USE_COOKIES:-1}" = "1" ] && grep -qiE 'sign[ -]?in|log[ -]?in|age[ -]?restrict|confirm your age|members[ -]?only|private video|premium|authenticat|this account|subscriber' "$RUNLOG" 2>/dev/null; then
@@ -261,6 +267,8 @@ BR=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=bit_rate -of c
 [ -n "$BR" ] && [ "$BR" != "N/A" ] || BR=$("$FFPROBE" -v error -show_entries format=bit_rate -of csv=p=0 "$OUT")
 DU=$("$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$OUT" | cut -d. -f1)
 SZ=$(stat -f %z "$OUT" 2>/dev/null || echo 0)
+case "$BR" in ''|*[!0-9]*) BR=0 ;; esac   # "N/A" inside $(( )) is N÷A → set -u death
+case "$DU" in ''|*[!0-9]*) DU=0 ;; esac
 say ""
 say "── DONE ─────────────────────────────────────────────"
 say "  audio   ${AC:-?} · $(( ${BR:-0} / 1000 )) kbps   (source: ${M_ACODEC:-?} ${M_ABR%%.*}kbps)"

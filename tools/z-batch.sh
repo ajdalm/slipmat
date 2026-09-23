@@ -1,24 +1,29 @@
 #!/bin/bash
-# z-batch.sh — unattended Z on files and/or folders (V4.5j, his locked 9.17 spec).
-# usage: z-batch.sh [-q N] [-d SUBDIR] <file|folder> ...
-#   -q N       the quality dial for every encode (default 45 — his standing batch dial)
+# z-batch.sh — unattended zoom-crop (Z) on files and/or folders.
+# usage: z-batch.sh [-c N] [-q N] [-d SUBDIR] <file|folder> ...
+#   -c N       quality dial for CROP encodes (default 50 — cropped PiP sources are
+#              usually low-res already, so they get the gentler setting)
+#   -q N       quality dial for plan-B plain re-encodes (default 45)
 #   -d SUBDIR  move successful crops ([Z] outputs) into <source folder>/SUBDIR/
-#              (no -d = the spec default: the [Z] lands beside its source)
-# Rules (all his, locked):
+#              (no -d = the [Z] lands beside its source)
+# Rules:
 #   folders expand NON-recursive to .mp4/.mkv/.mov · files already [Z]-named, with an
 #   existing [Z] sibling (beside or in SUBDIR), or with a (qN) plan-B sibling are
-#   SKIPPED (the resume mechanism) · SEQUENTIAL, one encode at a time (the chip-sharing
-#   law) · a per-file failure never stops the night · summary table at the end · ONE
-#   batch log in LOGS/<day>/ alongside the engine's own per-run logs.
+#   SKIPPED (that's the resume mechanism) · SEQUENTIAL, one encode at a time (the
+#   hardware encoder is shared) · a per-file failure never stops the batch · summary
+#   table at the end · ONE batch log in ~/.slipmat/logs/<day>/ beside the per-run logs.
 # Each file runs the REAL engine's interactive z flow, auto-answered via
 # SLIPMAT_Z_AUTO=1 (see slipmat-video ask_line): fresh hunt at standard depth, FIRST box
 # accepted, 20-85% sanity rail, out-of-rail/no-box = plan B (plain re-encode, same q,
-# no crop), quality flags always (never fast — his ruling).
+# no crop), quality flags always (never the fast recipe).
 set -u
 Q=45; QC=50; SUBDIR=""
-# -q = the plan-B (plain) dial · -c = the CROP dial (V4.5m, his 9.21 ruling: low-rez
-# PiP sources degrade at 45 — crops ride q50, his eye-tier for degraded sources)
-while getopts "q:c:d:" _o; do case $_o in q) Q=$OPTARG ;; c) QC=$OPTARG ;; d) SUBDIR=$OPTARG ;; esac; done
+# -q = the plan-B (plain) dial · -c = the CROP dial (low-res PiP sources visibly
+# degrade at 45, so crops default to q50)
+num() { case "$2" in ''|*[!0-9]*) echo "z-batch: -$1 needs a number (got '$2')"; exit 1 ;; esac; }
+while getopts "q:c:d:" _o; do case $_o in
+  q) num q "$OPTARG"; Q=$OPTARG ;; c) num c "$OPTARG"; QC=$OPTARG ;; d) SUBDIR=$OPTARG ;;
+  *) echo "usage: z-batch.sh [-c N] [-q N] [-d SUBDIR] <file|folder> ..."; exit 1 ;; esac; done
 shift $((OPTIND-1))
 [ $# -ge 1 ] || { echo "z-batch: nothing to do — pass files or folders"; exit 1; }
 VR="${SLIPMAT_ENGINE:-$(dirname "$0")/../engine/slipmat-video}"
@@ -55,7 +60,7 @@ for SRC in "${FILES[@]}"; do
     *" [Z]"|*" [Z] ("*")") say "   skipped — already a [Z] output"; R_NAME+=("$base"); R_RES+=("skipped — is a [Z] output"); R_SIZE+=("-"); R_TIME+=("-"); continue ;;
     *" (q"[0-9]*")") say "   skipped — already a plan-B output"; R_NAME+=("$base"); R_RES+=("skipped — is a (q) output"); R_SIZE+=("-"); R_TIME+=("-"); continue ;;
   esac
-  # V3.9 naming renames a BARE-TIMESTAMP source (YYYYMMDD_HHMMSS) to its date form
+  # the engine renames a BARE-TIMESTAMP source (YYYYMMDD_HHMMSS) to its date form
   # ("5.19.26 - 11.57AM [Z]") — derive it so resume still recognizes the done file
   zname="$stem [Z].mp4"
   case "$stem" in
@@ -81,14 +86,16 @@ for SRC in "${FILES[@]}"; do
   box=$(printf '%s' "$boxline" | grep -oE '[0-9]+x[0-9]+ box' | awk '{print $1}')
   pct=$(printf '%s' "$boxline" | grep -oE '[0-9]+% of (the )?frame' | grep -oE '^[0-9]+')
   ZOUT="$dir/$stem [Z].mp4"; POUT="$dir/$stem (q${Q}).mp4"
-  # the receipt names the REAL output (V3.9 renames bare-timestamp sources) — trust it
+  # the receipt names the REAL output (bare-timestamp sources get renamed) — trust it
   rname=$(printf '%s\n' "$OUT" | grep -oE 'encoded .*\[Z\]( \([0-9]+\))?\.mp4' | head -1 | sed 's/^encoded //')
   [ -n "$rname" ] && [ -s "$dir/$rname" ] && ZOUT="$dir/$rname"
   if [ -s "$ZOUT" ]; then
     ZB=$(stat -f %z "$ZOUT"); PCTD=$(awk -v a="$SB" -v b="$ZB" 'BEGIN{ if(a>0) printf "−%d%%", (1-b/a)*100 }')
     DEST="$ZOUT"
     if [ -n "$SUBDIR" ]; then
-      mkdir -p "$dir/$SUBDIR" && mv "$ZOUT" "$dir/$SUBDIR/$(basename "$ZOUT")" && DEST="$dir/$SUBDIR/$(basename "$ZOUT")"
+      _t="$dir/$SUBDIR/$(basename "$ZOUT")"
+      if [ -e "$_t" ]; then say "   (kept beside its source — $SUBDIR/ already holds that name)"
+      else mkdir -p "$dir/$SUBDIR" && mv "$ZOUT" "$_t" && DEST="$_t"; fi
     fi
     say "   ✓ crop ${box:-?} (${pct:-?}% of frame) · $(awk -v b="$SB" 'BEGIN{printf "%.0fM", b/1048576}')→$(awk -v b="$ZB" 'BEGIN{printf "%.0fM", b/1048576}') ($PCTD) · $TKS · q${QC}"
     R_NAME+=("$base"); R_RES+=("crop ${box:-?} · ${pct:-?}%"); R_SIZE+=("$(awk -v a="$SB" -v b="$ZB" 'BEGIN{printf "%.0fM→%.0fM", a/1048576, b/1048576}') $PCTD"); R_TIME+=("$TKS")

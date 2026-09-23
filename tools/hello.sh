@@ -112,18 +112,22 @@ art_slipmat | marquee
 echo
 printf ' %sHi. I'\''m slipmat — a versatile multimedia archival tool.%s\n' "$PB" "$RS"
 if [ -f "$CONF" ]; then
-  printf ' %s(rerunning setup — your current answers become the new defaults)%s\n' "$DM" "$RS"
+  printf ' %s(rerunning setup — Enter keeps your current answers)%s\n' "$DM" "$RS"
 else
   printf ' Let'\''s take 60 seconds to set you up. Enter always takes the\n'
   printf ' sensible default, and every answer lives in ~/.slipmat/config.\n'
 fi
 
+# ---- the previous answers (a rerun keeps them unless you type something new) -
+prev() { [ -f "$CONF" ] || return 0; ( . "$CONF" >/dev/null 2>&1; eval "printf '%s' \"\${$1:-}\"" ); }
+PREV_OUT="$(prev OUTDIR)"; PREV_AUD="$(prev AUDIO_OUTDIR)"; PREV_AUTO="$(prev AUDIO_AUTO_ADD)"
+
 # ---- Q1: video folder -------------------------------------------------------
-DEF_OUT="$HOME/Downloads/SLIPMAT"
+DEF_OUT="${PREV_OUT:-$HOME/Downloads/SLIPMAT}"
 ask "where" "should VIDEO rips land?"
 printf '   %s[Enter]%s  %s%s%s     — or type any folder path\n' "$PB" "$RS" "$B" "$(short_home "$DEF_OUT")" "$RS"
 while :; do
-  printf '  %s[Enter = Downloads/SLIPMAT]%s ' "$DM" "$RS"; IFS= read -r a || a=""
+  printf '  %s[Enter = %s]%s ' "$DM" "$(short_home "$DEF_OUT")" "$RS"; IFS= read -r a || a=""
   [ -z "$a" ] && { OUTDIR="$DEF_OUT"; break; }
   OUTDIR="$(expand_path "$a")"
   mkdir -p "$OUTDIR" 2>/dev/null && [ -w "$OUTDIR" ] && break
@@ -136,14 +140,22 @@ printf '   %s✓ video → %s%s\n' "$GN" "$OUTDIR" "$RS"
 AUDIO_OUTDIR=""; AUDIO_AUTO_ADD=""
 ask "and" "AUDIO rips?"
 echo
-printf '   %s[Enter/1]%s  %sSlipmat download folder%s — %s%s%s\n' "$PB" "$RS" "$B" "$RS" "$DM" "$(short_home "$OUTDIR")" "$RS"
+# Enter wears the previous answer: 1, 2, or the custom folder you typed last time
+AUD_DEF=1; AUD_MEAN="Slipmat folder"
+if [ -n "$PREV_AUTO" ]; then AUD_DEF=2; AUD_MEAN="Music.app"
+elif [ -n "$PREV_AUD" ]; then AUD_DEF="$PREV_AUD"; AUD_MEAN="$(short_home "$PREV_AUD")"; fi
+k1="[1]"; k2="[2]"; [ "$AUD_DEF" = "1" ] && k1="[Enter/1]"; [ "$AUD_DEF" = "2" ] && k2="[Enter/2]"
+printf '   %s%-9s%s  %sSlipmat download folder%s — %s%s%s\n' "$PB" "$k1" "$RS" "$B" "$RS" "$DM" "$(short_home "$OUTDIR")" "$RS"
 echo
-printf '   %s[2]%s        %sAuto-import into Music.app%s — every rip lands in your\n' "$PB" "$RS" "$B" "$RS"
+printf '   %s%-9s%s  %sAuto-import into Music.app%s — every rip lands in your\n' "$PB" "$k2" "$RS" "$B" "$RS"
 printf '              library the moment it finishes: tagged, artwork in place\n'
 echo
+case "$AUD_DEF" in 1|2) ;; *)
+  printf '   %s%-9s%s  %skeep%s %s\n\n' "$PB" "[Enter]" "$RS" "$B" "$RS" "$AUD_MEAN" ;; esac
 printf '   %s(or type any other folder path)%s\n' "$DM" "$RS"
 while :; do
-  printf '  %s[Enter = 1]%s ' "$DM" "$RS"; IFS= read -r a || a=""
+  printf '  %s[Enter = %s]%s ' "$DM" "$AUD_MEAN" "$RS"; IFS= read -r a || a=""
+  [ -z "$a" ] && a="$AUD_DEF"
   case "$a" in
     ""|1) printf '   %s✓ audio → %s%s\n' "$GN" "$OUTDIR" "$RS"; break ;;
     2|m|M)
@@ -173,9 +185,11 @@ mkdir -p "$CONF_DIR"
 TMP="$CONF_DIR/.config.new.$$"
 { [ -f "$CONF" ] && sed '/^# ── set by slipmat hello/,/^# ── end slipmat hello/d' "$CONF"
   printf '# ── set by slipmat hello (rerun `slipmat hello` to change) ──\n'
-  printf 'OUTDIR="%s"\n' "$OUTDIR"
-  [ -n "$AUDIO_OUTDIR"   ] && printf 'AUDIO_OUTDIR="%s"\n' "$AUDIO_OUTDIR"
-  [ -n "$AUDIO_AUTO_ADD" ] && printf 'AUDIO_AUTO_ADD="%s"\n' "$AUDIO_AUTO_ADD"
+  # %q: the config is SOURCED by the engines, so a folder name holding a quote,
+  # $ or backtick must be escaped, not pasted raw into shell code
+  printf 'OUTDIR=%q\n' "$OUTDIR"
+  [ -n "$AUDIO_OUTDIR"   ] && printf 'AUDIO_OUTDIR=%q\n' "$AUDIO_OUTDIR"
+  [ -n "$AUDIO_AUTO_ADD" ] && printf 'AUDIO_AUTO_ADD=%q\n' "$AUDIO_AUTO_ADD"
   printf '# ── end slipmat hello ──\n'
 } > "$TMP" && mv "$TMP" "$CONF"
 printf '   %ssaved → %s%s\n' "$DM" "$CONF" "$RS"

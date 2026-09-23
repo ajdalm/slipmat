@@ -15,8 +15,10 @@ toss a fail log at an AI agent and slipmat becomes self-diagnosing.
 
 ## Install
 
-Any Mac with [Homebrew](https://brew.sh). slipmat uses your Mac's built-in
-hardware encoder, so it runs fastest on Apple Silicon.
+A Mac running macOS 12 (Monterey) or later, with [Homebrew](https://brew.sh).
+Re-encoding (fixing a stuttering stream, STUDIO's shrink/crop) uses Apple
+Silicon's hardware HEVC encoder in constant-quality mode, which Intel Macs
+don't offer — on an Intel Mac, plain rips work but re-encodes will fail.
 
 ```
 brew install ffmpeg yt-dlp
@@ -47,7 +49,8 @@ in Firefox, slipmat can download things that need your account — members-only
 videos, age-restricted content, premium streams. To use a different browser
 (or no cookies), set `COOKIE_BROWSER` / `USE_COOKIES` in `~/.slipmat/config`.
 
-`python3` is used for stream selection and artwork; the zoom-crop feature
+`python3` is used for stream selection and artwork (with Pillow installed,
+artwork letterbox-trimming is sharper; without it, ffmpeg crops); the zoom-crop feature
 also needs a python with `numpy` + `scipy` (set `SLIPMAT_PYTHON` in
 `~/.slipmat/config`). Run `./slipmat doctor` — it checks everything and prints
 the exact command for anything missing.

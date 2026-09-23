@@ -44,7 +44,7 @@ ffprobe -v error -select_streams a:0 -show_entries stream=bit_rate -of csv=p=0 "
 printf '\n\nn\n' | ./slipmat hello                             # onboarding, defaults, suite declined
 printf '\n\n\nh\n\n' | SLIPMAT_HELLO_NO_OPEN=1 ./slipmat hello # full install path headless:
                                                                # signs for real, opens nothing
-./shortcuts/make-shortcuts.sh /tmp/sc-test                     # 5 signed .shortcut files
+./shortcuts/make-shortcuts.sh /tmp/sc-test                     # 4 signed .shortcut files
 osacompile -o /tmp/launch-check.scpt shortcuts/launch.applescript   # launcher compiles
 ```
 

@@ -1688,7 +1688,7 @@ if [ "$URL" = "--doctor" ]; then
   _strays=$(ls -A "$WORKROOT" 2>/dev/null | grep -cv '^\.DS_Store$')
   printf '  %s scratch entries: %s (quiz dirs + live runs are normal; junk is swept at 48h)\n' "✓" "${_strays:-0}"
   _xw=$(find "$HOME/.slipmat/logs" -name "*✗*" -mtime -7 2>/dev/null | wc -l | tr -d ' ')
-  printf '  · failed runs last 7 days: %s (see LOGS/<day>/✗*)\n' "${_xw:-0}"
+  printf '  · failed runs last 7 days: %s (see ~/.slipmat/logs/<day>/✗*)\n' "${_xw:-0}"
   exit 0
 fi
 
@@ -1729,9 +1729,9 @@ if [ -n "$LOCAL_SRC" ]; then
     *" [Z]"*|*"(reencode)"*|*"(q"[0-9][0-9]*|*"[L- "*|*"[NMX]"*|*"[WH]"*|*"[CSPAN]"*|*"] - "*"@"*" - "*) OWN_OUT=1 ;;
   esac
 fi
-[ -x "$YTDLP" ]  || die "yt-dlp not executable at $YTDLP"
-[ -x "$FFMPEG" ] || die "ffmpeg not executable at $FFMPEG"
-[ -x "$FFPROBE" ] || die "ffprobe not executable at $FFPROBE"
+[ -x "$YTDLP" ]  || die "yt-dlp not found — install it:  brew install yt-dlp"
+[ -x "$FFMPEG" ] || die "ffmpeg not found — install it:  brew install ffmpeg"
+[ -x "$FFPROBE" ] || die "ffprobe not found (it ships with ffmpeg) — install:  brew install ffmpeg"
 # a local file must actually contain video before we spin up a whole run
 if [ -n "$LOCAL_SRC" ]; then
   "$FFPROBE" -v error -select_streams v:0 -show_entries stream=codec_type -of csv=p=0 "$LOCAL_SRC" 2>/dev/null | grep -q video \
@@ -1792,7 +1792,9 @@ mkdir -p "$WORKDIR" || die "cannot create work dir $WORKDIR"
 # kill -9/power-loss run can't run its traps, orphaning 0-byte claim stubs (and
 # live .claim sentinels) in OUTPUTS forever; the stale workdir's claims file is
 # the only record of them. Still-empty entries are removed here.
-find "$WORKROOT" -mindepth 1 -maxdepth 1 -mtime +2 2>/dev/null | while IFS= read -r _old; do
+# NAME-GATED: only our own vr_*/nmxquiz_* dirs — WORKROOT is config-overridable,
+# and an age-only sweep of a shared folder would rm -rf the user's files
+find "$WORKROOT" -mindepth 1 -maxdepth 1 \( -name 'vr_*' -o -name 'nmxquiz_*' \) -mtime +2 2>/dev/null | while IFS= read -r _old; do
   # lens-B F5: a rip PARKED at a prompt >3 days (10+ open windows is normal here)
   # still owns its scratch — dir mtime freezes at last file CREATE, so age alone
   # lies. If the PID baked into the dirname is alive, skip the dir.
