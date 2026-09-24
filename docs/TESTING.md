@@ -70,7 +70,7 @@ printf 'OUTDIR=%s/out\n' "$H" > $H/.slipmat/config`), then `rm -rf` that exact p
 HOME=$H python3 tools/ptydrive.py /tmp/f.raw 90 -- "https://www.youtube.com/watch?v=zzzzzzzzzzz" best --
 python3 tools/render.py /tmp/f.raw /tmp/f.html 132; cat $H/.slipmat/logs/*/*failed*.log
 # the progress bar still draws in place (stdout untouched): count the frames
-tr '\r' '\n' < /tmp/yt.raw | grep -c '\[download\]'
+tr '\r' '\n' < /tmp/f.raw | grep -c '\[download\]'
 # a signal death renames the log: Ctrl-C at the PICKER menu → "✗ closed <title>.log"
 HOME=$H python3 tools/ptydrive.py /tmp/i.raw 90 -- "<short YouTube url>" auto -- 'Enter = 1' '' INT@2
 # (window close = SIGHUP to the process group → same rename, exit 129)

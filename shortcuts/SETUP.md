@@ -1,7 +1,7 @@
 # The dropdown shortcut suite — two clicks on a copied link
 
-This is the way slipmat is meant to be used: copy a link anywhere (or select
-files in Finder), click a Shortcut in your menu bar, and your content is
+This is the way slipmat is meant to be used: copy a link anywhere (or ⌘C a
+file in Finder for STUDIO), click a Shortcut in your menu bar, and your content is
 heading your way. The suite:
 
 | Shortcut | what a click does |

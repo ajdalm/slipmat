@@ -43,7 +43,9 @@ pip3 install -U "yt-dlp[default,curl-cffi]"
 
 You can skip that until a site actually refuses you. If you do install it,
 run `./slipmat doctor` afterwards — it will tell you whether slipmat can
-see it.
+see it. If Homebrew's yt-dlp is installed as well, slipmat keeps using that
+one; point it at the pip copy with a `YTDLP=/path/to/yt-dlp` line in
+`~/.slipmat/config` (`which -a yt-dlp` lists both paths).
 
 `./slipmat hello` is a short guided setup. It asks where downloads should
 go (pressing Enter accepts the defaults; audio can be sent straight into
@@ -69,10 +71,13 @@ the track fails loudly instead of landing as a weaker file; rate-limit
 pacing and stall recovery; album links; and Music.app delivery.
 
 `python3` is used for stream selection and artwork (with Pillow installed,
-artwork letterbox-trimming is sharper; without it, ffmpeg crops); the zoom-crop feature
-also needs a python with `numpy` + `scipy` (set `SLIPMAT_PYTHON` in
-`~/.slipmat/config`). Run `./slipmat doctor` — it checks everything and prints
-the exact command for anything missing.
+artwork letterbox-trimming is sharper; without it, ffmpeg crops). The zoom-crop
+feature needs a python with `numpy` + `scipy`, and embed rescue uses that same
+python's `curl_cffi`; set `SLIPMAT_PYTHON` in `~/.slipmat/config` if it isn't
+the python3 on your PATH. Run `./slipmat doctor` — it checks everything and
+prints the exact command for anything missing. It also says whether a YouTube
+token helper (the bgutil-ytdlp-pot-provider plugin, port 4416) is running;
+that's optional, and only heavy YouTube use benefits from it.
 
 ## Use
 
@@ -94,17 +99,20 @@ The same tools, from the command line:
 ```
 ./slipmat hello                      # (re)run setup any time
 ./slipmat video <url>  best          # best playable quality, no questions
+./slipmat video <url>                # no mode = max quality, no menu
 ./slipmat video <url>  auto          # pick the stream from a menu
 ./slipmat video <url>  studio        # menu + re-encode concierge
 ./slipmat video <file> studio        # local file → the same concierge
 ./slipmat audio <url>                # AAC-320 m4a, square art, source stamp
 ./slipmat spotify <url>              # a Spotify playlist, album or track URL
 ./slipmat spotify --login            # log in to Spotify now (browser, once)
+./slipmat spotify -c                 # forget the saved Spotify login
 ./slipmat z-batch -c 50 <folder>     # unattended zoom-crop/re-encode a folder
 ```
 
-Downloads land in `~/Downloads/SLIPMAT` (or wherever you told `hello`); run logs
-in `~/.slipmat/logs/<day>/`. `~/.slipmat/config` holds every dial: folders,
+Downloads land in `~/Downloads/SLIPMAT` (or wherever you told `hello`); a
+re-encode of a local file lands beside that file. Run logs go to
+`~/.slipmat/logs/<day>/`. `~/.slipmat/config` holds every dial: folders,
 browser cookies, quality, naming style, your own embed-page hosts.
 
 ## What's under the hood

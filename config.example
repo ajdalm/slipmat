@@ -28,8 +28,16 @@
 # engine auto-tries each as a Referer before asking you:
 #SLIPMAT_EMBED_HOSTS="https://example-site.com/"
 
-# A python3 with numpy+scipy, for zoom-crop analysis:
-#SLIPMAT_PYTHON="$HOME/miniforge3/bin/python3"
+# A python3 with numpy+scipy (zoom-crop) and curl_cffi (embed rescue).
+# Default: the python3 on your PATH:
+#SLIPMAT_PYTHON="/opt/homebrew/bin/python3"
+
+# Which yt-dlp to run. Default: /opt/homebrew/bin/yt-dlp, else the first on
+# PATH. Set this if you installed the pip variant next to Homebrew's:
+#YTDLP="$HOME/Library/Python/3.12/bin/yt-dlp"
+
+# Scratch folder for downloads in progress (each run gets its own subfolder):
+#WORKROOT="$HOME/.slipmat/work"
 
 # Quality dials (videotoolbox -q:v — HIGHER = better = bigger;
 # q40 everyday, q30 small, q50 high):
