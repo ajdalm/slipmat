@@ -242,9 +242,10 @@ COOKIE_BROWSER=firefox
 VIMEO_EMBED_HOSTS="${SLIPMAT_EMBED_HOSTS:-}"   # your known embed-page hosts (space-separated URLs) — set in ~/.slipmat/config
 
 # Newsmax naming quiz (8.10.26): the shows offered in the separate naming window.
-# Pipe-separated; edit freely as lineups change. `custom` is always offered too —
-# and custom answers are LEARNED into the file below, becoming menu options.
-NMX_SHOWS="HIGBIE|SCHMITT|GREG KELLY|FINNERTY"
+# Pipe-separated, set in ~/.slipmat/config (e.g. NMX_SHOWS="SHOW ONE|SHOW TWO").
+# `custom` is always offered too — and custom answers are LEARNED into the file
+# below, becoming menu options.
+NMX_SHOWS=""
 NMX_SHOWS_LEARNED="$HOME/.slipmat/nmx_shows_learned"
 
 # VOD filename style (8.11.26 — pick one; live/NMX naming unaffected):
@@ -2936,7 +2937,7 @@ if is_newsmax && [ "$IS_TTY" = "1" ] && [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z 
     _qshows="$NMX_SHOWS"
     if [ -s "$NMX_SHOWS_LEARNED" ]; then
       _ql=$(tr '\n' '|' < "$NMX_SHOWS_LEARNED" | sed 's/|*$//; s/^|*//')
-      [ -n "$_ql" ] && _qshows="${_qshows}|${_ql}"
+      [ -n "$_ql" ] && { [ -n "$_qshows" ] && _qshows="${_qshows}|${_ql}" || _qshows="$_ql"; }
     fi
     cat > "$QDIR/quiz.sh" <<QEOF
 #!/bin/bash

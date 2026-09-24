@@ -41,3 +41,10 @@
 # An executable that maps a source title to your own naming convention (gets
 # the title as $1, prints the new name or nothing to keep the template):
 #   ~/.slipmat/title-hook
+
+# An executable that adds your own machine-specific checks to `slipmat doctor`
+# (runs after the built-in ones; print one line per check):
+#   ~/.slipmat/doctor-hook
+
+# Newsmax naming menu — pipe-separated rows; names you type are learned:
+#NMX_SHOWS="SHOW ONE|SHOW TWO"

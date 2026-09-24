@@ -40,6 +40,8 @@ case "$CMD" in
     else
       printf '  · Spotify ripper: needs uv (only for Spotify rips) — brew install uv\n'
     fi
+    # an optional executable ~/.slipmat/doctor-hook adds machine-specific checks
+    [ -x "$HOME/.slipmat/doctor-hook" ] && "$HOME/.slipmat/doctor-hook"
     exit 0 ;;
   -h|--help)
     usage; exit 0 ;;
