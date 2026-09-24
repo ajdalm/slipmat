@@ -4371,7 +4371,8 @@ if [ "$MODE" = "studio" ]; then
       # STUDIO still asks; plan-B plains (no crop) still obey the guard.
       if [ "$_gfire" = "1" ] && [ "${ZMODE:-0}" = "1" ] && [ "${SLIPMAT_Z_AUTO:-0}" = "1" ] && ! [ -t 0 ]; then
         _gfire=0
-        frame_rail "crop lands ~$(fmt_mb "$_gmb") vs $(fmt_mb "$SRC_MB") now — kept for the frame, not the size (z-auto)"
+        awk -v e="$_gmb" -v s="$SRC_MB" 'BEGIN{ exit !(s>0 && e >= s) }' \
+          && frame_rail "crop lands ~$(fmt_mb "$_gmb") vs $(fmt_mb "$SRC_MB") now — kept for the frame, not the size (z-auto)"
       fi
       if [ "$_gfire" = "1" ]; then
         warn "q${Q} probably will NOT shrink this file — it lands ~$(fmt_mb "$_gmb") vs $(fmt_mb "$SRC_MB") now${_ceil:+ (break-even ≈ q$_ceil)}."
