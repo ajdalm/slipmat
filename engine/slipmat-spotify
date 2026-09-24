@@ -2,7 +2,7 @@
 # =============================================================================
 #  slipmat-spotify — the Spotify door of the slipmat audio suite
 #
-#    slipmat spotify <link>   playlist, album or track link →
+#    slipmat spotify <url>    a Spotify PLAYLIST URL →
 #                             AAC-320 .m4a files, the same treatment as
 #                             `slipmat audio`: Apple's encoder, full tags,
 #                             true-square art, source stamp in Composer.
@@ -69,7 +69,7 @@ T0=$SECONDS
 case "$LINK" in
   --login|*open.spotify.com/*|spotify:*) ;;
   *spotify.link/*) die "that's a Spotify short link — open it in a browser and copy the full open.spotify.com address instead." ;;
-  *) die "not a Spotify link: $LINK  (copy a track, album or playlist link from Spotify: Share → Copy link)" ;;
+  *) die "not a Spotify link: $LINK  (copy a Spotify PLAYLIST URL: Share → Copy link to playlist)" ;;
 esac
 
 say ""

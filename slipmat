@@ -5,7 +5,7 @@
 #   slipmat video <url|file> [best|auto|studio]   rip video (QuickTime-safe)
 #   slipmat audio <url>                           rip audio (AAC-320 m4a,
 #                                                 square art, booth-safe)
-#   slipmat spotify <link>                        Spotify playlist/album/track
+#   slipmat spotify <url>                         a Spotify PLAYLIST URL
 #                                                 → the same AAC-320 m4a
 #   slipmat spotify --login                       log in to Spotify (once)
 #   slipmat z-batch [opts] <folder>               unattended zoom-crop / re-encode batch

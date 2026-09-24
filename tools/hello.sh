@@ -303,13 +303,13 @@ printf '      or crop to a PiP (remove static borders from videos). No URL neede
 printf '      %s⌘C a file in Finder%s and STUDIO optimizes what'\''s already on your disk\n' "$B" "$RS"
 echo
 printf '   %s[SLIPMAT WEBAUDIO]%s\n' "$BL" "$RS"
-printf '      rips audio from YouTube, SoundCloud, etc. → a clean .m4a with artwork,\n'
-printf '      AAC-320 via Apple'\''s encoder — the highest AAC rate CDJ hardware\n'
-printf '      accepts, so the files are deck-ready as delivered\n'
+printf '      Rips YouTube, SoundCloud, etc. → a clean .m4a with artwork, AAC-320\n'
+printf '      via Apple'\''s encoder — the highest AAC rate CDJ hardware accepts,\n'
+printf '      so the files are deck-ready as delivered\n'
 printf '   %s[SLIPMAT SPOTIFY]%s\n' "$BL" "$RS"
-printf '      rips a Spotify playlist (or album, or single track) → the same\n'
-printf '      deck-ready .m4a, straight from Spotify'\''s 320k stream. Needs Spotify\n'
-printf '      Premium. %s(powered by cvdub'\''s mr-rippah)%s\n' "$DM" "$RS"
+printf '      Rips a Spotify %sPLAYLIST%s URL. (Ensure Spotify URL points to a playlist.)\n' "$B" "$RS"
+printf '      → the same deck-ready .m4a, straight from Spotify'\''s 320k stream.\n'
+printf '      Needs Spotify Premium. %s(powered by cvdub'\''s mr-rippah)%s\n' "$DM" "$RS"
 echo
 printf ' Installing takes %sunder a minute%s: press Enter here, then Enter again on each\n' "$B" "$RS"
 printf ' %s"Add Shortcut"%s pop-up — the next one pops up by itself. Five in a row.\n' "$B" "$RS"
@@ -469,7 +469,7 @@ menu_map() {
   printf '   the same, but you choose 1080p / 720p / …       %s[SLIPMAT VIDEO] PICKER%s\n' "$PB" "$RS"
   printf '   something to shrink, optimize, or crop down     %s[SLIPMAT VIDEO] STUDIO%s\n' "$PB" "$RS"
   printf '   a track for your library (or your DJ crate)     %s[SLIPMAT WEBAUDIO]%s\n' "$BL" "$RS"
-  printf '   a whole Spotify playlist (or album, or track)   %s[SLIPMAT SPOTIFY]%s\n' "$BL" "$RS"
+  printf '   a whole Spotify playlist (its PLAYLIST URL)     %s[SLIPMAT SPOTIFY]%s\n' "$BL" "$RS"
 }
 if [ "$INSTALLED" = "1" ]; then
   printf ' %stry it now%s — while it'\''s fresh:\n' "$B" "$RS"
@@ -498,7 +498,7 @@ else
   printf '   %s./slipmat <url> studio%s        shrink, optimize, or crop — the concierge\n' "$B" "$RS"
   printf '   %s./slipmat <file> studio%s       the concierge for a bloated file already on disk\n' "$B" "$RS"
   printf '   %s./slipmat audio <url>%s         a track for your library (or your DJ crate)\n' "$B" "$RS"
-  printf '   %s./slipmat spotify <link>%s      a Spotify playlist, album or track\n' "$B" "$RS"
+  printf '   %s./slipmat spotify <url>%s       a Spotify PLAYLIST URL\n' "$B" "$RS"
 fi
 echo
 printf ' Every rip prints a receipt — what the source really served, what landed,\n'

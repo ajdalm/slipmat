@@ -8,7 +8,7 @@
 --   picker  numbered menu of the source's REAL resolutions
 --   studio  picker + the re-encode concierge; also takes a FILE copied in Finder
 --   audio   best audio -> AAC-320 .m4a (square art, booth-safe)
---   spotify a Spotify track/album/playlist link -> the same AAC-320 .m4a
+--   spotify a Spotify PLAYLIST URL -> the same AAC-320 .m4a
 --   crop    unattended zoom-crop batch of the Finder SELECTION (or a copied path)
 --
 -- Clipboard rule (field-proven): read TEXT first and let it win whenever it
@@ -79,7 +79,7 @@ on run argv
 	end if
 	if theURL is "" then
 		if mode is "spotify" then
-			display alert "SLIPMAT — SPOTIFY" message "Clipboard is empty. In Spotify: Share → Copy link (a track, album or playlist), then run again." as warning
+			display alert "SLIPMAT — SPOTIFY" message "Clipboard is empty. Copy a Spotify PLAYLIST URL (in Spotify: Share → Copy link to playlist), then run again." as warning
 		else if mode is "audio" then
 			display alert "SLIPMAT — AUDIO" message "Clipboard is empty. Copy a link first, then run again." as warning
 		else if mode is "studio" then
@@ -101,7 +101,7 @@ on run argv
 		set cmd to quoted form of slip & " audio " & quoted form of theURL
 	else if mode is "spotify" then
 		if theURL does not contain "spotify" then
-			display alert "SLIPMAT — SPOTIFY" message "That's not a Spotify link. In Spotify: Share → Copy link (a track, album or playlist), then run again." as warning
+			display alert "SLIPMAT — SPOTIFY" message "That's not a Spotify link. Copy a Spotify PLAYLIST URL (in Spotify: Share → Copy link to playlist), then run again." as warning
 			return
 		end if
 		set cmd to quoted form of slip & " spotify " & quoted form of theURL
