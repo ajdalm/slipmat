@@ -11,7 +11,7 @@
 --   spotify a Spotify playlist, album or track URL -> the same AAC-320 .m4a
 --   crop    unattended zoom-crop batch of the Finder SELECTION (or a copied path)
 --
--- Clipboard rule (field-proven): read TEXT first and let it win whenever it
+-- Clipboard rule: read TEXT first and let it win whenever it
 -- looks like a URL — AppleScript happily coerces URL *text* to a file
 -- reference and mangles it into "/https/::host:path". The file coercion runs
 -- only otherwise, and only counts if the path really exists on disk.

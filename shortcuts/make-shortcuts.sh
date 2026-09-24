@@ -54,7 +54,7 @@ with open(sys.argv[1], 'wb') as f:
 PY
   # sign on THIS machine (needs an iCloud-signed-in Mac; harmless stderr noise
   # from the shortcuts binary is routine on some macOS builds). The signing
-  # daemon is flaky under burst load — field-tested: retry up to 3 times.
+  # daemon is flaky under burst load — retry up to 3 times.
   local try=1
   while :; do
     rm -f "$signed" 2>/dev/null

@@ -12,7 +12,7 @@
 #  There is no mode flag to remember. Web sources are lossy (~130-160k opus),
 #  so AAC-320 loses nothing audible — and the same file that sounds right at
 #  home is the one that won't skip in a DJ booth. One output, no bad files.
-#  The doctrine is hardware-tested by a private collective of DJs.
+#  These limits come from CDJ hardware behavior, not taste.
 # =============================================================================
 set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL

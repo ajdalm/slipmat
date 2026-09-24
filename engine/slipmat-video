@@ -140,7 +140,7 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # q30 has the soft-content caution. Every STUDIO encode
                         # logs `eta check: said X → ran Y (±%) · quality|fast` and
                         # the size ledger names the mode. BEST/AUTO UNTOUCHED
-                        # (fast, wordless — the PRIOTEST-2 ruling). Supersedes
+                        # (fast, wordless — settled by paired viewing tests). Supersedes
                         # V3.8's silent "STUDIO always quality".
                         # 3.9 = 8.15.26 Z-CROP (a Zoom-webcast spec):
                         # `z` on the STUDIO downscale menu hunts the moving PiP box
@@ -258,7 +258,7 @@ NAMING_STYLE="standard"
 # Terminal window size (V4.2): the engine sizes its own window at start so
 # the concierge's columns are designed for a KNOWN width. rows x cols; "" = leave
 # the window alone. Terminal.app honors the xterm resize sequence.
-TERM_SIZE="48x132"          # V4.3: 48 rows × 132 cols (a hand-resized 112×42 → 151×67 window was the datum)
+TERM_SIZE="48x132"          # V4.3: 48 rows × 132 cols (measured against a hand-resized window)
 
 # ~/.slipmat/config is a plain shell fragment sourced over the defaults above —
 # any variable in this block can be overridden there (OUTDIR, COOKIE_BROWSER,
@@ -321,7 +321,7 @@ finish_log() {
   [ -n "$RUNLOG" ] || return 0
   logln ""; logln "total elapsed: $(fmt_dur $((SECONDS - ${T_RUN0:-SECONDS})))"
   _lbl=$(abridge "${1:-run}" 180)   # byte-safe: an emoji-heavy name must not be split mid-char
-  # noclobber bump (lens-B F3): two same-second finishers with the SAME label
+  # noclobber bump: two same-second finishers with the SAME label
   # (same-instant die on one dead link — a proven launch pattern) used to mv over
   # each other; success labels are uniquify'd but ✗/cancel labels are not.
   _lt="$(dirname "$RUNLOG")/$(date +%H%M%S) ${_lbl}.log"; _ln=2
@@ -339,17 +339,17 @@ lc()  { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
 
 cleanup_scratch() {
   # stop detached helpers (speed sampler, REC renderer, probe note) — they must
-  # never outlive the run (8.10 L5 audit F3: a sampler orphaned by die() kept
+  # never outlive the run (a sampler orphaned by die() once kept
   # appending to the renamed run log until reboot). Idempotent; normal paths
   # already killed theirs explicitly.
   for _hp in "${SPID:-}" "${LIVE_RPID:-}" "${PROBE_NPID:-}"; do
     [ -n "$_hp" ] && kill "$_hp" 2>/dev/null
   done
-  SPID=""; LIVE_RPID=""; PROBE_NPID=""   # lens-B F1: a stale PID re-killed at EXIT
+  SPID=""; LIVE_RPID=""; PROBE_NPID=""   # a stale PID re-killed at EXIT
                                           # could, after PID-space wrap in a long
                                           # run, TERM an innocent sibling process
   # (Encodes/remuxes write to $WORKDIR and atomically mv into OUTPUTS on success
-  # — 8.11 lens-B redesign — so a death at ANY moment leaves no partial in the
+  # — so a death at ANY moment leaves no partial in the
   # user's folder; scratch removal below is the whole cleanup.)
   # remove any name-claim stubs this run created but never wrote (see uniquify)
   if [ -n "${WORKDIR:-}" ] && [ -f "$WORKDIR/claims" ]; then
@@ -1809,7 +1809,7 @@ esac
 if [ -n "$LOCAL_SRC" ] && [ "$MODE" != "studio" ]; then
   die "local files go through STUDIO (the re-encode concierge) — BEST/PICKER rip URLs. Run: slipmat \"$LOCAL_SRC\" studio"
 fi
-# V4.6 (8.22 catch, ruling 9.21): recognize the suite's OWN outputs by their
+# V4.6: recognize the suite's OWN outputs by their
 # naming (template " [id] - TAG@handle - date" · recipe suffix "(qNN …)" · "[Z]" ·
 # live stamp "[L- …]" · the show tags). Not a gate — the economics header just
 # stops mis-reading an efficient encode as a "bloated recording". The full table
@@ -1887,14 +1887,14 @@ WORKDIR="$WORKROOT/$WORKSTEM"          # this run's private scratch
 mkdir -p "$WORKDIR" || die "cannot create work dir $WORKDIR"
 YTERR="$WORKDIR/ytdlp.err"             # the current download attempt's yt-dlp stderr (see yterr_lines)
 # housekeeping: sweep crash leftovers older than 2 days (never touches live runs).
-# 8.10 L5 F1: BEFORE deleting a stale workdir, REPLAY its claims ledger — a
+# BEFORE deleting a stale workdir, REPLAY its claims ledger — a
 # kill -9/power-loss run can't run its traps, orphaning 0-byte claim stubs (and
 # live .claim sentinels) in OUTPUTS forever; the stale workdir's claims file is
 # the only record of them. Still-empty entries are removed here.
 # NAME-GATED: only our own vr_*/nmxquiz_* dirs — WORKROOT is config-overridable,
 # and an age-only sweep of a shared folder would rm -rf the user's files
 find "$WORKROOT" -mindepth 1 -maxdepth 1 \( -name 'vr_*' -o -name 'nmxquiz_*' \) -mtime +2 2>/dev/null | while IFS= read -r _old; do
-  # lens-B F5: a rip PARKED at a prompt >3 days (10+ open windows is normal here)
+  # a rip PARKED at a prompt >3 days (many open windows is normal use)
   # still owns its scratch — dir mtime freezes at last file CREATE, so age alone
   # lies. If the PID baked into the dirname is alive, skip the dir.
   _opid="${_old##*_}"
@@ -1963,7 +1963,7 @@ ZPYTHON=""
                                                                                             # site capability-checks before trusting it
 
 # BEST means BEST: the highest QuickTime-playable stream, NO resolution cap.
-# (The old "best <=1080" cap was a V3 inheritance the user overruled 7.7.26 —
+# (The old "best <=1080" cap was a V3 inheritance, dropped 7.7.26 —
 # PICKER exists for picking less than best; BEST must simply be best-that-plays.)
 [ "$MODE" = "best" ] && RES=max
 
@@ -2022,7 +2022,7 @@ REFARGS=""
 # ---- bot-block escalation (8.10.26) ------------------------------------------
 # Some sites (Rumble today, anyone tomorrow) front pages with Cloudflare-style
 # bot detection: yt-dlp 403s before it can read the page. yt-dlp's --impersonate
-# (needs curl-cffi; pinned 0.13.0 — 0.14+ wheels crash on this macOS) presents a
+# (needs curl-cffi; some newer wheels crash on some macOS builds) presents a
 # real browser TLS fingerprint. RULE, same as the vimeo concierge: plain first,
 # never send anything uninvited, escalate only when the plain probe fails, and
 # announce it. Sites that work today never trigger this, so every proven path
@@ -2241,7 +2241,7 @@ vimeo_unlock() {
   rm -f "$INFO" 2>/dev/null
   VIMEO_LOCKED=1   # lens-C F8: later failures must name the REAL cause, not "expired/private"
   if [ "$RES" = "ask" ]; then
-    # lens-B F7: the 15s probe-note must not print over this interactive prompt
+    # the 15s probe-note must not print over this interactive prompt
     [ -n "${PROBE_NPID:-}" ] && { kill "$PROBE_NPID" 2>/dev/null; PROBE_NPID=""; }
     _pg=$(ask_line "$(rail)embed-locked Vimeo — paste the PAGE URL it is embedded on ${C_CYAN}${G_ARR}${C_RESET}" "")
     if [ -n "$_pg" ]; then
@@ -2274,7 +2274,7 @@ PROBE_ERR="$WORKDIR/probe.err"   # EVERY probe attempt's stderr (appended) — l
 if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
   step 1 "reading source …"
   T_PROBE0=$SECONDS
-  # slow-probe reassurance (8.10.26): when the user's bgutil PO-token provider is
+  # slow-probe reassurance (8.10.26): when a local bgutil PO-token provider is
   # struggling (Google-side changes break it periodically; probes then take ~90s
   # machine-wide), the engine looked "hung" here. A detached note names the real
   # culprit; killed the moment the probe returns. stat-only, tty-only, harmless.
@@ -2417,7 +2417,7 @@ EOF
   # V4.5m: on Truth Social the bare-CDN dump "date" is the file's Last-Modified (UTC) —
   # junk; the status JSON's created_at (localized in the hunt) ALWAYS wins.
   case "$(lc "${RESCUE_PAGE_URL:-}")" in *truthsocial.com*) [ -n "${RESCUE_DATE:-}" ] && M_UPDATE="$RESCUE_DATE" ;; esac
-  # V4.5e-2 (ruling 9.14): C-SPAN names carry [CSPAN], not the program number —
+  # V4.5e-2: C-SPAN names carry [CSPAN], not the program number —
   # the [NMX] convention; the program id stays in the log's url line.
   case "$(printf '%s' "${RESCUE_PAGE_URL:-$URL}")" in *c-span.org*|*c-spanvideo.org*) M_ID="CSPAN" ;; esac
   # V4.5h: same convention for CNN clip rescues ([CNN]); and a rescue whose hunter
@@ -2464,7 +2464,7 @@ fi
 # ---- naming ------------------------------------------------------------------
 # Build the final, self-documenting stem (no extension). Never errors: any
 # missing piece falls back so the rip always finishes; the user fixes the name.
-# Template (user-specified 7.7.26): `TITLE [ID] - TAG@handle - 7.3.26`
+# Template (7.7.26): `TITLE [ID] - TAG@handle - 7.3.26`
 #   - title kept as close to FULL as the macOS 255-byte filename limit allows
 #     (byte-aware abridge; emoji-heavy TikTok titles count 4 bytes/char);
 #   - uploader as a platform-tagged handle (YT@WhiteHouse, IG@noticias28nl,
@@ -3003,7 +3003,7 @@ else
   FP=\$(sed -n 2p "\$Q/final")
   if [ -f "\$FP" ]; then
     NEW="\$SHOW \$DATE [NMX]"; T="\$OUTD/\$NEW.mp4"; n=2
-    # noclobber claim (lens-B F4): two same-answer quiz renames must never
+    # noclobber claim: two same-answer quiz renames must never
     # silently replace each other — creation IS the taken-test, like uniquify.
     while ! ( set -C; : > "\$T" ) 2>/dev/null; do T="\$OUTD/\$NEW (\$n).mp4"; n=\$((n+1)); [ \$n -gt 50 ] && break; done
     mv -f "\$FP" "\$T" && echo "✓ renamed -> \$(basename "\$T")"
@@ -3514,7 +3514,7 @@ DO_REENCODE=0
 # -prio_speed 1 was the ENTIRE quality gap — same q, it spends +6.5% MORE bits
 # for a softer/choppier picture (CFR mode + pix_fmt/allow_sw/profile all inert
 # — byte-identical outputs without them). BEST/AUTO = FAST flags, wordless
-# (the 8.15 PRIOTEST-2 ruling: the no-questions paths default to speed; the
+# (settled 8.15 by paired tests: the no-questions paths default to speed; the
 # gap shows only on medium-shot people, and STUDIO is the door for that).
 # V4.0 (8.15): in STUDIO the mode is PART OF THE PICK — the table
 # rows are quality recipes, an `f` suffix (`1f` / `f`) or the `fast` custom
@@ -3626,7 +3626,7 @@ if [ "$MODE" = "studio" ]; then
       logln "  curve ledger: ${_lrn} past probe(s) for ${CLS}/${PLAT_WORD} (${_lrtier}) → curve ×${LEARN_RATIO} until this file is probed"
     fi
   fi
-  # ---- V3.6 ONE-TABLE CONCIERGE (8.12 co-design with the user) ---------------
+  # ---- V3.6 ONE-TABLE CONCIERGE (8.12) ------------------------------------------
   # The question chain (reencode y/n → fps y/n → dial) is GONE. Flow: announce
   # (defects) → downscale ask → sample probe → ONE numbered table where every
   # row is a full recipe priced for THIS file; Enter = the suggested row.
@@ -3695,7 +3695,7 @@ if [ "$MODE" = "studio" ]; then
   elif [ "$LEAN" = "1" ] && [ -z "$LOCAL_SRC" ]; then
     _ecohead="a lean ${PLAT_WORD}"
     if awk -v q="${_q40tgt:-0}" -v s="${SRC_MB:-0}" 'BEGIN{ exit !(s>0 && q >= 0.95*s) }'; then
-      _ecowhy="a re-encode only grows it; a lower rung is the MB win${_P:-}"   # V4.5c: one line with the `p · back to PICKER` headline   # V4.4: an A run — "barely shrinks" under a table where nothing shrank
+      _ecowhy="a re-encode only grows it; a lower rung is the MB win${_P:-}"   # V4.5c: one line with the `p · back to PICKER` headline   # V4.4: a test run — "barely shrinks" under a table where nothing shrank
     else _ecowhy="a re-encode barely shrinks it — keep unless you need the MB"; fi
   elif [ -z "$LOCAL_SRC" ]; then
     _ecohead="a ${PLAT_WORD}, already efficient"; _ecowhy="smaller only by softer; their encoder wins at equal bytes — keep unless you need the MB"
@@ -3762,10 +3762,10 @@ if [ "$MODE" = "studio" ]; then
       _dn=$((_dn+1)); _dmenu="${_dmenu}${_dn}·${C_BOLD}${_dv}${C_RESET},${_NB} "; _dvals="$_dvals $_dv"   # V4.5b: labels bold, keys plain
     done
     frame_rail ""
-    # V4.4b (the C ruling — "resolution: keep 1080p" read like a command): the ask is
+    # V4.4b ("resolution: keep 1080p" read like a command): the ask is
     # QUESTION → options → purple `advice:` (the concierge, one sentence, right above
     # the prompt) → prompt whose default names the advice. Purple = the concierge.
-    # V4.5 (the Window A ruling): the ask matches PICKER's convention — the default
+    # V4.5: the ask matches PICKER's convention — the default
     # WEARS the word Enter (never a `0` to cross-reference), the question word is
     # bold purple (it IS a question), the prompt names the meaning: `[Enter = keep]`.
     # `0`/`00`/`keep`/`k` still mean keep (muscle memory never runs an unasked encode).
@@ -3777,7 +3777,7 @@ if [ "$MODE" = "studio" ]; then
       _dsel=$(printf '%s' "$_dsel" | tr -d ' \t' | tr 'A-Z' 'a-z')
       case "$_dsel" in 0*[0-9]*) _dsel=$(printf '%s' "$_dsel" | sed 's/^0*//'); [ -z "$_dsel" ] && _dsel=0 ;; esac
       case "$_dsel" in keep|k) _dsel=0 ;; esac
-      # V4.3 (an A run typed `4f` here and fell into a table of BIGGER rows): a
+      # V4.3 (a test run typed `4f` here and fell into a table of BIGGER rows): a
       # RECIPE token at the size ask is forgiven — say so and ask again.
       case "$_dsel" in
         [0-9]*f|f|fast|lq|mq|hq|[0-9]*fast)
@@ -3881,11 +3881,11 @@ if [ "$MODE" = "studio" ]; then
   fi
   # fps twins for the table rows. Above ~30fps: half-fps twins (60→30,
   # eye-approved for news 7.13). At ~30fps (broadcast/NTSC): 24fps twins —
-  # the user's Permute-Low gold standard (-r 24 flat); theory said 30→24
+  # the Permute-Low reference (-r 24 flat); theory said 30→24
   # judders, MONTHS of Low archives say the eye never caught it on
   # broadcast — the eye rules. True film rates (≤26fps) get no fps rows.
   # The caveat stands: skip fps drops on already-degraded sources.
-  # V4.4 (the E ruling): the twin rows are 24fps ALWAYS — "Permute Low makes it
+  # V4.4: the twin rows are 24fps ALWAYS — "Permute Low makes it
   # 24 no matter what; there's not a 30fps option just because it's 60" — a 60fps
   # source's twins land 24fps too; 30fps lives in custom (`40 half` = 30, announced).
   _fmode=none; _twinrate=""; _twinlbl=""; _twin60=0
@@ -4074,7 +4074,7 @@ if [ "$MODE" = "studio" ]; then
   # (size · rate · geometry); the `suggested:` sentence is ONE purple line and moves
   # to the BOTTOM, right above the choice (with the lean warning) — advice sits
   # where the decision is made. The class stats no longer repeat under it.
-  # V4.5c (an 8.18 note typed INTO the custom prompt: "cant find current fps … add it to the
+  # V4.5c (a note once typed INTO the custom prompt: "cant find current fps … add it to the
   # ORIGINAL SIZE line"): the fps rides here, right above the table where `half`/`24` are chosen.
   frame_rail "${C_BOLD}ORIGINAL SIZE: $(fmt_mb "$SRC_MB") · $(fmt_mbmin "$SRC_KBPS") · $(geom_word "${WIDTH:-0}" "${HEIGHT:-0}") · $(fmt_fps "$RFR")${C_RESET}"
   # say-it-once: when EVERY row lands at/above the source, one line here (not 8×)
@@ -4091,7 +4091,7 @@ if [ "$MODE" = "studio" ]; then
   frame_rail "$(printf ' %s%-3s %-11s %-23s %s  %-23s%s%s' "$C_DIM" "#" "recipe" "quality (Enter)" "$B_V" "fast (add f)" "sizes · times ${_prov}" "$C_RESET")"
   frame_rail "$(printf ' %s%-3s %-11s %-14s %s %s  %-14s %s%s' "$C_DIM" "" "" "size (vs src)" "time    " "$B_V" "size (vs src)" "time" "$C_RESET")"
   if [ "$_forced" = "0" ]; then
-    # V4.5c (the Q1-A ruling): on a LEAN rip the concierge's action is "re-rip a lower rung",
+    # V4.5c: on a LEAN rip the concierge's action is "re-rip a lower rung",
     # so Enter = p (back to PICKER) — the marker moves to the `p)` row; keep stays `0`/`k`.
     _tsug_p=0; [ "$_tsug" = "0" ] && [ "$PICK_OK" = "1" ] && [ "${LEAN:-0}" = "1" ] && _tsug_p=1
     _s0=""; [ "$_tsug" = "0" ] && [ "$_tsug_p" = "0" ] && _s0="  ${C_GRN}← suggested${C_RESET} · ${C_BOLD}[Enter]${C_RESET}"   # V4.5: the default row wears the word
@@ -4099,7 +4099,7 @@ if [ "$MODE" = "studio" ]; then
   fi
   _r=1; _lastq=""
   while [ "$_r" -le "$_tn" ]; do
-    # a blank line between q-groups (q25 pair · q30 pair · …) — ruling 1b
+    # a blank line between q-groups (q25 pair · q30 pair · …)
     [ -n "$_lastq" ] && [ "${_TQ_ARR[$_r]}" != "$_lastq" ] && frame_rail ""
     _lastq="${_TQ_ARR[$_r]}"
     _sfl=""; [ "$_r" = "$_tsug" ] && _sfl="  ${C_GRN}← suggested${C_RESET} · ${C_BOLD}[Enter]${C_RESET}"
@@ -4113,7 +4113,7 @@ if [ "$MODE" = "studio" ]; then
     # the % is one char wider than its bytes suggest (−, U+2212): pad by hand
     _cell1="$_es$(_rep $((7-${#_es})) ' ')$(_rep $((7-${#_pc})) ' ')$_pc"; _cell2="$_fes$(_rep $((7-${#_fes})) ' ')$(_rep $((7-${#_fpc})) ' ')$_fpc"
     _pad1=$((15-${#_cell1})); [ "$_pad1" -lt 1 ] && _pad1=1; _pad2=$((15-${#_cell2})); [ "$_pad2" -lt 1 ] && _pad2=1
-    # V4.5c (the Q2-A ruling): rows read by outcome — BOLD = concierge-approved (lands ≥10%
+    # V4.5c: rows read by outcome — BOLD = concierge-approved (lands ≥10%
     # under the source, above the eye floor), YELLOW = questionable (within 10% of the
     # source: a quality trade, no MB win · or below the eye floor), RED = obvious no-go
     # (lands bigger than the source). Unknown estimates stay plain.
@@ -4140,7 +4140,7 @@ if [ "$MODE" = "studio" ]; then
     if [ "${_tsug_p:-0}" = "1" ]; then frame_rail "$(printf ' %sp%s)  %sback to PICKER%s — re-rip a lower rung, no re-encode  %s← suggested%s · %s[Enter]%s' "$C_BOLD" "$C_RESET" "$C_BOLD" "$C_RESET" "$C_GRN" "$C_RESET" "$C_BOLD" "$C_RESET")"
     else frame_rail "$(printf ' %sp%s)  back to PICKER — re-rip a different stream, no re-encode' "$C_BOLD" "$C_RESET")"; fi
   fi
-  # V4.4 (an A run: the un-probed table promised six rows under 175MB; the probe
+  # V4.4 (a test run: the un-probed table promised six rows under 175MB; the probe
   # put every one above it): on a lean rip, an un-probed table carries a warning
   # right above the choice — the estimates stay (by request), the trust doesn't.
   # the suggested sentence — ONE line, purple, bold headline (8.17 late)
@@ -4156,7 +4156,7 @@ if [ "$MODE" = "studio" ]; then
     if [ "${_tsug_p:-0}" = "1" ]; then _tsugw="p · back to PICKER"; _tsugd="p"
     elif [ "$_tsug" = "0" ]; then _tsugw="keep"; _tsugd="0"; else _tsugw="${_tsug} · q${_TQ_ARR[$_tsug]}"; _tsugd="$_tsug"; fi
     _pick=$(ask_line "$(rail)recipe ${C_BOLD}[Enter = ${_tsugw}]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" "$_tsugd")
-    # V4.4 (an A run typed S, then s — two full probes): after a probe, `s` is a no-op
+    # V4.4 (a test run typed S, then s — two full probes): after a probe, `s` is a no-op
     case "$(printf '%s' "$_pick" | tr -d ' \t' | tr 'A-Z' 'a-z')" in
       s) [ -n "${SAMP_RATIO:-}" ] && { frame_rail "${C_DIM}already probed — these sizes and times are real; pick a row${C_RESET}"; continue; } ;;
       keep|k) _pick=0 ;;
@@ -4243,7 +4243,7 @@ if [ "$MODE" = "studio" ]; then
       esac
     else
         [ -z "$_cq" ] && _cq=$Q_MEDLOW
-        # VERBATIM q (8.13 ruling, [[qv-not-bv]]): send EXACTLY what the user
+        # VERBATIM q (memory: qv-not-bv): send EXACTLY what the user
         # typed — the receipts ledger is how bucket truth accumulates; never
         # silently edit the user's number. The bucket map survives as an FYI only.
         _selq="$_cq"
@@ -4254,7 +4254,7 @@ if [ "$MODE" = "studio" ]; then
         [ "$_bq" != "$_cq" ] && frame_rail "${C_DIM}fyi: q${_cq} has benched byte-identical to q${_bq} (same videotoolbox bucket) — sending your q${_cq} as typed${C_RESET}"
         [ "$_selq" = "50" ] && frame_rail "${C_DIM}(q50 = Permute-Med)${C_RESET}"
         _sellbl="q${_selq}"
-        # fps tokens (8.13 rulings): honored on ANY source, never silently
+        # fps tokens: honored on ANY source, never silently
         # dropped — a "38 half" on a 29.97fps vimeo encoded native without a
         # word. 'half' at ~30fps means the sensible step = 24 ("concierge is
         # the adult in the room"), not literal 15.
@@ -4448,11 +4448,11 @@ _out_dims_h() {
 reencode() {
   _name="$1"; _lbl="${2:-re-encoding}"
   OUT="$OUTDIR/${_name}.mp4"
-  # lens-B F2 redesign: ffmpeg writes INSIDE SCRATCH and the finished file is
+  # ffmpeg writes INSIDE SCRATCH and the finished file is
   # atomically mv'd to $OUT on success. A death at ANY instant — including the
   # deferred-TERM case where bash runs the trap after the pipeline finishes but
   # before the next line — leaves nothing in OUTPUTS (scratch cleanup covers the
-  # temp). Same volume, so mv is a rename. Replaces the L5 registry mechanism.
+  # temp). Same volume, so mv is a rename.
   ENC_TMP="$WORKDIR/encout_$$.mp4"
   _durs=$("$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$MKV" 2>/dev/null)
   DUR_US=$(awk -v d="$_durs" 'BEGIN{ printf "%.0f", (d+0)*1000000 }')
@@ -4753,7 +4753,7 @@ if [ -n "${QDIR:-}" ] && [ -d "$QDIR" ]; then
     if [ -n "$_qs" ]; then
       _qnew="$_qs ${_qd2:-$(date +%-m.%-d.%y)} [NMX]"
       _qt="$OUTDIR/${_qnew}.mp4"; _qn=2
-      # noclobber claim (lens-B F4): never replace a same-named finished show
+      # noclobber claim: never replace a same-named finished show
       while ! ( set -C; : > "$_qt" ) 2>/dev/null; do
         _qt="$OUTDIR/${_qnew} (${_qn}).mp4"; _qn=$((_qn+1)); [ "$_qn" -gt 50 ] && break
       done
