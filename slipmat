@@ -5,15 +5,16 @@
 #   slipmat video <url|file> [best|auto|studio]   rip video (QuickTime-safe)
 #   slipmat audio <url>                           rip audio (AAC-320 m4a,
 #                                                 square art, booth-safe)
-#   slipmat spotify <link>                        Spotify track/album/playlist
+#   slipmat spotify <link>                        Spotify playlist/album/track
 #                                                 → the same AAC-320 m4a
+#   slipmat spotify --login                       log in to Spotify (once)
 #   slipmat z-batch [opts] <folder>               unattended zoom-crop / re-encode batch
 #   slipmat doctor                                check the toolchain
 # A bare URL or file path routes to video: `slipmat <url> best` works.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CMD="${1:-}"
-usage() { sed -n '2,12p' "$0" | sed 's/^# //;s/^#//'; }
+usage() { sed -n '2,13p' "$0" | sed 's/^# //;s/^#//'; }
 case "$CMD" in
   hello|setup) shift; exec /bin/bash "$HERE/tools/hello.sh" "$@" ;;
   ""|help)

@@ -9,8 +9,8 @@ heading your way. The suite:
 | **[SLIPMAT VIDEO] AUTO(BEST)** | the best quality your machine can actually play, ripped bulletproof — zero questions asked |
 | **[SLIPMAT VIDEO] PICKER** | the source's REAL resolutions (1080p, 720p, …) as a numbered menu — pick one, the rest is automatic |
 | **[SLIPMAT VIDEO] STUDIO** | the picker plus a re-encode concierge: shrink or optimize, or crop away the dead screen around a small video box. Works without a URL too — ⌘C any bloated *file* in Finder, click STUDIO |
-| **[SLIPMAT AUDIO] AUTO(BEST)** | copied URL → a clean .m4a with square artwork. AAC-320 — the highest AAC rate CDJ hardware accepts, so files are deck-compatible as delivered |
-| **[SLIPMAT AUDIO] SPOTIFY** | a copied Spotify track, album or playlist link → the same deck-ready .m4a files. Needs Spotify Premium (first rip opens Spotify's login page once) and `brew install uv` |
+| **[SLIPMAT WEBAUDIO]** | rips audio from YouTube, SoundCloud, etc. → a clean .m4a with square artwork. AAC-320 — the highest AAC rate CDJ hardware accepts, so files are deck-compatible as delivered |
+| **[SLIPMAT SPOTIFY]** | a copied Spotify playlist (or album, or single track) link → the same deck-ready .m4a files. Needs Spotify Premium and `brew install uv`; `./slipmat spotify --login` logs you in once |
 
 ## The automatic way (recommended)
 
@@ -19,25 +19,28 @@ heading your way. The suite:
 ```
 
 The setup session builds all five Shortcuts **for your machine**, signed
-locally, pre-pinned to the menu bar, and opens them one at a time — you click
-**"Add Shortcut"** on each (Apple requires that one human click; it's the
-only manual part). Already ran `hello` and skipped this step? Just run the
-builder alone:
+locally and already pinned to the menu bar, then pops up an **"Add
+Shortcut"** window for each — press Enter (or click the button), and the
+next one pops up by itself (Apple requires that one human press; it's the
+only manual part). Skipped this step before? Rerun `./slipmat hello` —
+Enter keeps your saved folders.
 
-```
-./shortcuts/make-shortcuts.sh && open ~/.slipmat/shortcuts/*.shortcut
-```
+After that:
 
-Two one-time things macOS will ask:
-
-- On the **first click** of each Shortcut, macOS asks permission for it to run
-  scripts / control Terminal. Allow them — that's
-  the standard handshake for any Shortcut that does real work.
-- The Shortcuts icon appears in the menu bar on its own once the sidebar's
-  **"Menu Bar"** folder holds a shortcut (that folder *is* the dropdown).
-  A shortcut missing from it? Drag its card onto the folder, or open its
-  ⓘ panel → ✓ **"Pin in Menu Bar"**. No "Menu Bar" folder listed at all?
+- **Find them:** click the **Shortcuts icon** in the menu bar — two
+  stacked, tilted squares, top right of the screen, near the clock. The
+  five `[SLIPMAT …]` shortcuts are in its dropdown.
+- **No icon?** On a MacBook with a notch, a full menu bar hides icons
+  behind the notch — hold ⌘ and drag icons you don't need off the bar, or
+  quit an app that lives up there. On newer macOS, if System Settings has a
+  **Menu Bar** section, make sure Shortcuts is allowed there.
+- **Icon, but no slipmat in it?** The dropdown shows the Shortcuts app's
+  **"Menu Bar"** folder. Drag each `[SLIPMAT …]` card onto that folder, or
+  select it → ⌘I → ✓ **"Pin in Menu Bar"**. No "Menu Bar" folder listed?
   Shortcuts → **Settings → Sidebar → tick "Menu Bar"**.
+- **First click of each shortcut:** macOS asks whether to allow it — click
+  Allow (Always Allow where offered). Once per shortcut; reinstalling one
+  resets that, so it asks once more.
 
 Signing requires the Mac to be signed into iCloud (that's Apple's rule for
 importable Shortcut files, not ours). If signing fails, use the manual way —
@@ -67,12 +70,12 @@ osascript "REPO/shortcuts/launch.applescript" "REPO" picker
 osascript "REPO/shortcuts/launch.applescript" "REPO" studio
 ```
 
-**[SLIPMAT AUDIO] AUTO(BEST)**
+**[SLIPMAT WEBAUDIO]**
 ```
 osascript "REPO/shortcuts/launch.applescript" "REPO" audio
 ```
 
-**[SLIPMAT AUDIO] SPOTIFY**
+**[SLIPMAT SPOTIFY]**
 ```
 osascript "REPO/shortcuts/launch.applescript" "REPO" spotify
 ```

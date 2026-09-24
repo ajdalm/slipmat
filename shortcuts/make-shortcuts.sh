@@ -3,8 +3,8 @@
 # (the crop launcher mode still exists; an AUTO CROP shortcut may return later)
 #
 # A .shortcut file is a plist; Apple's `shortcuts sign` (macOS 12+) signs a
-# generated one so the Shortcuts app will import it via `open` — one click on
-# "Add Shortcut" per file, no manual building. The plists carry
+# generated one so the Shortcuts app will import it via `open` — one press of
+# "Add Shortcut" per file (slipmat hello opens them in a chain), no manual building. The plists carry
 # WFWorkflowTypes=[MenuBar], so each Shortcut arrives already pinned to the
 # menu bar. The shortcut NAME comes from the FILE name.
 #
@@ -18,6 +18,8 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 OUT="${1:-$HOME/.slipmat/shortcuts}"
 mkdir -p "$OUT"
+# files this builder made under names since retired (exact names only)
+rm -f "$OUT/[SLIPMAT AUDIO] AUTO(BEST).shortcut" "$OUT/[SLIPMAT AUDIO] SPOTIFY.shortcut"
 
 fail=0
 make_one() {  # $1 = shortcut name, $2 = mode, $3 = icon color int
@@ -70,12 +72,14 @@ PY
   return 1
 }
 
+# icon colors are Shortcuts palette IDs, not RGB: video = yellow/orange,
+# audio = light blue, Spotify = green — audio must never read as video
 printf 'building Shortcuts for %s\n' "$REPO"
-make_one "[SLIPMAT VIDEO] AUTO(BEST)"     best   4274264319 || fail=1
-make_one "[SLIPMAT VIDEO] PICKER"         picker 4271458815 || fail=1
-make_one "[SLIPMAT VIDEO] STUDIO"         studio 4274264319 || fail=1
-make_one "[SLIPMAT AUDIO] AUTO(BEST)"     audio  463140863  || fail=1   # blue
-make_one "[SLIPMAT AUDIO] SPOTIFY"        spotify 4292093695 || fail=1   # green
+make_one "[SLIPMAT VIDEO] AUTO(BEST)"     best    4274264319 || fail=1   # yellow
+make_one "[SLIPMAT VIDEO] PICKER"         picker  4271458815 || fail=1   # orange
+make_one "[SLIPMAT VIDEO] STUDIO"         studio  4274264319 || fail=1   # yellow
+make_one "[SLIPMAT WEBAUDIO]"             audio   1440408063 || fail=1   # light blue
+make_one "[SLIPMAT SPOTIFY]"              spotify 4292093695 || fail=1   # green
 
 if [ "$fail" = "1" ]; then
   cat <<EOF
@@ -86,4 +90,4 @@ about two minutes; each is a single pasted line.
 EOF
   exit 1
 fi
-printf 'signed files in: %s\nDouble-click each (or let slipmat hello open them) and click "Add Shortcut".\n' "$OUT"
+printf 'signed files in: %s\n' "$OUT"
