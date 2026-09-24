@@ -11,8 +11,8 @@
   the **Composer** field (rekordbox can show it as a column, and stores
   rarely fill it, so Album and Comments stay yours). No options to pick —
   every file plays everywhere.
-- **Spotify** playlists get the same treatment, straight from Spotify's
-  320k stream.
+- **Spotify** playlists, albums and tracks get the same treatment, straight
+  from Spotify's 320k stream.
 
 Every rip prints a receipt, and every run keeps a log in `~/.slipmat/logs` —
 toss a fail log at an AI agent and slipmat becomes self-diagnosing.
@@ -66,7 +66,7 @@ Stopping mid-playlist is safe — finished tracks are remembered and skipped
 next time. The ripper is [mr-rippah](https://github.com/cvdub/mr-rippah)
 by cvdub, with upgrades: if Spotify quietly serves a lower tier than 320k,
 the track fails loudly instead of landing as a weaker file; rate-limit
-pacing and stall recovery; and Music.app delivery.
+pacing and stall recovery; album links; and Music.app delivery.
 
 `python3` is used for stream selection and artwork (with Pillow installed,
 artwork letterbox-trimming is sharper; without it, ffmpeg crops); the zoom-crop feature
@@ -87,7 +87,7 @@ tilted squares, top right of your screen) and pick:
 | [SLIPMAT VIDEO] PICKER | see the source's REAL resolutions (1080p, 720p, …), pick one, the rest is automatic |
 | [SLIPMAT VIDEO] STUDIO | the picker plus a re-encode concierge — shrink or optimize (sizes/ETAs probed from YOUR file, not guessed), or crop away the dead screen around a small video box. Works without a URL too: ⌘C any bloated file in Finder, click STUDIO |
 | [SLIPMAT WEBAUDIO] | Rips YouTube, SoundCloud, etc. → a clean .m4a with real artwork. AAC-320 — the highest AAC rate CDJ hardware accepts, so files are deck-compatible as delivered |
-| [SLIPMAT SPOTIFY] | Rips a Spotify PLAYLIST URL. (Ensure Spotify URL points to a playlist.) → the same deck-ready .m4a files |
+| [SLIPMAT SPOTIFY] | Rips a Spotify playlist, album or track URL → the same deck-ready .m4a files |
 
 The same tools, from the command line:
 
@@ -98,7 +98,7 @@ The same tools, from the command line:
 ./slipmat video <url>  studio        # menu + re-encode concierge
 ./slipmat video <file> studio        # local file → the same concierge
 ./slipmat audio <url>                # AAC-320 m4a, square art, source stamp
-./slipmat spotify <url>              # a Spotify PLAYLIST URL
+./slipmat spotify <url>              # a Spotify playlist, album or track URL
 ./slipmat spotify --login            # log in to Spotify now (browser, once)
 ./slipmat z-batch -c 50 <folder>     # unattended zoom-crop/re-encode a folder
 ```

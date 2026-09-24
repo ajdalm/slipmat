@@ -10,7 +10,7 @@ heading your way. The suite:
 | **[SLIPMAT VIDEO] PICKER** | the source's REAL resolutions (1080p, 720p, …) as a numbered menu — pick one, the rest is automatic |
 | **[SLIPMAT VIDEO] STUDIO** | the picker plus a re-encode concierge: shrink or optimize, or crop away the dead screen around a small video box. Works without a URL too — ⌘C any bloated *file* in Finder, click STUDIO |
 | **[SLIPMAT WEBAUDIO]** | Rips YouTube, SoundCloud, etc. → a clean .m4a with square artwork. AAC-320 — the highest AAC rate CDJ hardware accepts, so files are deck-compatible as delivered |
-| **[SLIPMAT SPOTIFY]** | Rips a Spotify PLAYLIST URL. (Ensure Spotify URL points to a playlist.) → the same deck-ready .m4a files. Needs Spotify Premium and `brew install uv`; `./slipmat spotify --login` logs you in once |
+| **[SLIPMAT SPOTIFY]** | Rips a Spotify playlist, album or track URL → the same deck-ready .m4a files. Needs Spotify Premium and `brew install uv`; `./slipmat spotify --login` logs you in once |
 
 ## The automatic way (recommended)
 
