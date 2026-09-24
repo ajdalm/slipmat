@@ -1,6 +1,6 @@
 #!/bin/bash
-# make-shortcuts.sh — generate + sign the five slipmat menu-bar Shortcuts.
-# (the crop launcher mode still exists; an AUTO CROP shortcut may return later)
+# make-shortcuts.sh — generate + sign the five slipmat menu-bar Shortcuts
+# (six with -c: the optional AUTO CROP(PiP) door to the zoom-crop batch).
 #
 # A .shortcut file is a plist; Apple's `shortcuts sign` (macOS 12+) signs a
 # generated one so the Shortcuts app will import it via `open` — one press of
@@ -12,10 +12,12 @@
 # this repo's absolute path baked in at generation time (edit-once rule: all
 # behavior lives in the launcher, on disk).
 #
-# Usage: make-shortcuts.sh [output-dir]     (default ~/.slipmat/shortcuts)
+# Usage: make-shortcuts.sh [-c] [output-dir]     (default ~/.slipmat/shortcuts)
+#   -c   also build the optional sixth, [SLIPMAT VIDEO] AUTO CROP(PiP)
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
+CROP=0; [ "${1:-}" = "-c" ] && { CROP=1; shift; }
 OUT="${1:-$HOME/.slipmat/shortcuts}"
 mkdir -p "$OUT"
 # files this builder made under names since retired (exact names only)
@@ -80,6 +82,7 @@ make_one "[SLIPMAT VIDEO] PICKER"         picker  4271458815 || fail=1   # orang
 make_one "[SLIPMAT VIDEO] STUDIO"         studio  4274264319 || fail=1   # yellow
 make_one "[SLIPMAT WEBAUDIO]"             audio   1440408063 || fail=1   # light blue
 make_one "[SLIPMAT SPOTIFY]"              spotify 4292093695 || fail=1   # green
+[ "$CROP" = "1" ] && { make_one "[SLIPMAT VIDEO] AUTO CROP(PiP)" crop 4274264319 || fail=1; }   # yellow, optional
 
 if [ "$fail" = "1" ]; then
   cat <<EOF

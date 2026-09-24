@@ -58,7 +58,7 @@ H=$(mktemp -d); HOME=$H SLIPMAT_HELLO_NO_OPEN=1 SLIPMAT_NO_FX=1 \
   'Enter = yes' 'h\n' 'Enter = got it' 'n\n' 'Enter = finish' '\n'
 python3 tools/render.py /tmp/h.raw /tmp/h.html 112             # every page, every chip
 # ('Enter = log in' appears only when uv is installed and no Spotify login is saved)
-./shortcuts/make-shortcuts.sh /tmp/sc-test                     # 5 signed .shortcut files
+./shortcuts/make-shortcuts.sh -c /tmp/sc-test                  # 6 signed .shortcut files (5 without -c)
 osacompile -o /tmp/launch-check.scpt shortcuts/launch.applescript   # launcher compiles
 ```
 

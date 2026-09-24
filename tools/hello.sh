@@ -36,8 +36,8 @@ chip() {
   if [ "$IS_TTY" = "1" ]; then printf '%s %*s%s%*s %s' "$KC" "$l" '' "$k" "$r" '' "$RS"
   else printf '[%*s%s%*s]' "$l" '' "$k" "$r" ''; fi
 }
-opt() {  # opt KEY LABEL [rest]
-  printf '   %s %s%s%s%s\n' "$(chip "$1")" "$B" "$2" "$RS" "${3:+ — $3}"
+opt() {  # opt KEY LABEL [rest] — a blank line above each row, so stacked chips never read as one box
+  printf '\n   %s %s%s%s%s\n' "$(chip "$1")" "$B" "$2" "$RS" "${3:+ — $3}"
 }
 
 # ---- window + pages ---------------------------------------------------------
@@ -347,14 +347,14 @@ if [ -z "$a" ] || [ "$a" = "y" ] || [ "$a" = "Y" ]; then
     echo
     # Shortcuts files each new arrival at the TOP of the menu-bar dropdown, so
     # they go in bottom-up: AUTO(BEST), added last, ends up first in line
-    for i in 5 4 3 2 1; do
-      eval "name=\$NAMES_$i"
+    pop_one() {  # open one .shortcut and wait for its "Add Shortcut" click
+      local name="$1" f C before got t
       f="$SCDIR/$name.shortcut"
-      [ -e "$f" ] || continue
+      [ -e "$f" ] || return 0
       C="$(color_of "$name")"
       if [ "${SLIPMAT_HELLO_NO_OPEN:-0}" = "1" ]; then
         printf '   %s·%s %s%s%s  %s(test mode — not opened)%s\n' "$DM" "$RS" "$C" "$name" "$RS" "$DM" "$RS"
-        continue
+        return 0
       fi
       printf '   %s…%s %s%s%s  %swaiting for "Add Shortcut"%s' "$DM" "$RS" "$C" "$name" "$RS" "$DM" "$RS"
       before="$(lib_sig)"; open "$f"
@@ -375,10 +375,29 @@ if [ -z "$a" ] || [ "$a" = "y" ] || [ "$a" = "Y" ]; then
         enter) printf '\r\033[K   %s✓%s %s%s%s\n' "$GN" "$RS" "$C" "$name" "$RS" ;;
         *)     printf '\r\033[K   %s?%s %s%s%s  %sno answer — rerun slipmat hello to try again%s\n' "$DM" "$RS" "$C" "$name" "$RS" "$DM" "$RS" ;;
       esac
-    done
+    }
+    for i in 5 4 3 2 1; do eval "name=\$NAMES_$i"; pop_one "$name"; done
     # the pop-ups left Shortcuts in front — bring this window back
     [ "${SLIPMAT_HELLO_NO_OPEN:-0}" = "1" ] || open -b "${__CFBundleIdentifier:-com.apple.Terminal}" 2>/dev/null
     INSTALLED=1
+    # an optional sixth: unattended zoom-crop of a Finder selection
+    echo
+    printf ' One more is available. %s[SLIPMAT VIDEO] AUTO CROP(PiP)%s takes files you select in\n' "$PB" "$RS"
+    printf ' Finder — screen recordings with a small video box in a big static frame — and\n'
+    printf ' crops each one down to the moving picture, unattended, one after another.\n'
+    ask "add" "it too?"
+    opt "Enter" "skip" "most people never need it"
+    opt "y" "add" "I have recordings like that"
+    printf '  %s[Enter = skip]%s ' "$DM" "$RS"; IFS= read -r a || a=""
+    if [ "$a" = "y" ] || [ "$a" = "Y" ]; then
+      echo
+      if /bin/bash "$REPO/shortcuts/make-shortcuts.sh" -c "$SCDIR" >/dev/null; then
+        pop_one "[SLIPMAT VIDEO] AUTO CROP(PiP)"
+        [ "${SLIPMAT_HELLO_NO_OPEN:-0}" = "1" ] || open -b "${__CFBundleIdentifier:-com.apple.Terminal}" 2>/dev/null
+      else
+        printf '   couldn'\''t sign it — shortcuts/SETUP.md shows the one-line manual way (mode: crop)\n'
+      fi
+    fi
     stale="$(shortcuts list 2>/dev/null | grep -Fx "$OLD_NAMES")"
     if [ -n "$stale" ]; then
       echo
@@ -469,11 +488,19 @@ printf ' %s⌘C%s %s& hit the menu bar.%s\n' "$PB" "$RS" "$B" "$RS"
 printf ' A URL, or a file in Finder — same move.\n'
 echo
 menu_map() {
-  printf '   a video worth keeping forever, max quality      %s[SLIPMAT VIDEO] AUTO(BEST)%s\n' "$PB" "$RS"
-  printf '   the same, but you choose 1080p / 720p / …       %s[SLIPMAT VIDEO] PICKER%s\n' "$PB" "$RS"
-  printf '   something to shrink, optimize, or crop down     %s[SLIPMAT VIDEO] STUDIO%s\n' "$PB" "$RS"
-  printf '   a track for your library (or your DJ crate)     %s[SLIPMAT WEBAUDIO]%s\n' "$BL" "$RS"
-  printf '   a Spotify playlist, album or track              %s[SLIPMAT SPOTIFY]%s\n' "$BL" "$RS"
+  printf '   %swhich one?%s\n' "$B" "$RS"
+  echo
+  printf '   %s%-28s%s  a video worth keeping forever, max quality\n' "$PB" "[SLIPMAT VIDEO] AUTO(BEST)" "$RS"
+  echo
+  printf '   %s%-28s%s  the same, but you choose 1080p / 720p / …\n' "$PB" "[SLIPMAT VIDEO] PICKER" "$RS"
+  echo
+  printf '   %s%-28s%s  something to shrink, optimize, or crop down\n' "$PB" "[SLIPMAT VIDEO] STUDIO" "$RS"
+  printf '   %-28s  · also works on a file already on your disk: ⌘C it in Finder,\n' ""
+  printf '   %-28s    click STUDIO — no URL involved\n' ""
+  echo
+  printf '   %s%-28s%s  a track for your library (or your DJ crate)\n' "$BL" "[SLIPMAT WEBAUDIO]" "$RS"
+  echo
+  printf '   %s%-28s%s  a Spotify playlist, album or track\n' "$BL" "[SLIPMAT SPOTIFY]" "$RS"
 }
 if [ "$INSTALLED" = "1" ]; then
   printf ' %stry it now%s — while it'\''s fresh:\n' "$B" "$RS"
@@ -482,10 +509,6 @@ if [ "$INSTALLED" = "1" ]; then
   printf '   Shortcuts icon in your menu bar and pick:\n'
   echo
   menu_map
-  echo
-  printf '   %sno URL needed:%s\n' "$B" "$RS"
-  printf '   ⌘C a bloated file in Finder, click %sSTUDIO%s — optimize or PiP-crop\n' "$PB" "$RS"
-  printf '   what'\''s already on your disk\n'
 elif [ "$INSTALLED" = "2" ]; then
   printf ' %sonce slipmat shows up in your menu bar%s: copy a URL, click the Shortcuts\n' "$B" "$RS"
   printf ' icon, and pick:\n'
@@ -507,6 +530,11 @@ fi
 echo
 printf ' Every rip prints a receipt — what the source really served, what landed,\n'
 printf ' how long it took. Logs live in ~/.slipmat/logs.\n'
+echo
+printf ' Working with an AI coding agent (Claude Code, Codex, …)? Hand it a fail log\n'
+printf ' and it can read what went wrong. Hand it this repo — plain bash and python,\n'
+printf ' with the reasoning in the comments — and it can bend slipmat to your own\n'
+printf ' sites and habits.\n'
 echo
 printf ' %sEnd of onboarding. Go rip something great.%s\n' "$PB" "$RS"
 echo

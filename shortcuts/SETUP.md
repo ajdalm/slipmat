@@ -80,6 +80,13 @@ osascript "REPO/shortcuts/launch.applescript" "REPO" audio
 osascript "REPO/shortcuts/launch.applescript" "REPO" spotify
 ```
 
+Optional sixth, **[SLIPMAT VIDEO] AUTO CROP(PiP)** — select screen recordings in
+Finder, click it, and each one is cropped down to its moving video box,
+unattended (`./slipmat hello` offers it after the five):
+```
+osascript "REPO/shortcuts/launch.applescript" "REPO" crop
+```
+
 All five delegate to one on-disk launcher (`shortcuts/launch.applescript`),
 so a `git pull` updates every Shortcut's behavior without touching the
 Shortcuts app again. If a Shortcut ever behaves differently from running

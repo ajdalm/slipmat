@@ -94,6 +94,10 @@ tilted squares, top right of your screen) and pick:
 | [SLIPMAT WEBAUDIO] | Rips YouTube, SoundCloud, etc. → a clean .m4a with real artwork. AAC-320 — the highest AAC rate CDJ hardware accepts, so files are deck-compatible as delivered |
 | [SLIPMAT SPOTIFY] | Rips a Spotify playlist, album or track URL → the same deck-ready .m4a files |
 
+An optional sixth, `[SLIPMAT VIDEO] AUTO CROP(PiP)`, takes files selected in
+Finder (screen recordings with a small video box in a static frame) and crops
+each one to the moving picture, unattended. `hello` offers it after the five.
+
 The same tools, from the command line:
 
 ```
