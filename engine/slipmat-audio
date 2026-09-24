@@ -29,10 +29,15 @@ AUDIO_OUTDIR=""             # set in ~/.slipmat/config to give audio its own fol
 AUDIO_AUTO_ADD=""           # optional: your Music.app "Automatically Add" folder —
                             # finished files atomic-rename into it, so the library
                             # never sees a partial. `slipmat hello` can set this.
+AUDIO_STAMP_ALBUM=0         # 1 = ALSO write the source rate into Album ("160kbps",
+                            # "⚠️ 96kbps") for libraries that sort by that convention
 COOKIE_BROWSER=firefox
 USE_COOKIES=1
 [ -f "$HOME/.slipmat/config" ] && . "$HOME/.slipmat/config"
 [ -n "${AUDIO_OUTDIR:-}" ] && OUTDIR="$AUDIO_OUTDIR"
+# a rips folder inside slipmat's own folder would mix media into a git clone
+SLIP_REPO="$(cd "$(dirname "$0")/.." && pwd)"
+case "$OUTDIR/" in "$SLIP_REPO/"*) OUTDIR_MOVED="$OUTDIR"; OUTDIR="$HOME/Downloads/SLIPMAT" ;; esac
 
 URL="${1:-}"
 [ -n "$URL" ] || { printf '[slipmat-audio] no URL. usage: slipmat audio <url>\n' >&2; exit 1; }
@@ -136,6 +141,10 @@ cleanup_partials() {
   # the scratch dir goes on EVERY exit, success included — it holds the whole
   # source download plus artwork, and nothing reads it after the final mv
   [ -n "${TMPD:-}" ] && [ -d "$TMPD" ] && rm -rf "$TMPD" 2>/dev/null
+  # a closed window / Ctrl-C still leaves a findable log (normal endings
+  # have already renamed it, so this only fires on a stopped run)
+  [ -n "${RUNLOG:-}" ] && [ -f "$RUNLOG" ] && \
+    mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) ✗ audio stopped $(abridge "${M_TITLE:-${NAME:-rip}}" 60).log" 2>/dev/null
   [ -n "${NAME:-}" ] || return 0
   [ -s "$OUTDIR/${NAME}.m4a" ] && return 0
   rm -f "$OUTDIR/${NAME}".m4a.part "$OUTDIR/${NAME}".m4a.ytdl "$OUTDIR/${NAME}".*.ytdl \
@@ -148,6 +157,7 @@ trap 'cleanup_partials; exit 143' TERM
 trap 'cleanup_partials; exit 129' HUP
 title "AUDIO · $(abridge "${M_TITLE:-$STEM}" 60)"
 say "  → ${NAME}.m4a"
+[ -n "${OUTDIR_MOVED:-}" ] && say "  (the saved audio folder is inside slipmat's own folder — using $OUTDIR; rerun slipmat hello to pick another)"
 say ""
 
 PROG="--quiet --no-warnings"; [ "$IS_TTY" = "1" ] && PROG="--quiet --progress --no-warnings"
@@ -173,8 +183,12 @@ TMPD=$(mktemp -d)
     ABR_INT=${M_ABR%%.*}
     SRCQ="src=${M_ACODEC:-?} ${ABR_INT:-?}kbps"
     LQ=""; TAG_STAMP="src ${M_ACODEC:-?} ${ABR_INT:-?}kbps"
+    # Album stays empty unless the Album convention is switched on (an empty
+    # value also keeps a stray source album tag from riding along)
+    TAG_ALBUM=""; [ "${AUDIO_STAMP_ALBUM:-0}" = "1" ] && TAG_ALBUM="${ABR_INT:-?}kbps"
     if [ "${ABR_INT:-0}" -gt 0 ] 2>/dev/null && [ "${ABR_INT:-0}" -lt 128 ] 2>/dev/null; then
       LQ="⚠️LOW QUALITY SOURCE — "; TAG_STAMP="⚠️ $TAG_STAMP"
+      [ -n "$TAG_ALBUM" ] && TAG_ALBUM="⚠️ $TAG_ALBUM"
     fi
     case "$M_EXTRACTOR" in
       Soundcloud*|soundcloud*) TAG_COMMENT="${LQ}$SRCQ | [SC@${M_ARTIST:-$M_UPLOADER}] id $M_ID" ;;
@@ -225,12 +239,14 @@ ARTPY
         -c:a aac_at -b:a 320k \
         -metadata title="$TAG_TITLE" -metadata artist="$TAG_ARTIST" \
         -metadata comment="$TAG_COMMENT" -metadata composer="$TAG_STAMP" \
+        -metadata album="$TAG_ALBUM" \
         "$STAGE" 2>>"$RUNLOG" || { RC=1; FAIL_AT=encode; }
     else
       "$FFMPEG" -hide_banner -loglevel error -i "$SRC" -map 0:a \
         -c:a aac_at -b:a 320k \
         -metadata title="$TAG_TITLE" -metadata artist="$TAG_ARTIST" \
         -metadata comment="$TAG_COMMENT" -metadata composer="$TAG_STAMP" \
+        -metadata album="$TAG_ALBUM" \
         "$STAGE" 2>>"$RUNLOG" || { RC=1; FAIL_AT=encode; }
     fi
     if [ "$RC" -eq 0 ]; then
@@ -254,9 +270,12 @@ if [ "${RC:-1}" -ne 0 ] || [ ! -s "$OUT" ]; then
   else
     say "✗ audio rip failed (yt-dlp exit ${RC:-?}) — the link may be expired, private, or need a login."
   fi
-  tail -5 "$RUNLOG" 2>/dev/null | sed 's/^/    /'
+  # yt-dlp's own verdict, not whatever happened to be last in the log
+  if grep -q '^ERROR' "$RUNLOG" 2>/dev/null; then
+    grep '^ERROR' "$RUNLOG" | tail -3 | while IFS= read -r l; do say "    $l"; done
+  else tail -5 "$RUNLOG" 2>/dev/null | sed 's/^/    /'; fi
   # login-shaped failure → the same sentence `slipmat hello` uses at setup
-  if [ "${USE_COOKIES:-1}" = "1" ] && grep -qiE 'sign[ -]?in|log[ -]?in|age[ -]?restrict|confirm your age|members[ -]?only|private video|premium|authenticat|this account|subscriber' "$RUNLOG" 2>/dev/null; then
+  if [ "${USE_COOKIES:-1}" = "1" ] && grep '^ERROR' "$RUNLOG" 2>/dev/null | grep -qiE 'sign[ -]?in|log[ -]?in|age[ -]?restrict|confirm your age|members[ -]?only|private video|premium|authenticat|this account|subscriber'; then
     say "  ↳ This looks login-gated. slipmat borrows Firefox's cookies: log in to this site in Firefox itself, then re-run — the site will treat slipmat like you."
   fi
   title "✗ AUDIO failed"

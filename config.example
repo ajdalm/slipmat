@@ -9,7 +9,11 @@
 #AUDIO_OUTDIR="$HOME/Downloads/SLIPMAT AUDIO"
 #AUDIO_AUTO_ADD="$HOME/Music/Music/Media.localized/Automatically Add to Music.localized"
 
-# Spotify rips (slipmat spotify / [SLIPMAT AUDIO] SPOTIFY) follow the audio
+# Also write the source rate into Album ("160kbps", "⚠️ 96kbps") for web audio
+# rips — for libraries organized by that convention. Composer always has it:
+#AUDIO_STAMP_ALBUM=1
+
+# Spotify rips (slipmat spotify / [SLIPMAT SPOTIFY]) follow the audio
 # settings above. Extras, all off by default:
 #SPOTIFY_TO_MUSIC=1          # Spotify rips go to Music even if other audio doesn't
 #SPOTIFY_SPOT_TAG=1          # append " [SPOT]" to album names
