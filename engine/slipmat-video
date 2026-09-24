@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-#  slipmat  —  bulletproof video ripper for macOS (Apple Silicon)
+#  slipmat  —  bulletproof video ripper for macOS 12+ (re-encodes need Apple Silicon)
 #  The engine behind the SLIPMAT shortcut suite. Design notes live in the
 #  comments beside the code they explain.
 # =============================================================================
@@ -22,7 +22,7 @@
 #        defective OR vp9/av1/webm   -> CFR re-encode from mkv (HEVC, -q:v)
 #     -> verify -> self-documenting name -> receipt
 #
-#  USAGE:  slipmat <URL> [RES] [MODE]     — or the shorthand:  slipmat <URL> <MODE>
+#  USAGE:  slipmat video <URL|file> [RES] [MODE]   — or the shorthand:  slipmat <URL> <MODE>
 #     RES   = 480 | 720 | 1080 | max | ask  (default: max)
 #     MODE  = best | auto | studio          (default: auto)
 #        best   : the BEST QuickTime-playable stream, UNCAPPED, no questions
@@ -33,7 +33,7 @@
 #                 row 0 keeps lossless on clean sources; V4.0: rows = quality
 #                 flags with an ETA column, `1f`/`f` = fast flags), delete-original?
 #     Shorthand: `slipmat <url> best` = auto-best · `auto`/`studio` imply `ask`.
-#     Self-check: `slipmat --doctor` prints tool/health status and exits.
+#     Self-check: `slipmat doctor` (the wrapper adds audio + Spotify checks); `--doctor` here runs the engine's own.
 #
 #  Target: ffmpeg 8.1.x + videotoolbox, yt-dlp 2026.05+, bash 3.2 (stock macOS).
 # =============================================================================
@@ -227,7 +227,7 @@ Q_LOW=30                # dial 1 · small  [EYE 7.13.26: "acceptable, not great"
 Q_MEDLOW=40             # dial 2 · DEFAULT [EYE-CALIBRATED 7.13.26: indistinguishable from q50 on broadcast at ~70% of the size]
 Q_MED=50                # dial 3 · high   [PROVEN by eye; the pre-calibration default]
 Q_MEDHIGH=58            # dial 4 · near-max *** still provisional — never eye-tested standalone ***
-Q_AUTO=$Q_MEDLOW        # AUTO/BEST re-encode default — q40 per the 7.13.26 eye calibration
+Q_AUTO=""               # AUTO/BEST re-encode default — settles to Q_MEDLOW (q40) after the config is read
                         # (a full NMX hour: ~790MB vs ~1.15GB at the old q50, zero visible cost)
 
 USE_COOKIES=1           # 1 = pass Firefox cookies (local-only; enables YT-Premium
@@ -266,6 +266,7 @@ TERM_SIZE="48x132"          # V4.3: 48 rows × 132 cols (a hand-resized 112×42 
 # See config.example in the repo. USE_COOKIES=0 turns cookies off entirely.
 [ -f "$HOME/.slipmat/config" ] && . "$HOME/.slipmat/config"
 [ -n "${SLIPMAT_EMBED_HOSTS:-}" ] && VIMEO_EMBED_HOSTS="$SLIPMAT_EMBED_HOSTS"
+[ -n "${Q_AUTO:-}" ] || Q_AUTO=$Q_MEDLOW
 mkdir -p "$HOME/.slipmat" 2>/dev/null
 # Output-folder guard: finished files must never land inside slipmat's own app
 # folder (the folder holding engine/) — an update, reinstall or a broad git
@@ -376,7 +377,7 @@ also_kept_ask() {
     "$C_MAG$C_BOLD" "$_akl" "$C_RESET" "$C_BOLD" "$_akl" "${_mine:-rip}" "$C_RESET" "$C_DIM" "$C_RESET" > /dev/tty
   _ak=""; IFS= read -r -s -n1 -t 60 _ak < /dev/tty 2>/dev/null || _ak=""
   case "$_ak" in d|D) _ak="$ESC" ;; esac   # `d` = delete (the advertised key)
-  if [ "$_ak" = "$ESC" ]; then _ak2=""; IFS= read -r -s -n2 -t 0.15 _ak2 < /dev/tty 2>/dev/null; [ -n "$_ak2" ] && _ak="arrow"; fi
+  if [ "$_ak" = "$ESC" ]; then _ak2=""; IFS= read -r -s -n2 -t 1 _ak2 < /dev/tty 2>/dev/null; [ -n "$_ak2" ] && _ak="arrow"; fi
   if [ "$_ak" = "$ESC" ]; then
     if osascript -e "tell application \"Finder\" to delete POSIX file \"$SLIPMAT_ALSO_KEPT_PATH\"" >/dev/null 2>&1; then
       printf '%s%s deleted%s the %s file → Trash (%s)\n' "$C_YEL" "$G_OK" "$C_RESET" "$_akl" "$(basename "$SLIPMAT_ALSO_KEPT_PATH")" > /dev/tty
@@ -617,16 +618,12 @@ uniquify() {
         printf '%s\n' "$OUTDIR/${_try}.mp4" >> "$WORKDIR/claims" 2>/dev/null
         break
       fi
-      # lens-B F8: an UNWRITABLE OUTDIR (perms/full disk) makes every create fail
-      # and used to spin this walk forever inside a silent $() — cap it, verify
-      # writability once, and fail loudly (caller dies on empty NAME).
-      _cf=$(( ${_cf:-0} + 1 ))
-      if [ "$_cf" -ge 25 ]; then
-        ( : > "$OUTDIR/.vr_writetest" ) 2>/dev/null \
-          && rm -f "$OUTDIR/.vr_writetest" 2>/dev/null \
-          || { printf '' ; return 1 ; }
-        _cf=0
-      fi
+      # The create can fail for two reasons. The name exists (someone claimed it
+      # between the check and now): bump and keep walking. The name does NOT
+      # exist: the folder is unwritable, or the name itself is unusable (too
+      # long for the filesystem, a stray "/") — every bump would fail the same
+      # way, so return empty at once and let the caller die with a plain cause.
+      [ -e "$OUTDIR/${_try}.mp4" ] || { printf ''; return 1; }
       _try="${_stem} (${_n})"; _n=$((_n+1)); continue
     fi
     break
@@ -1125,7 +1122,7 @@ if [ "${MODE:-auto}" = "studio" ]; then
   BOXW=118                                # inner content width for boxes (V4.3: 118 — boxes span the 132-col window)
   WRAPW=110                               # V4.3: prose (advice · ↳ notes · headers) wraps here with a hanging indent — never past the rail
 else
-  BOXW=72; WRAPW=66; TERM_SIZE="44x104"; RCOL=32   # V4.4: narrow boxes + a smaller window for BEST/PICKER (long names wrap inside the box); receipt right column at 32
+  BOXW=72; WRAPW=66; [ -n "$TERM_SIZE" ] && TERM_SIZE="44x104"; RCOL=32   # V4.4: narrow boxes + a smaller window for BEST/PICKER (long names wrap inside the box); receipt right column at 32
 fi
 # size the window (tty only): rows x cols from TERM_SIZE — nothing else changes
 if [ "$IS_TTY" = "1" ] && [ -n "${TERM_SIZE:-}" ]; then
@@ -1752,27 +1749,33 @@ EOF3
 if [ "$URL" = "--doctor" ]; then
   printf 'SLIPMAT %s doctor\n' "$VERSION"
   for _t in "$YTDLP" "$FFMPEG" "$FFPROBE"; do
-    if [ -x "$_t" ]; then printf '  ✓ %-46s %s\n' "$_t" "$("$_t" --version 2>/dev/null | head -1 | cut -c1-30)"
+    case "$_t" in *yt-dlp*) _vf="--version" ;; *) _vf="-version" ;; esac   # ffmpeg/ffprobe take ONE dash
+    if [ -x "$_t" ]; then printf '  ✓ %-46s %s\n' "$_t" "$("$_t" $_vf 2>/dev/null | head -1 | awk '$1=="ffmpeg"||$1=="ffprobe"{print $3; next}{print}' | cut -c1-30)"
     else printf '  ✗ MISSING: %s\n' "$_t"; fi
   done
   _yvd=$("$YTDLP" --version 2>/dev/null | cut -d. -f1-3)
   _yts=$(date -j -f "%Y.%m.%d" "$_yvd" +%s 2>/dev/null)
   if [ -n "$_yts" ]; then
     _yage=$(( ( $(date +%s) - _yts ) / 86400 ))
-    printf '  · yt-dlp is %s days old%s\n' "$_yage" "$( [ "${_yage:-0}" -gt 75 ] && printf ' — sites rot; upgrade it the same way you installed it (pip install -U yt-dlp / brew upgrade yt-dlp)' )"
+    printf '  · yt-dlp is %s days old%s\n' "$_yage" "$( [ "${_yage:-0}" -gt 75 ] && printf ' — sites rot; upgrade it the same way you installed it (pip3 install -U yt-dlp / brew upgrade yt-dlp)' )"
   fi
   if "$YTDLP" --list-impersonate-targets 2>/dev/null | grep -v unavailable | grep -qi curl_cffi; then
     printf '  ✓ browser impersonation available (curl-cffi)\n'
-  else printf '  ! impersonation not available — some bot-walled sites will refuse; enable it with: pip install "yt-dlp[default,curl-cffi]"\n'; fi
+  else printf '  ! impersonation not available — some bot-walled sites will refuse; enable it with: pip3 install -U "yt-dlp[default,curl-cffi]"\n'; fi
   if lsof -i :4416 -sTCP:LISTEN >/dev/null 2>&1; then printf '  ✓ YouTube token server (bgutil, port 4416): running — warm tokens\n'
   else printf '  · no YouTube token helper on port 4416 — fine for most use; heavy YouTube ripping benefits from the bgutil-ytdlp-pot-provider plugin\n'; fi
-  _pyv=""; for _p in /opt/homebrew/bin/python3 /usr/bin/python3; do [ -x "$_p" ] && { _pyv="$_p"; break; }; done
+  _pyv=""; for _p in /opt/homebrew/bin/python3 /usr/bin/python3 "$(command -v python3 2>/dev/null)"; do [ -n "$_p" ] && [ -x "$_p" ] && { _pyv="$_p"; break; }; done
   printf '  %s python3: %s\n' "$([ -n "$_pyv" ] && printf '✓' || printf '✗')" "${_pyv:-MISSING (picker degrades to selector mode)}"
   [ -n "$OUTDIR_NOTE" ] && printf '  ! %s\n' "$OUTDIR_NOTE"
+  mkdir -p "$OUTDIR" 2>/dev/null   # a first run has no folder yet; df needs one
   _free=$(df -k "$OUTDIR" 2>/dev/null | awk 'NR==2{printf "%.1f", $4/1048576}')
-  printf '  %s free space at OUTPUTS: %sGB\n' "$(awk -v f="${_free:-0}" 'BEGIN{print (f<5)?"!":"✓"}')" "${_free:-?}"
-  _ck="$HOME/Library/Application Support/Firefox/Profiles"
-  printf '  %s firefox profile dir (cookies): %s\n' "$([ -d "$_ck" ] && printf '✓' || printf '!')" "$([ -d "$_ck" ] && echo present || echo absent — cookie-dependent sites may need login)"
+  printf '  %s free space at the download folder: %sGB\n' "$(awk -v f="${_free:-0}" 'BEGIN{print (f<5)?"!":"✓"}')" "${_free:-?}"
+  if [ "$USE_COOKIES" != "1" ]; then printf '  · cookies: off (USE_COOKIES=0)\n'
+  elif [ "$COOKIE_BROWSER" = "firefox" ]; then
+    _ck="$HOME/Library/Application Support/Firefox/Profiles"
+    printf '  %s firefox profile dir (cookies): %s\n' "$([ -d "$_ck" ] && printf '✓' || printf '!')" "$([ -d "$_ck" ] && echo present || echo absent — cookie-dependent sites may need login)"
+  else printf '  · cookies from %s (set in config)\n' "$COOKIE_BROWSER"; fi
+  [ "$(uname -m)" = "arm64" ] || printf '  ! Intel Mac: re-encodes (hardware HEVC at constant quality) will fail here; plain downloads work\n'
   _strays=$(ls -A "$WORKROOT" 2>/dev/null | grep -cv '^\.DS_Store$')
   printf '  %s scratch entries: %s (quiz dirs + live runs are normal; junk is swept at 48h)\n' "✓" "${_strays:-0}"
   _xw=$(find "$HOME/.slipmat/logs" -name "*✗*" -mtime -7 2>/dev/null | wc -l | tr -d ' ')
@@ -1850,6 +1853,13 @@ if [ -n "$FREE_MB" ] && [ "$FREE_MB" -lt "$_floor" ] 2>/dev/null; then
   die "only ${FREE_MB}MB free on the output volume — free up space first (a rip needs scratch + output room)."
 elif [ -n "$FREE_MB" ] && [ "$FREE_MB" -lt 5120 ] 2>/dev/null; then
   warn "low disk: only $(( FREE_MB / 1024 )).$(( FREE_MB % 1024 / 103 ))GB free — a long broadcast may not fit."
+fi
+# the download and the mkv scratch live under WORKROOT, which may be a different
+# volume from the output folder (an external drive for outputs, a full boot disk)
+_wfree=$(df -k "$WORKROOT" 2>/dev/null | awk 'NR==2{printf "%d", $4/1024}')
+[ -n "$_wfree" ] || _wfree=$(df -k "$HOME" 2>/dev/null | awk 'NR==2{printf "%d", $4/1024}')
+if [ -n "$_wfree" ] && [ "$_wfree" -lt "$_floor" ] 2>/dev/null; then
+  warn "only ${_wfree}MB free on the scratch volume ($WORKROOT) — a download may die mid-flight; free up space first."
 fi
 
 # ---- per-run scratch (CONCURRENCY-SAFE) --------------------------------------
@@ -2495,7 +2505,7 @@ build_vod_name() {
       dated-first)
         _pre="${_date:+${_date} - }"
         _suffix=""
-        [ -n "$M_ID" ]  && _suffix=" [${M_ID}]"
+        [ -n "$M_ID" ]  && _suffix=" [$(clean_field "$M_ID")]"
         [ -n "$_chan" ] && _suffix="${_suffix} - ${_tag}@${_chan}"
         ;;
       tight)
@@ -2505,7 +2515,7 @@ build_vod_name() {
       *)  # standard (the 7.7 spec)
         _pre=""
         _suffix=""
-        [ -n "$M_ID" ]  && _suffix=" [${M_ID}]"
+        [ -n "$M_ID" ]  && _suffix=" [$(clean_field "$M_ID")]"
         [ -n "$_chan" ] && _suffix="${_suffix} - ${_tag}@${_chan}"
         [ -n "$_date" ] && _suffix="${_suffix} - ${_date}"
         ;;
@@ -2896,6 +2906,7 @@ if [ "${VOD_SRC_IS_LIVE_CAPTURE:-0}" = "1" ] && [ -n "${PRODUCED:-}" ]; then
 elif [ -n "$LOCAL_SRC" ]; then
   _lb=$(basename "$LOCAL_SRC"); _lb="${_lb%.*}"
   NAME=$(uniquify "$(abridge "$_lb" 223) (reencode)")   # 223 + " (reencode)" = 235-byte stem budget
+  [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
 else
   # ---- V4.5g SMART TITLE (AUTO on qualifying sources, visible echo).
   # An optional executable ~/.slipmat/title-hook maps the source title to the
@@ -2907,10 +2918,11 @@ else
   case "$(lc "${RESCUE_PAGE_URL:-$URL}")" in *c-span.org*|*c-spanvideo.org*) _stag="CSPAN" ;; esac
   [ -z "$_stag" ] && case "${M_CHANNEL}${M_UPLOADER}" in *"The White House"*) _stag="WH" ;; esac
   [ -n "$_stag" ] && [ -x "$HOME/.slipmat/title-hook" ] \
-    && _smart=$("$HOME/.slipmat/title-hook" "$(clean_field "$M_TITLE")" 2>/dev/null)
+    && _smart=$(clean_field "$("$HOME/.slipmat/title-hook" "$(clean_field "$M_TITLE")" 2>/dev/null)")
   if [ -n "$_smart" ]; then
     _sdate=""; [ -n "$M_UPDATE" ] && _sdate=$(ymd_to_mdy "$M_UPDATE"); [ -z "$_sdate" ] && _sdate=$(date +%-m.%-d.%y)
     NAME=$(uniquify "$(abridge "$_smart" 215) [${_stag}] - ${_sdate}")
+    [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
     ok "smart name: ${C_MAG}${C_BOLD}${NAME}${C_RESET}  (official: $(abridge "$(clean_field "$M_TITLE")" 70))"
     logln "  smart title: official \"$(clean_field "$M_TITLE")\""
   else
@@ -2939,6 +2951,10 @@ if is_newsmax && [ "$IS_TTY" = "1" ] && [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z 
       _ql=$(tr '\n' '|' < "$NMX_SHOWS_LEARNED" | sed 's/|*$//; s/^|*//')
       [ -n "$_ql" ] && { [ -n "$_qshows" ] && _qshows="${_qshows}|${_ql}" || _qshows="$_ql"; }
     fi
+    # drop empty rows (a doubled or leading "|") and escape for the generated script's
+    # double-quoted assignment, so a name holding " $ or ` cannot break it
+    _qshows=$(printf '%s' "$_qshows" | tr '|' '\n' | sed '/^[[:space:]]*$/d' | tr '\n' '|' | sed 's/|$//')
+    _qshows=$(printf '%s' "$_qshows" | sed 's/[\\"$`]/\\&/g')
     cat > "$QDIR/quiz.sh" <<QEOF
 #!/bin/bash
 export LC_CTYPE=en_US.UTF-8
@@ -2959,6 +2975,7 @@ if [ -z "\$SHOW" ]; then
   if [ "\$a" = "\$i" ]; then printf 'show name > '; read -r SHOW; else SHOW="\$a"; fi
 fi
 [ -z "\$SHOW" ] && { echo "no show given — default name stands."; rm -rf "\$Q" 2>/dev/null; exit 0; }
+SHOW=\$(sane "\$SHOW")   # the menu, the file name and the learned list all carry the cleaned form
 case "|\$SHOWS|" in *"|\$SHOW|"*) : ;; *) printf '%s\n' "\$SHOW" >> "\$LEARN" 2>/dev/null ;; esac   # learn new shows
 D1=\$(date -v-1d +%-m.%-d.%y); D2=\$(date -v-2d +%-m.%-d.%y); D3=\$(date -v-3d +%-m.%-d.%y)
 echo; echo "Air date?"
@@ -2996,7 +3013,7 @@ rm -rf "\$Q" 2>/dev/null
 echo "(done — you can close this window)"
 QEOF
     chmod +x "$QDIR/quiz.sh"
-    ( osascript -e "tell application \"Terminal\" to do script \"/bin/bash $QDIR/quiz.sh\"" >/dev/null 2>&1 & )
+    ( osascript -e "tell application \"Terminal\" to do script \"/bin/bash '$QDIR/quiz.sh'\"" >/dev/null 2>&1 & )
     note "a small NMX-naming window opened — answer anytime, or ignore it (default name stands)."
   fi
 fi
@@ -3089,9 +3106,13 @@ if [ "$FAST" = "1" ]; then
       case "$RVC" in h264) VTAG="-tag:v avc1" ;; hevc|hev1|hvc1) VTAG="-tag:v hvc1" ;; *) VTAG="" ;; esac
       OUT="$OUTDIR/${NAME}.mp4"
       step 3 "finalizing to QuickTime mp4 (lossless copy + faststart) …"
+      # written in scratch and moved in whole, like every other output: a
+      # Ctrl-C or ffmpeg error mid-remux must not leave a partial file in the folder
+      _FT="$WORKDIR/fast_$$.mp4"
       "$FFMPEG" -hide_banner -loglevel error -y -i "$DLF" $VAMAP -c:v copy $AOPT $VTAG \
-        -movflags +faststart -max_muxing_queue_size 40000 "$OUT" </dev/null \
+        -movflags +faststart -max_muxing_queue_size 40000 "$_FT" </dev/null \
         || die "could not finalize the download to mp4."
+      mv "$_FT" "$OUT" || die "could not place the finished file in $OUTDIR."
       VOK=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$OUT")
       [ -n "$VOK" ] || die "output has no readable video stream."
       AOK=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$OUT")
@@ -4498,7 +4519,8 @@ reencode() {
     if grep -qiE 'No space left on device|Errno 28' "$FF_LOG" 2>/dev/null || [ "${_wkb:-999999}" -lt 51200 ] 2>/dev/null; then
       die "re-encode failed — the disk is full ($(( ${_wkb:-0} / 1024 ))MB left on the working volume). Free up space, then run it again."
     fi
-    surface_log "$FF_LOG"; die "re-encode failed."
+    surface_log "$FF_LOG"; [ "$(uname -m)" = "arm64" ] || die "re-encode failed — this Mac has no Apple Silicon HEVC encoder (plain downloads still work)."
+    die "re-encode failed."
   fi
   mv -f "$ENC_TMP" "$OUT" || die "could not move the finished encode into place."
   ENC_EL=$((SECONDS - ENC_T0))
@@ -4555,6 +4577,7 @@ if [ "$DO_REENCODE" = "1" ]; then
     _lstem="${NAME% (reencode)}"; _lstem="${_lstem% (reencode) (*)}"
     [ -f "$OUTDIR/${NAME}.mp4" ] && [ ! -s "$OUTDIR/${NAME}.mp4" ] && rm -f "$OUTDIR/${NAME}.mp4"
     NAME=$(uniquify "$(abridge "$_lstem" $(( 232 - $(printf '%s' "$RECIPE_TAG" | LC_ALL=C wc -c | tr -d ' ') ))) (${RECIPE_TAG})")
+    [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
   fi
   BASE_STEM="$NAME"   # pre-suffix stem — the shrink guard's discard path reclaims it
   # STUDIO with KEEP_ORIGINAL: make the pristine lossless "original" first (fast),
@@ -4566,10 +4589,12 @@ if [ "$DO_REENCODE" = "1" ]; then
       ORIG_OUT="$PRODUCED"
       note "the live capture itself is the pristine original."
     else
-      ORIG_NAME=$(uniquify "${NAME} (original)")
+      ORIG_NAME=$(uniquify "$(abridge "$NAME" 225) (original)")
+      [ -n "$ORIG_NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
       lossless "$ORIG_NAME" "saving the untouched original alongside" quiet; ORIG_OUT="$OUT"
     fi
-    NAME=$(uniquify "${NAME} (${RECIPE_TAG:-reencode})")
+    NAME=$(uniquify "$(abridge "$NAME" 210) (${RECIPE_TAG:-reencode})")   # 210 + the longest tag + " (n)" + ".mp4" < 255 bytes
+    [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
   fi
   # zoom-crop naming (V3.9 — dynamic to what is known): never
   # rename away a real name. Local file → its basename + " [Z]"; URL rip →
@@ -4588,6 +4613,7 @@ if [ "$DO_REENCODE" = "1" ]; then
     # claim the [Z] name instead — same atomic uniquify path
     [ -f "$OUTDIR/${NAME}.mp4" ] && [ ! -s "$OUTDIR/${NAME}.mp4" ] && rm -f "$OUTDIR/${NAME}.mp4"
     NAME=$(uniquify "$(abridge "$_zn" 227) [Z]")
+    [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
   fi
   reencode "$NAME"
   # shrink-guard layer 3 (8.10.26): the estimate was wrong and a VOLUNTARY shrink
