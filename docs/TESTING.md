@@ -37,6 +37,11 @@ Point it at a different engine with `SLIPMAT_ENGINE=/path/to/engine`.
 ```bash
 bash -n engine/slipmat-video && bash -n engine/slipmat-audio   # syntax
 ./slipmat video  "/no/such/file.mp4" studio                    # honest die
+# an output name the filesystem rejects dies with a plain cause (never hangs):
+#   extract uniquify() into a scratch script, call it with a stem holding "/" and
+#   with a 252-byte stem — both return empty at once
+# hello on a config with NO final newline: the managed block still sources clean
+#   (printf 'USE_COOKIES=0' > $H/.slipmat/config, run hello, bash -n the result)
 ./slipmat doctor                                               # toolchain
 ./slipmat video  "<any short YouTube url>" best                # end to end
 ./slipmat audio  "<any YouTube url>"                           # 320k + square art:
