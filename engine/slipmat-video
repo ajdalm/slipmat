@@ -1,8 +1,8 @@
 #!/bin/bash
 # =============================================================================
 #  slipmat  —  bulletproof video ripper for macOS (Apple Silicon)
-#  The engine behind the SLIPMAT shortcut suite. Built fresh by V4 (Claude
-#  Code) against the V3 master handoff. See ARCHITECTURE.md for the full design.
+#  The engine behind the SLIPMAT shortcut suite. Design notes live in the
+#  comments beside the code they explain.
 # =============================================================================
 #
 #  THE ONE RULE: a downloaded HLS file can play perfectly in VLC yet stutter in
@@ -48,7 +48,7 @@ export LC_CTYPE="en_US.UTF-8"
 VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
                         # re-probe · live receipt = video duration · TS probe short-circuit ·
-                        # honest blind-probe death · stage-on-source-volume (his quiz rulings)
+                        # honest blind-probe death · stage-on-source-volume
                         # every ask opens with a bold-purple question word; the default WEARS
                         # the word Enter (`Enter·keep (1080p)`, `← suggested · [Enter]`,
                         # `best available · [Enter]`), prompts name Enter by MEANING
@@ -57,8 +57,8 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # the size/recipe asks = back to PICKER on the same URL (re-rip a
                         # rung direct, the STUDIO file kept) — offered as "(p)" wherever the
                         # advice says re-rip. V4.4 below stays the substrate:
-                        # 8.17.26 late — THE THREE-WINDOW ROUND (his rulings from driving
-                        # V4.3 in three labeled windows; spec = RESUME "V4.4 SPEC"):
+                        # 8.17.26 late — THE THREE-WINDOW ROUND (from driving
+                        # V4.3 in three labeled test windows):
                         # downscale ask = ONE structured line (`0·keep (1080p …), 1·720,
                         # …`); the un-probed table stays but a LEAN rip carries a yellow
                         # warning above the choice; "barely shrinks" → "only grows it"
@@ -75,8 +75,8 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # DONE; PROBE PROGRESS BAR = frames encoded ÷ frames expected
                         # (real work, `scanning` first); custom cheat sheet wrapped +
                         # short prompt; z-ask caution → ↳; short estimated header.
-                        # 4.3 = 8.17.26 THE DE-CLUTTER ROUND (his rulings from the 8.16-17
-                        # guided test session; spec = RESUME "V4.3 SPEC"): say-it-once
+                        # 4.3 = 8.17.26 THE DE-CLUTTER ROUND (from the 8.16-17
+                        # guided test session): say-it-once
                         # (anything true of every row is one line above the table —
                         # the all-bigger line, the PICKER codec line); PICKER rows
                         # size-left, `c) custom` bare; QuickTime line silenced; every
@@ -89,9 +89,9 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # fallback OUTPUTS, flagged); window 48x132, BOXW 118, prose
                         # wraps at WRAPW 110 (wrap_rail); receipt right column fixed
                         # (RCOL 46). BEST/AUTO logic untouched.
-                        # 4.2 = 8.16.26 overnight THE TEST-SESSION ROUND (his rulings from
-                        # driving V4.1 in four windows, built on his "make the
-                        # judgment calls" go): `00` = 0 at every numeric prompt (his
+                        # 4.2 = 8.16.26 overnight THE TEST-SESSION ROUND (from
+                        # driving V4.1 in four test windows):
+                        # `00` = 0 at every numeric prompt (a
                         # stray `00` had run an unasked 8-min encode); table columns
                         # say size/time with the provenance in the header (probe-
                         # verified vs estimated, not probed), blank line between
@@ -108,8 +108,8 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # window (TERM_SIZE); the name-bump notice is log-only; the
                         # probe "high estimate" warning fires at ≥60s; the eta-check
                         # line tags quotes made under load. BEST/AUTO logic untouched.
-                        # 4.1 = 8.15.26 late THE CONCIERGE PRESENTATION PASS (his vision,
-                        # co-designed the same evening; spec = RESUME "V4.1 SPEC"):
+                        # 4.1 = 8.15.26 late THE CONCIERGE PRESENTATION PASS (designed
+                        # the same evening):
                         # receipts = label column, two columns (file · size from
                         # X · ±% · time | dim: geometry fps codecs · recipe/mode ·
                         # download) — checker silent when clean, no session time,
@@ -126,7 +126,7 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # geometry words horizontal/vertical, fps humanized,
                         # ~MB/min (bitrate: Mbps), step line target-first, bar
                         # trimmed, REC line time-first. BEST/AUTO logic untouched.
-                        # 4.0 = 8.15.26 SPEED/QUALITY IS PART OF THE PICK (his design):
+                        # 4.0 = 8.15.26 SPEED/QUALITY IS PART OF THE PICK:
                         # STUDIO's numbered rows are QUALITY recipes (Permute-Low
                         # flag family, $PRIO empty), each priced with a probe-
                         # measured ETA column; an `f` suffix (`1f` / `1 f` / bare
@@ -140,9 +140,9 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # q30 has the soft-content caution. Every STUDIO encode
                         # logs `eta check: said X → ran Y (±%) · quality|fast` and
                         # the size ledger names the mode. BEST/AUTO UNTOUCHED
-                        # (fast, wordless — his PRIOTEST-2 ruling). Supersedes
+                        # (fast, wordless — the PRIOTEST-2 ruling). Supersedes
                         # V3.8's silent "STUDIO always quality".
-                        # 3.9 = 8.15.26 Z-CROP (his Zoom-webcast spec, fully co-designed):
+                        # 3.9 = 8.15.26 Z-CROP (a Zoom-webcast spec):
                         # `z` on the STUDIO downscale menu hunts the moving PiP box
                         # (motion-persistence over 30 spread frames, numpy/scipy in
                         # numpy; strip tiles dropped, sustained positions merged,
@@ -151,10 +151,10 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # then ONE quality ask (q40 keep · q30 · q50), crop rides
                         # $SCALE so probe/encode/verify are untouched; naming never
                         # renames a real name ([Z] appended; bare timestamps humanized).
-                        # PROVEN: synthetic pixel-exact; his real 3072x1920 recording
+                        # PROVEN: synthetic pixel-exact; a real 3072x1920 recording
                         # → 2742x1544 (hand-measured ~2739x1538), 5s hunt, source
                         # checksum unchanged. ZMODE=0 → V3.8 flow byte-for-byte.
-                        # 3.8 = 8.14.26 THE FIELD-TEST ROUND (his 8.13 tests + eye rounds
+                        # 3.8 = 8.14.26 THE FIELD-TEST ROUND (the 8.13 tests + eye rounds
                         # became the spec): custom-q VERBATIM (33 = 33, bucket is
                         # FYI); fps tokens honored+announced everywhere ('half' at
                         # ~30fps = 24 — concierge is the adult in the room); bloat
@@ -169,14 +169,14 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # PERMUTE FINDING: -prio_speed 1 was the whole quality gap
                         # (hash-proven: our flags minus prio ≡ Permute Low to the
                         # byte) — STUDIO now encodes QUALITY flags ($PRIO empty),
-                        # BEST/AUTO keep speed pending his broadcast eye pair.
+                        # BEST/AUTO keep speed pending a broadcast eye pair.
                         # 3.7 = 8.13.26 LOCAL-FILE STUDIO (the Permute replacement): a real
                         # file path (plain Cmd+C in Finder — the STUDIO launcher
                         # coerces the clipboard file ref; ⌥⌘C pathname or file://
                         # text works too) skips the download and runs the one-table
                         # concierge on the LOCAL file. Source NEVER touched (remuxed
                         # copy into per-run scratch); no (original) sibling, no
-                        # delete-original ask (the original IS his file); row 0 =
+                        # delete-original ask (the original IS the user's file); row 0 =
                         # "kept untouched, nothing written" clean exit; output =
                         # "<basename> (reencode).mp4". BEST/PICKER on a file →
                         # honest redirect die; bare copied titles still die fast.
@@ -192,7 +192,7 @@ VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest n
                         # 3.5 = ESTIMATE-ACCURACY flagship: exact picker sums (video+
                         # audio, tilde only when not CDN-exact) + sample_probe() — real
                         # windows of THIS file anchor STUDIO estimates/ceiling/ETA
-                        # (±3%; curves alone read -33% on EO); receipt accountability.
+                        # (±3%; curves alone read -33% on a broadcast test file); receipt accountability.
                         # 8.11.26 overnight AUDITED round: 3-lens audit (33 findings,
                         # all adversarially verified) — calm Ctrl-C cancel RESURRECTED
                         # (scoped INT shield + ENC_INT; was dead code), encodes land
@@ -251,13 +251,13 @@ NMX_SHOWS_LEARNED="$HOME/.slipmat/nmx_shows_learned"
 #   standard    TITLE [ID] - TAG@handle - 8.3.26        (the 7.7 spec; default)
 #   dated-first 8.3.26 - TITLE [ID] - TAG@handle        (Finder sorts by date)
 #   tight       TITLE - 8.3.26 [TAG]                    (no ID/handle — closest
-#                                                        to his manual renames)
+#                                                        to hand-made renames)
 NAMING_STYLE="standard"
 
-# Terminal window size (V4.2, his 5a): the engine sizes its own window at start so
+# Terminal window size (V4.2): the engine sizes its own window at start so
 # the concierge's columns are designed for a KNOWN width. rows x cols; "" = leave
 # the window alone. Terminal.app honors the xterm resize sequence.
-TERM_SIZE="48x132"          # V4.3: 48 rows × 132 cols (he resized his own 112×42 window to 151×67 — the datum)
+TERM_SIZE="48x132"          # V4.3: 48 rows × 132 cols (a hand-resized 112×42 → 151×67 window was the datum)
 
 # ~/.slipmat/config is a plain shell fragment sourced over the defaults above —
 # any variable in this block can be overridden there (OUTDIR, COOKIE_BROWSER,
@@ -362,10 +362,10 @@ cleanup_scratch() {
   return 0
 }
 
-# V4.5b (his ruling): after a `p` re-rip lands, offer the STUDIO file for deletion —
+# V4.5b: after a `p` re-rip lands, offer the STUDIO file for deletion —
 # `[Enter = keep both]  [d = delete the 1080p file, keep only this 720p]`; no answer in
-# 60s = keep both (a rip must never wait on him). Delete = Finder Trash (reversible).
-# V4.5c (his Q3-A ruling): the advertised key is `d` (Esc is a terminal escape prefix —
+# 60s = keep both (a rip must never wait on the user). Delete = Finder Trash (reversible).
+# V4.5c: the advertised key is `d` (Esc is a terminal escape prefix —
 # an Esc-then-Enter would read as delete-then-confirm); a LONE Esc still works.
 # An arrow key also starts with ESC: a lone ESC is ESC, ESC+more bytes is not.
 also_kept_ask() {
@@ -535,7 +535,7 @@ fmt_dur() {
     if(h>0) printf "%d:%02d:%02d", h, m, s; else printf "%d:%02d", m, s }'
 }
 
-# ---- V4.1 presentation helpers (his rules: key datum first, human units) -----
+# ---- V4.1 presentation helpers (rules: key datum first, human units) -----
 # fmt_fps 30000/1001 → 29.97fps · 24 → 24fps · 25 → 25fps (integers stay bare;
 # NTSC rates keep 2 decimals; the exact fraction belongs to the log, not the eye)
 fmt_fps() {
@@ -545,7 +545,7 @@ fmt_fps() {
 }
 # geom_word W H → "720p" (a normal horizontal frame says nothing) / "1080p (V)"
 # (vertical is FLAGGED) / "1544p (2742x1544)" (irregular = a crop or an odd
-# frame: flagged AND the data shown). V4.5 (his ruling 8.17 evening): never type
+# frame: flagged AND the data shown). V4.5 (8.17 evening): never type
 # out horizontal/vertical; silence the normal case, flag the others.
 geom_word() {
   _gw=${1:-0}; _gh=${2:-0}; _gs=$_gh; [ "$_gw" -lt "$_gh" ] 2>/dev/null && _gs=$_gw
@@ -553,7 +553,7 @@ geom_word() {
     if [ "$_gw" -ge "$_gh" ] 2>/dev/null; then printf '%sp' "$_gs"; else printf '%sp (V)' "$_gs"; fi ;;
   *) printf '%sp (%sx%s)' "$_gs" "$_gw" "$_gh" ;; esac
 }
-# fmt_rate kbps → "~19 MB/min (bitrate: 2.5 Mbps)" — MB/min ties to how he thinks
+# fmt_rate kbps → "~19 MB/min (bitrate: 2.5 Mbps)" — MB/min ties to how people think
 # about size; the Mbps rides in parentheses for the technically minded
 fmt_rate() {
   awk -v k="${1:-0}" 'BEGIN{ if (k<=0) { printf "?"; exit }
@@ -574,7 +574,7 @@ box_line2() {
   logln "| $_l${_r:+  · $_r}"
 }
 
-# abridge_mid STRING MAX — cut the MIDDLE, keep head + tail ("President Trump Sig[…]
+# abridge_mid STRING MAX — cut the MIDDLE, keep head + tail ("A Very Long Event Ti[…]
 # YT@WhiteHouse - 7.13.26 (720p q30 24fps).mp4"): the tail carries the tag, date and
 # the recipe suffix — the part worth reading in a receipt. Byte-budgeted (UTF-8 safe).
 abridge_mid() {
@@ -630,7 +630,7 @@ uniquify() {
     fi
     break
   done
-  # V4.2 (his 6a): the bump is SILENT on screen — the receipt names the file
+  # V4.2: the bump is SILENT on screen — the receipt names the file
   # anyway and the concierge is non-destructive by definition; the log keeps it.
   [ "$_try" != "$_stem" ] && logln "  name bump: \"${_stem}\" was taken (existing file / in-progress rip / STUDIO sibling) → \"${_try}\""
   printf '%s' "$_try"
@@ -707,18 +707,18 @@ est_mb() { awk -v k="$1" -v d="$2" 'BEGIN{ printf "%.0f", k*d/8388.61 }'; }
 fmt_mb() { awk -v m="$1" 'BEGIN{ if (m>=1000) printf "%.1fGB", m/1024; else if (m<1) printf "<1MB"; else printf "%.0fMB", m }'; }
 fmt_bytes() { awk -v b="${1:-0}" 'BEGIN{ m=b/1048576; if (m>=1000) printf "%.2fG", m/1024; else if (m<1) printf "%.0fK", b/1024; else printf "%.0fM", m }'; }   # receipt sizes — same MB the ledger uses
 
-# ---- Z-crop motion analysis (V3.9 · 8.15 · his Zoom-webcast spec) -----------
+# ---- Z-crop motion analysis (V3.9 · 8.15 · the Zoom-webcast spec) -----------
 # Finds the moving-video PiP box inside a static-UI screen recording from K
 # grayscale frames spread across the file. Per-pixel motion PERSISTENCE (how
-# many consecutive-frame pairs changed) implements his time-weighting for
+# many consecutive-frame pairs changed) implements the time-weighting for
 # free: a 5-second excursion moves in ~1 of 30 samples and never registers;
 # sustained positions score high and merge. Thumbnail-strip tiles are separate
 # SMALL motion components → dropped by the ≥25%-of-dominant union rule; a
-# second sustained box position → kept (his 40min/30min case). Box is
+# second sustained box position → kept (the 40min/30min case). Box is
 # PIXEL-PERFECT from the mask, then expanded OUTWARD to even dims (encoders
 # need them — never trim). PROVEN 8.15: synthetic fixture pixel-exact (strip
-# excluded); his real 3072x1920 Zoom recording → 2742x1544 (his hand measure
-# ~2739x1538), 5s total. Design record: NOTES/Z-CROP-SPEC.md.
+# excluded); a real 3072x1920 Zoom recording → 2742x1544 (hand measure
+# ~2739x1538), 5s total.
 ZP_PY='
 import sys, numpy as np
 from scipy import ndimage
@@ -750,8 +750,8 @@ for i, b in enumerate(boxes):
     if areas[i] >= 0.25 * dom: keep[lab == (i+1)] = True
 ys, xs = np.where(keep)
 y1, y2, x1, x2 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
-# safety margin (his 8.15 call, my number): +4px outward — detection scatter
-# across thresholds measured ±2px on his real recording; doubled. Never lets
+# safety margin (8.15): +4px outward — detection scatter
+# across thresholds measured ±2px on a real recording; doubled. Never lets
 # a content pixel be shaved; costs a hairline of chrome on a 2700px box.
 M = 4
 x1 = max(0, x1 - M); y1 = max(0, y1 - M); x2 = min(W - 1, x2 + M); y2 = min(H - 1, y2 + M)
@@ -790,9 +790,9 @@ zoom_probe() {
 #   -> "total_kbps enc_fps" on stdout, or nothing (caller falls back to curves).
 # Encodes short windows of the ACTUAL file with the exact reencode() flags and
 # predicts the whole encode from them — content variance measured, not guessed
-# (the class curves ran -33% on the Executive Order file; this lands ±3%).
-# Validated on the 29-row CALIB truth matrix + that EO file: mean |err| 1.4%,
-# worst 4.3% (NOTES/2026-08-12-estimate-accuracy.md). Method, matrix-proven:
+# (the class curves ran -33% on a 1080p broadcast file; this lands ±3%).
+# Validated on the 29-row CALIB truth matrix + that broadcast file: mean |err| 1.4%,
+# worst 4.3%. Method, matrix-proven:
 #   1. Exact per-8s-bucket source-bitrate profile from ONE packet scan (no
 #      decode; 0.5s per source hour). Audio total rides the same scan.
 #   2. Probe windows: 8-16 evenly TIME-spread (duration-tiered) + the min/
@@ -804,7 +804,7 @@ zoom_probe() {
 #      the plain mean — src carries no signal there (measured, NMX), and blind
 #      windows need the extra coverage. The mean path then blends 50/50 with
 #      the class curve when the two agree within 15% (sampling noise shaves);
-#      on disagreement the sample stands alone (content evidence wins - EO).
+#      on disagreement the sample stands alone (content evidence wins).
 #   4. Total = video prediction + measured audio + container (~28B/frame).
 # Windows land in per-run scratch (cleanup-covered); INT-safe: nothing trapped.
 sample_probe() {
@@ -855,7 +855,7 @@ sample_probe() {
     awk -v ns="$_pNS" 'NR==1 || NR==int(ns/2) || NR==ns { printf "%s S\n", $1 }' "$_pW/sorted"
   } | sort -s -u -k1,1n > "$_pW/buckets"
   _pFR=0   # encoded frames total, for the ETA speed measurement
-  # V4.4 progress bar (his ask, made honest): the foreground reads frames done
+  # V4.4 progress bar (made honest): the foreground reads frames done
   # across every window's -progress file against the frames EXPECTED here —
   # (windows + the solo timing window) × 8s × fps; a second round adds its share.
   awk -v n="$(( $(wc -l < "$_pW/buckets" | tr -d ' ') + 1 ))" -v R="$_pRN" 'BEGIN{ printf "%.0f\n", n*8*R }' > "$_pW/expect"
@@ -963,7 +963,7 @@ platform_word() {
 }
 fmt_mbmin() { awk -v k="${1:-0}" 'BEGIN{ if (k<=0) { printf "?"; exit } printf "~%.0f MB/min", k*7500/1048576 }'; }
 # probe_eta_s <target-short> <fps> → seconds the probe should take. Calibrated on
-# two real points (EO 1080→720 20min ≈ 8s · his 1GB 1920p60 18min ≈ 40s ⇒ the
+# two real points (a 1080p→720p 20 min encode ≈ 8s · a 1 GB 1920p60 18 min encode ≈ 40s ⇒ the
 # hardware encoder chews ~5e8 px/s across the parallel windows) — an ESTIMATE,
 # labeled as such on the screen.
 probe_eta_s() {
@@ -976,7 +976,7 @@ probe_eta_s() {
 #   sets SAMP_RATIO / ENC_FPS_MEAS / PROBE_SKIPPED. On a tty: a live status line
 #   (ESTIMATE | ELAPSED) with Enter-to-skip; the probe runs as a background
 #   subshell so the keyboard stays live. Headless: plain run, no skip. NOTHING
-#   downstream prints until this returns — no numbers that later change (his rule).
+#   downstream prints until this returns — no numbers that later change.
 probe_screen() {
   _pl="$1"; _psc="$2"; _psh="$3"; _padv="${4:-}"
   SAMP_RATIO=""; ENC_FPS_MEAS=""; PROBE_SKIPPED=0
@@ -1006,7 +1006,7 @@ probe_screen() {
         [ -f "$_pf" ] || continue
         _pfv=$(awk -F= '$1=="frame"{f=$2} END{print f+0}' "$_pf" 2>/dev/null); _pdone=$((_pdone + ${_pfv:-0}))
       done
-      # V4.4b (his A ruling): the SCAN is the bar's first segment (0→20%, filled by
+      # V4.4b: the SCAN is the bar's first segment (0→20%, filled by
       # elapsed against a fifth of the estimate, held at 20% if the scan runs long);
       # the encode phase maps real frames onto 20→99%. `~m:ss left` = the encode
       # phase's own rate (elapsed_enc × (1−p)/p) once 5% is in — before that, the
@@ -1077,14 +1077,14 @@ ask_yn() {
 # Read a free-form line with a default; non-interactive returns the default.
 ask_line() {
   _prompt="$1"; _default="$2"; _ans=""
-  # V4.5j Z-AUTO (his locked 9.17 spec): unattended z — the SAME asks, answered by
+  # V4.5j Z-AUTO (the locked 9.17 spec): unattended z — the SAME asks, answered by
   # script (no parallel code path). Non-tty only (the batch looper runs </dev/null);
   # an interactive window keeps its questions. Every answer still logs below —
-  # the run log is his overnight witness.
+  # the run log is the overnight witness.
   if [ "${SLIPMAT_Z_AUTO:-0}" = "1" ] && ! [ -t 0 ]; then
     case "$_prompt" in
       *downscale*)     _ans="z" ;;
-      *quality*)       _ans="${SLIPMAT_Z_QCROP:-50}" ;;   # V4.5m: crops ride the hq dial (his 9.21 ruling — low-rez PiP sources degrade at 45; q50 = his eye-tier for degraded sources); plan-B plains keep SLIPMAT_Z_Q
+      *quality*)       _ans="${SLIPMAT_Z_QCROP:-50}" ;;   # V4.5m: crops ride the hq dial (9.21 — low-rez PiP sources degrade at 45; q50 = the eye-tested tier for degraded sources); plan-B plains keep SLIPMAT_Z_Q
       *recipe*)        _ans="c" ;;                       # plan B (no box): plain re-encode …
       *"custom"*)      _ans="${SLIPMAT_Z_Q:-45}" ;;     # … at the same dial, via custom-q verbatim
     esac
@@ -1118,7 +1118,7 @@ else
   B_TL='+'; B_TR='+'; B_BL='+'; B_BR='+'; B_H='-'; B_V='|'; B_ML='+'; B_MR='+'
   G_OK='+'; G_ARR='>'; G_RE='*'; G_TO='->'; G_REC='*'; BAR_F='#'; BAR_E='-'
 fi
-# V4.4 (his 8.17 ruling): STUDIO is the wide mode — its table needs the room; BEST/
+# V4.4 (8.17): STUDIO is the wide mode — its table needs the room; BEST/
 # PICKER boxes stay short ("shouldn't go much longer than the [2] downloading line").
 if [ "${MODE:-auto}" = "studio" ]; then
   BOXW=118                                # inner content width for boxes (V4.3: 118 — boxes span the 132-col window)
@@ -1150,7 +1150,7 @@ box_line() { _s="$1"; _sp="$_s"; case "$_s" in *"$ESC"*) _sp=$(printf '%s' "$_s"
   _l=${#_sp}; [ "$_l" -gt "$BOXW" ] && [ "$_sp" = "$_s" ] && { _s=$(printf '%s' "$_s" | cut -c1-"$BOXW"); _l=$BOXW; }; [ "$_l" -gt "$BOXW" ] && _l=$BOXW
   printf '%s%s%s %s%s %s%s%s\n' "$C_CYAN" "$B_V" "$C_RESET" "$_s" "$(_rep $((BOXW-_l)) ' ')" "$C_CYAN" "$B_V" "$C_RESET"; logln "| $(printf '%s' "$1" | sed 's/\x1b\[[0-9;]*m//g')"; }
 # V4.4: a labeled box line whose VALUE wraps onto continuation lines (indent 8)
-# instead of being mid-abridged — his ruling: long names wrap inside the box.
+# instead of being mid-abridged — the rule: long names wrap inside the box.
 box_file() {
   _bfl="$1"; _bfv="$2"; _bfw=$((BOXW-8)); _bfn=0
   while [ -n "$_bfv" ]; do
@@ -1169,7 +1169,7 @@ frame_rail() { printf '%s%s%s %s\n' "$C_CYAN" "$B_V" "$C_RESET" "$1"; logln "| $
 # V4.3 word-wrap for prose on the rail: wrap_rail COLOR INDENT TEXT — TEXT wraps at
 # $WRAPW (chars, multibyte-aware via ${#}); the 2nd+ lines carry INDENT (a hanging
 # indent); COLOR opens every line and is reset at its end. Words may carry ANSI
-# (a bold headline) — they are measured stripped. His 8.17 ruling: long lines
+# (a bold headline) — they are measured stripped. The 8.17 rule: long lines
 # "need to wrap sooner or be designed to be read multi line".
 wrap_rail() {
   _wc="$1"; _wi="$2"; _wt="$3"; _wf="${4:-}"; _wl=""; _wlp=""; _wn=0   # $4 = first-line prefix (leading spaces survive word-splitting this way)
@@ -1490,7 +1490,7 @@ elif cmd == "check":
         print(SEP.join(["noaudio", "no audio track exists to pair with it"])); sys.exit(0)
     print(SEP.join(["ok", ""]))
 elif cmd == "plrescue":
-    # V4.5h (9.16.26, his CNN article): some extractors return a PLAYLIST dump —
+    # V4.5h (9.16.26, a CNN article): some extractors return a PLAYLIST dump —
     # the page carries its clips as entries[], NO top-level formats, and hasvideo
     # read a real 2-clip article as a photo/text post. Pick the LEAD video-bearing
     # entry and emit what the caller needs to rewrite $URL like an embed rescue:
@@ -1532,7 +1532,7 @@ elif cmd == "plrescue":
                             str(e.get("upload_date") or ""), direct or "", manifest or "", others,
                             handle, matched]))
     elif not vids:
-        # V4.5i (9.16.26, his fox5ny article): the GENERIC extractor can succeed on a
+        # V4.5i (9.16.26, a local-TV article): the GENERIC extractor can succeed on a
         # news page yet describe its clip as ONE dimensionless, codec-less file — only
         # yt-dlps own video_ext field says "mp4". has_video needs pixels or a named
         # codec, so the photo gate condemned a real 720p h264 clip. Trust video_ext
@@ -1550,7 +1550,7 @@ elif cmd == "plrescue":
             print(SEP.join(["1", (data.get("title") or ""), eid,
                             str(data.get("upload_date") or ""), best.get("url") or "", "", ""]))
 elif cmd == "plempty":
-    # V4.5k (9.18.26, his CNN /videos/ TVE page): a PLAYLIST dump with NO video-bearing
+    # V4.5k (9.18.26, a CNN /videos/ TVE page): a PLAYLIST dump with NO video-bearing
     # entries means the extractor saw the page but found no clips — the caller treats
     # that as no probe at all (embed_hunt reads the page itself) instead of letting the
     # photo-post gate mislabel it.
@@ -1601,7 +1601,7 @@ present_formats() {
   _menu=$("$PYTHON" -c "$VR_PY" menu < "$INFO" 2>/dev/null)
   say ""
   box_top "PICK A STREAM?" "$C_MAG"   # V4.5: every ask opens with a bold-purple question
-  # V4.3 say-it-once (his 8.17 ruling: "if it always applies for all options
+  # V4.3 say-it-once (8.17: "if it always applies for all options
   # should it be somewhere else, not a column of data"): when every row shares
   # one codec, the codec is named ONCE here and leaves the rows.
   _onecodec=$(printf '%s\n' "$_menu" | awk -F'\037' 'NF>1 && $1!="" { c[$2]++; if ($5=="1") re=1 } END { n=0; for (k in c) { n++; last=k } if (n==1) printf "%s%s", last, (re?" *":"") }')
@@ -1619,26 +1619,26 @@ present_formats() {
     [ -z "$_p" ] && continue
     [ "$_nr" = "1" ] || _allre=0
     _i=$((_i+1))
-    # V4.1: orientation word (his rule: horizontal/vertical, never landscape/portrait)
+    # V4.1: orientation word (rule: horizontal/vertical, never landscape/portrait)
     # V4.5: vertical is FLAGGED "(V)", a normal horizontal frame says nothing
     _ow=$(printf '%s' "$_dim" | awk '{print $2}'); case "$_ow" in portrait|square) _ow="(V)" ;; *) _ow="" ;; esac
     _SEL_ARR[$_i]="$_sel"; _NR_ARR[$_i]="$_nr"; _PROTO_ARR[$_i]="$_proto"; _NOTE_ARR[$_i]="${_p}p${_ow:+ $_ow} · ${_vc}"
     MENU_PS="$MENU_PS $_p"
     MENU_MBS="$MENU_MBS ${_p}:${_mb}"
     [ "$_nr" = "0" ] && [ -z "$_topqt" ] && _topqt=$_i
-    # V4.1 row (his spec): key datum first — resolution + orientation, then codec ·
+    # V4.1 row: key datum first — resolution + orientation, then codec ·
     # fps · size; the blurb last; NO stream ids on the menu (they live in `c`
     # custom's raw table, the one moment id-shopping matters). No hardcoded
     # tilde: VR_PY marks approximates itself (~156MB), CDN-exact sums stay bare.
     _best=''
     if [ "$_i" = "1" ]; then
-      # V4.5: the default row WEARS the word Enter (his rule: never a number to cross-reference)
+      # V4.5: the default row WEARS the word Enter (rule: never a number to cross-reference)
       if [ "$_nr" = "1" ]; then _best="   ${C_GRN}best available${C_RESET} · ${C_BOLD}[Enter]${C_RESET}${C_DIM} — ${G_RE} converts to HEVC for QuickTime${C_RESET}"
       else _best="   ${C_GRN}best available${C_RESET} · ${C_BOLD}[Enter]${C_RESET}"; fi
     fi
     _re=''; [ "$_nr" = "1" ] && [ "$_i" != "1" ] && _re="   ${C_YEL}${G_RE} converts to HEVC for QuickTime${C_RESET}"
     _fpss='-'; { [ -n "$_fps" ] && [ "$_fps" != "0" ]; } && _fpss="${_fps}fps"
-    # V4.3 row (his spec): resolution+orientation · SIZE (moved left — "the size
+    # V4.3 row: resolution+orientation · SIZE (moved left — "the size
     # further to the left") · fps · codec only when codecs differ (say-it-once).
     if [ -n "$_onecodec" ]; then
       frame_rail "$(printf '%s%s%s)  %-10s ·  %-7s · %-6s%s%s' "$C_BOLD" "$_i" "$C_RESET" "${_p}p${_ow:+ $_ow}" "$_mb" "$_fpss" "$_best" "$_re")"
@@ -1737,10 +1737,10 @@ EOF3
   case "$_c" in ''|*[!0-9]*) _c=1 ;; esac
   { [ "$_c" -ge 1 ] && [ "$_c" -le "$_i" ]; } 2>/dev/null || _c=1
   SEL="${_SEL_ARR[$_c]}"; NEEDRE="${_NR_ARR[$_c]}"; SPROTO="${_PROTO_ARR[$_c]}"; SELNOTE="${_NOTE_ARR[$_c]}"
-  frame_rail "${C_GRN}${G_OK}${C_RESET} ${C_MAG}${C_BOLD}${SELNOTE} selected${C_RESET}"   # V4.4b: his choices purple bold (glance-back)
-  # convert-pick heads-up (8.13: his 1440-vp9 pick sailed through on the dim ↻
+  frame_rail "${C_GRN}${G_OK}${C_RESET} ${C_MAG}${C_BOLD}${SELNOTE} selected${C_RESET}"   # V4.4b: the user's choices purple bold (glance-back)
+  # convert-pick heads-up (8.13: a 1440-vp9 pick sailed through on the dim ↻
   # tag alone; the "conversion required" news arrived only AFTER the download).
-  # Non-blocking — his pick stands; the concierge just says it out loud NOW.
+  # Non-blocking — the pick stands; the concierge just says it out loud NOW.
   if [ "$NEEDRE" = "1" ] && [ -n "${_topqt:-}" ]; then
     frame_rail "${C_DIM}heads-up: this rung's codec converts to HEVC after download (can't play in QuickTime as-is) — row ${_topqt} is the top no-convert pick${C_RESET}"
   fi
@@ -1805,7 +1805,7 @@ esac
 if [ -n "$LOCAL_SRC" ] && [ "$MODE" != "studio" ]; then
   die "local files go through STUDIO (the re-encode concierge) — BEST/PICKER rip URLs. Run: slipmat \"$LOCAL_SRC\" studio"
 fi
-# V4.6 (his 8.22 catch, ruling 9.21): recognize the suite's OWN outputs by their
+# V4.6 (8.22 catch, ruling 9.21): recognize the suite's OWN outputs by their
 # naming (template " [id] - TAG@handle - date" · recipe suffix "(qNN …)" · "[Z]" ·
 # live stamp "[L- …]" · the show tags). Not a gate — the economics header just
 # stops mis-reading an efficient encode as a "bloated recording". The full table
@@ -1826,7 +1826,7 @@ if [ -n "$LOCAL_SRC" ]; then
 fi
 case "$MODE" in best|auto|studio) ;; *) die "unknown MODE '$MODE' (use best|auto|studio)" ;; esac
 case "$RES"  in 480|720|1080|max|ask) ;; *) die "unknown RES '$RES' (use 480|720|1080|max|ask — or a lone best|auto|studio as the 2nd arg)" ;; esac
-# V4.3 (his rule, 8.17): a LOCAL file's encode/crop lands BESIDE the original —
+# V4.3 (8.17): a LOCAL file's encode/crop lands BESIDE the original —
 # in the source's own folder ("the new version should match its directory").
 # Only when that folder is gone or unwritable (ejected drive, read-only volume)
 # does it fall back to your slipmat folder — and the receipt says so.
@@ -2031,7 +2031,7 @@ imp_available() {  # curl-cffi usable by this yt-dlp? checked at most once
 # calls garbage a win and the referer ladder below never runs. Real dumps are JSON
 # objects — first byte `{` is the cheap, reliable tell.
 info_json_ok() { [ -s "$1" ] && [ "$(head -c 1 "$1" 2>/dev/null)" = "{" ]; }
-# V4.5d (9.10.26, his Radio-Canada article: generic-extractor 403 even impersonated):
+# V4.5d (9.10.26, a Radio-Canada article: generic-extractor 403 even impersonated):
 # a news-ARTICLE URL often has no dedicated extractor — yt-dlp falls to its generic
 # webpage scraper and the site's bot wall (Akamai here) refuses it. But the pinned
 # curl_cffi reads the same page fine. So when a WEBPAGE won't probe, read the page
@@ -2406,7 +2406,7 @@ EOF
   # V4.5m: on Truth Social the bare-CDN dump "date" is the file's Last-Modified (UTC) —
   # junk; the status JSON's created_at (localized in the hunt) ALWAYS wins.
   case "$(lc "${RESCUE_PAGE_URL:-}")" in *truthsocial.com*) [ -n "${RESCUE_DATE:-}" ] && M_UPDATE="$RESCUE_DATE" ;; esac
-  # V4.5e-2 (his ruling 9.14): C-SPAN names carry [CSPAN], not the program number —
+  # V4.5e-2 (ruling 9.14): C-SPAN names carry [CSPAN], not the program number —
   # the [NMX] convention; the program id stays in the log's url line.
   case "$(printf '%s' "${RESCUE_PAGE_URL:-$URL}")" in *c-span.org*|*c-spanvideo.org*) M_ID="CSPAN" ;; esac
   # V4.5h: same convention for CNN clip rescues ([CNN]); and a rescue whose hunter
@@ -2571,7 +2571,7 @@ source_box() {
     box_line "$_t1"
   fi
   _who="${_ptag:+$_ptag}${ID_CHAN:+@$ID_CHAN}"
-  # V4.5d: an unknown channel says the SITE, not a bare `?` (his Radio-Canada + TMZ runs)
+  # V4.5d: an unknown channel says the SITE, not a bare `?` (Radio-Canada + TMZ runs)
   if [ -z "$_who" ]; then _who=$(printf '%s' "${RESCUE_PAGE_URL:-${URL:-}}" | sed -E 's#^[a-z]+://##; s#/.*$##; s#^www\.##'); fi   # V4.5h: after a rescue the PAGE is the identity, not the CDN host
   _when=""; [ -n "$M_UPDATE" ] && _when=$(ymd_to_mdy "$M_UPDATE")
   _lv=""; case "$M_LIVE" in is_live|is_upcoming|post_live) _lv=" · $M_LIVE" ;; esac
@@ -2725,7 +2725,7 @@ if [ "$IS_LIVE" = "1" ]; then
   # was newest; the finished .mp4 sat right beside it).
   PRODUCED=$(ls -t "$OUTDIR/${NAME}".* 2>/dev/null | grep -vE '\.temp\.[^.]+$|\.part$|\.ytdl$' | head -1)
   { [ -n "$PRODUCED" ] && [ -s "$PRODUCED" ]; } || { surface_log "$LIVE_ERRLOG"; die "live capture produced no file (URL may have ended/failed)."; }
-  # V4.6 (his 9.21 ruling): the VIDEO's duration is king — the wall-clock window
+  # V4.6 (9.21): the VIDEO's duration is king — the wall-clock window
   # number (padded by connect/buffer lag) confused and no longer prints; the run
   # log keeps it for telemetry.
   LIVE_DUR=$("$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$PRODUCED" 2>/dev/null | cut -d. -f1)
@@ -2896,11 +2896,11 @@ elif [ -n "$LOCAL_SRC" ]; then
   _lb=$(basename "$LOCAL_SRC"); _lb="${_lb%.*}"
   NAME=$(uniquify "$(abridge "$_lb" 223) (reencode)")   # 223 + " (reencode)" = 235-byte stem budget
 else
-  # ---- V4.5g SMART TITLE (his 9.14 ruling: AUTO on qualifying sources, visible echo).
-  # Scope (judgment call, veto-able): YT@The White House + C-SPAN. The mapper
-  # (tools/smart-title.py) is deterministic rules from his 10 examples; it maps ONLY
-  # titles that name Trump — anything else prints nothing and the standard template
-  # stands. Smart names carry no video id: `TRUMP AF1 GAGGLE [WH] - 9.13.26`
+  # ---- V4.5g SMART TITLE (AUTO on qualifying sources, visible echo).
+  # An optional executable ~/.slipmat/title-hook maps the source title to the
+  # user's own naming convention; it is called only for C-SPAN and White House
+  # sources, and empty output keeps the standard name. Smart names carry no
+  # video id: `SHORT NAME [WH] - 9.13.26`
   # (uniquify bumps collisions). The official title is echoed once and logged.
   _stag=""; _smart=""
   case "$(lc "${RESCUE_PAGE_URL:-$URL}")" in *c-span.org*|*c-spanvideo.org*) _stag="CSPAN" ;; esac
@@ -2932,7 +2932,7 @@ if is_newsmax && [ "$IS_TTY" = "1" ] && [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z 
   if mkdir -p "$QDIR" 2>/dev/null; then
     _qdef=$(nmx_date_from_url "$URL"); [ -z "$_qdef" ] && _qdef=$(date +%-m.%-d.%y)
     _qdur=$(fmt_dur "${M_DUR:-0}")
-    # learned shows (8.11): customs he typed before become menu rows
+    # learned shows (8.11): custom names typed before become menu rows
     _qshows="$NMX_SHOWS"
     if [ -s "$NMX_SHOWS_LEARNED" ]; then
       _ql=$(tr '\n' '|' < "$NMX_SHOWS_LEARNED" | sed 's/|*$//; s/^|*//')
@@ -3063,7 +3063,7 @@ if [ "$FAST" = "1" ]; then
     fi
   fi
   DL_EL=$((SECONDS - DL_T0))
-  # V4.4 (his B ruling): the download telemetry is a dim line HERE, between [2] and
+  # V4.4: the download telemetry is a dim line HERE, between [2] and
   # [3] — the DONE box says file · size · time only, and never "direct copy".
   _dlb=$(stat -f %z "$DLF" 2>/dev/null || echo 0)
   note "downloaded $(fmt_bytes "$_dlb") in $(fmt_dur $(( DL_EL > 0 ? DL_EL : 1 )))$(awk -v b="$_dlb" -v t="${DL_EL:-0}" 'BEGIN{ if (t>0 && b>0) printf " · %.1fMB/s", b/1048576/t }')"
@@ -3103,7 +3103,7 @@ if [ "$FAST" = "1" ]; then
       box_top "DONE"
       box_file file "$(basename "$OUT")"
       # V4.4: file · size · time — the geometry/codec was said at the pick, the
-      # download speed at the download; "direct copy" is silenced (his B ruling)
+      # download speed at the download; "direct copy" is silenced
       box_line "size    $(fmt_bytes "$(stat -f %z "$OUT" 2>/dev/null || echo 0)")"
       box_line "time    $(fmt_dur $(( SECONDS - T_RUN0 > 0 ? SECONDS - T_RUN0 : 1 )))"
       [ -n "${AVFIX_NOTE:-}" ] && box_line "note    $AVFIX_NOTE"
@@ -3138,14 +3138,14 @@ if [ -n "$LOCAL_SRC" ]; then
   fi
   [ -s "$MKV" ] || die "staging produced an empty scratch — the file may be unreadable."
 elif [ -n "${SLIPMAT_LOCAL_MKV:-}" ]; then
-  # --- offline test hook: skip download, use a local mkv (see ARCHITECTURE.md)
+  # --- offline test hook: skip download, use a local mkv
   step 2 "(TEST) using local mkv"; note "$SLIPMAT_LOCAL_MKV"
   cp "$SLIPMAT_LOCAL_MKV" "$MKV" || die "test mkv copy failed."
 elif [ -f "$MKV" ]; then
   : # $MKV already staged (live capture, or fast-path codec fallthrough)
 else
   step 2 "downloading …"
-  # V4.5b (his 8.17 evening logs — four Newsmax rips at once: solo pulls ran 16-24
+  # V4.5b (8.17 evening logs — four Newsmax rips at once: solo pulls ran 16-24
   # MB/s, the concurrent ones crawled at ~2 MB/s for 20 min): say so up front.
   # Other NMX instances = other per-run scratch dirs whose run log names an nmxvod
   # /newsmax URL (each instance owns vr_<ts>_<pid>/; the log sits beside it in
@@ -3259,7 +3259,7 @@ else
         _el=$((SECONDS - _t0))
         awk -v d="$(( _cb - _pb ))" -v c="$_cb" -v e="$_el" \
           'BEGIN{ printf "  [speed] %d:%02d  %.0fMB total · %.1fMB/s (last 30s)\n", e/60, e%60, c/1048576, d/30/1048576 }'
-        # V4.5c (his 19:09 NMX rip: 0.0 MB/s for 5 min at ~99%, a frozen bar and no words):
+        # V4.5c (a 19:09 NMX rip: 0.0 MB/s for 5 min at ~99%, a frozen bar and no words):
         # the opening speed is kept for the receipt's throttle note; a STALL (three
         # samples under 0.2 MB/s) is said ONCE on the screen — the bar redraws under it.
         [ "$_el" -le 30 ] && awk -v d="$_cb" 'BEGIN{ printf "%.1f", d/30/1048576 }' > "$WORKDIR/spd0" 2>/dev/null
@@ -3412,7 +3412,7 @@ print(u or "")' < "$INFO" 2>/dev/null)
   # download speed is first-class data (8.10.26): slow-CDN patterns become visible
   # in receipts/logs instead of folklore (fresh NMX ≈ 15MB/s; throttled ≈ 0.6).
   DLMBS=$(awk -v b="$(stat -f %z "$MKV" 2>/dev/null || echo 0)" -v t="${DL_EL:-0}" 'BEGIN{ if (t>0 && b>0) printf "%.1f", b/1048576/t }')
-  # V4.5c: name the throttle when the average fell under a third of the opening 30s (his
+  # V4.5c: name the throttle when the average fell under a third of the opening 30s (the
   # 8.17 logs: solo 16-24 MB/s, concurrent ~2 MB/s — the CDN, not the machine)
   _thr=""; _spd0=$(cat "$WORKDIR/spd0" 2>/dev/null)
   [ -n "$_spd0" ] && [ -n "$DLMBS" ] && awk -v a="$DLMBS" -v o="$_spd0" 'BEGIN{ exit !(o>=3 && a < o/3) }' && _thr=" · throttled (opened at ${_spd0}MB/s)"
@@ -3492,9 +3492,9 @@ DO_REENCODE=0
 # -prio_speed 1 was the ENTIRE quality gap — same q, it spends +6.5% MORE bits
 # for a softer/choppier picture (CFR mode + pix_fmt/allow_sw/profile all inert
 # — byte-identical outputs without them). BEST/AUTO = FAST flags, wordless
-# (his 8.15 PRIOTEST-2 ruling: the no-questions paths default to speed; the
+# (the 8.15 PRIOTEST-2 ruling: the no-questions paths default to speed; the
 # gap shows only on medium-shot people, and STUDIO is the door for that).
-# V4.0 (8.15 his design): in STUDIO the mode is PART OF THE PICK — the table
+# V4.0 (8.15): in STUDIO the mode is PART OF THE PICK — the table
 # rows are quality recipes, an `f` suffix (`1f` / `f`) or the `fast` custom
 # token switches THAT recipe to fast flags. So STUDIO probes and prices in
 # QUALITY mode (sample_probe inherits $PRIO = "" here — estimates and ETAs
@@ -3521,7 +3521,7 @@ ZMODE=0; ZBOX=""; _ZCUSTOM=""   # V3.9 zoom-crop state (STUDIO z path sets them)
 # 720 — the resolution drop denoises the stutter fix and yields a much smaller file.
 # STUDIO is excluded (it asks). In PICKER this overrides an explicit high-res pick, so
 # we announce it and point at STUDIO for anyone who wants defective-native. (memory:
-# defect-downscale-no-questions; ARCHITECTURE routing note.)
+# defect-downscale-no-questions.)
 if [ "$MODE" != "studio" ] && [ "$VERDICT" = "DEFECT" ] && [ -n "$SHORT" ] && [ "$SHORT" -gt 720 ] 2>/dev/null; then
   if [ "$PORTRAIT" = "1" ]; then SCALE="-vf scale=720:-2"; else SCALE="-vf scale=-2:720"; fi
   HLABEL="720p"
@@ -3534,7 +3534,7 @@ if [ "$MODE" = "studio" ]; then
   SIZE_IN=$(du -h "$MKV" 2>/dev/null | awk '{print $1}')
   say ""
   box_top "STUDIO"
-  # ---- V4.1 STORY BLOCK (his spec): the file's story, organized — name / the
+  # ---- V4.1 STORY BLOCK: the file's story, organized — name / the
   # facts line (size · Duration · geometry · fps · codecs · rate · platform) /
   # one advice sentence (after the probe, below) / the checker, dim when clean
   # and loud when a fix is required. Nothing here is repeated later.
@@ -3543,14 +3543,14 @@ if [ "$MODE" = "studio" ]; then
   _skb0=$(stat -f %z "$MKV" 2>/dev/null); _sdur0=$("$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$MKV" 2>/dev/null)
   _skbps0=$(awk -v b="${_skb0:-0}" -v d="${_sdur0:-0}" 'BEGIN{ if(d+0>0) printf "%.0f", b*8/d/1000; else print 0 }')
   PLAT_WORD=$(platform_word)
-  # V4.4d (his ruling: the facts were "hidden" in one long line): THREE labeled
+  # V4.4d (the facts were "hidden" in one long line): THREE labeled
   # columns on TWO rows — size first, left; geometry is one thing; fps rides the rate.
   _sfmb=$(fmt_mb "$(awk -v b="${_skb0:-0}" 'BEGIN{ printf "%.0f", b/1048576 }')")
   _srcok=""; [ "$VERDICT" != "DEFECT" ] && [ "$CODEC_OK" != "0" ] && _srcok=" ${C_GRN}${G_OK}${C_RESET}"   # V4.4e: the checker is a ✓ after the source when clean; heard from ONLY when it fails
   frame_rail "$(printf '  %s%-9s%s%-22s %s%-9s%s%-22s %s%-8s%s%s' "$C_DIM" "size" "$C_RESET" "$_sfmb" "$C_DIM" "duration" "$C_RESET" "$(fmt_dur "${_sdur0%%.*}")" "$C_DIM" "source" "$C_RESET" "${PLAT_WORD}${_srcok}")"
   frame_rail "$(printf '  %s%-9s%s%-22s %s%-9s%s%-22s %s%-8s%s%s' "$C_DIM" "picture" "$C_RESET" "$(geom_word "${WIDTH:-0}" "${HEIGHT:-0}")" "$C_DIM" "codec" "$C_RESET" "${VCODEC}/${ASEL:-no audio}" "$C_DIM" "rate" "$C_RESET" "$(fmt_rate "$_skbps0") · $(fmt_fps "$RFR")")"
   logln "| ${_sfmb} · Duration $(fmt_dur "${_sdur0%%.*}") · $(geom_word "${WIDTH:-0}" "${HEIGHT:-0}") · $(fmt_fps "$RFR") · ${VCODEC}/${ASEL:-no audio} · $(fmt_rate "$_skbps0") · ${PLAT_WORD}"
-  # (V4.3: the "your file won't be modified — lands beside it" sentence is gone — his ruling: "unnecessary explaining"; the file DOES land beside the source now)
+  # (V4.3: the "your file won't be modified — lands beside it" sentence is gone — "unnecessary explaining"; the file DOES land beside the source now)
   if [ "$VERDICT" = "DEFECT" ]; then
     _keptmsg=""; [ "$CODEC_OK" = "1" ] && _keptmsg=" — your untouched original is kept alongside"
     frame_rail "${C_YEL}stutter ${DEFECT}% — DEFECT: the CFR fix re-encode is required (that is the whole point)${_keptmsg}${C_RESET}"
@@ -3582,7 +3582,7 @@ if [ "$MODE" = "studio" ]; then
   DUR_S=${_sdur%%.*}; [ "$DUR_S" -gt 0 ] 2>/dev/null || DUR_S=0
   SRC_MB=$(awk -v b="${_skb:-0}" 'BEGIN{ printf "%.0f", b/1048576 }')
   EST_SHORT="${SHORT:-0}"
-  # ---- V4.4 CURVE LEDGER (his ruling: "I want the curve to be able to improve
+  # ---- V4.4 CURVE LEDGER (the ask: "I want the curve to be able to improve
   # based on logs that guess before probe"). Every probe appends its native
   # ratio (probed ÷ curve) to LOGS/curve-ledger.tsv; an UN-probed table
   # multiplies the curve by the ledger's median for the same class+platform
@@ -3590,8 +3590,8 @@ if [ "$MODE" = "studio" ]; then
   CURVE_LEDGER="$HOME/.slipmat/logs/curve-ledger.tsv"
   LEARN_RATIO=""; LEARN_N=""
   if [ -s "$CURVE_LEDGER" ]; then
-    # V4.4e policy (his "do the smartest thing"): ONE vote per file+geometry (the
-    # latest row wins — his EO probed three times is one point, not three); tiers:
+    # V4.4e policy ("do the smartest thing"): ONE vote per file+geometry (the
+    # latest row wins — a file probed three times is one point, not three); tiers:
     # same class+platform+short-side (≥1) → class+platform (≥1) → class alone (≥3).
     _lrdd() { awk -F'\t' '$6+0>0 { k=$7 "|" $4; v[k]=$6 } END{ for (k in v) print v[k] }' ; }
     _lrp=$(awk -F'\t' -v c="$CLS" -v p="$PLAT_WORD" -v h="${SHORT:-0}" '$2==c && $3==p && $4==h' "$CURVE_LEDGER" | _lrdd | sort -n)
@@ -3609,10 +3609,10 @@ if [ "$MODE" = "studio" ]; then
   # (defects) → downscale ask → sample probe → ONE numbered table where every
   # row is a full recipe priced for THIS file; Enter = the suggested row.
   # Row 0 cancels the re-encode and keeps lossless — CLEAN sources only: on a
-  # defect the fix is mandatory (his call: the dial is his, the fix is not).
+  # defect the fix is mandatory (the dial is the user's, the fix is not).
   # Rungs q25/30/35/40 ONLY — q40 is the ladder top for platform rips (q50 only
   # earns its bits on BLOATED sources; reachable via custom, labeled Permute-Med).
-  # DEFERRED behind his trust gate ("you cant even estimate right yet" — the
+  # DEFERRED behind a trust gate ("you cant even estimate right yet" — the
   # receipts ledger must prove ±5% on real encodes first): target-size custom
   # and auto-extending the ladder to q45/q50 on detected-bloated sources.
   #
@@ -3623,7 +3623,7 @@ if [ "$MODE" = "studio" ]; then
   # (720 -> 720x1280, not 405x720). Pre-save the labels: a row-0 pick (keep
   # lossless) must drop a chosen downscale WITH its naming label.
   # ---- V4.1: PROBE FIRST, at NATIVE geometry, then advise, THEN ask ------------
-  # (his ethos: the concierge's advice arrives before any question; a downscale
+  # (the ethos: the concierge's advice arrives before any question; a downscale
   # re-samples at the new size — probe-at-target-geometry stays load-bearing.)
   EST_FPS=$(awk -v r="$RATE" 'BEGIN{ n=split(r,a,"/"); if(n==2&&a[2]>0) printf "%.2f", a[1]/a[2]; else printf "%.2f", r+0 }')
   _pq="$(fmt_mbmin "$SRC_KBPS") · $(fmt_mb "$SRC_MB") · $(geom_word "${WIDTH:-0}" "${HEIGHT:-0}")"
@@ -3635,10 +3635,10 @@ if [ "$MODE" = "studio" ]; then
   else _padv="Probing recommended — a lean ${PLAT_WORD} is a tight race vs their encoder (${_pq}); the numbers decide"; fi
   probe_screen "Probing" "" "${SHORT:-0}" "$_padv"
   SAMP_RATIO_NAT="$SAMP_RATIO"; ENC_FPS_NAT="$ENC_FPS_MEAS"; PROBE_SKIPPED_NAT="$PROBE_SKIPPED"
-  # bloat verdict + the advice sentence (measured when the probe ran; his
+  # bloat verdict + the advice sentence (measured when the probe ran; a
   # parenthetical style: the qualities that drive the advice, right after it).
   # A function so an `s` re-probe at the recipe prompt recomposes it fresh.
-  # V4.3: the sentence is STRUCTURED (his 8.17 ruling: "designed to be read multi
+  # V4.3: the sentence is STRUCTURED (8.17: "designed to be read multi
   # line") — a headline (_ecohead), a class·stats line (_ecoclass) and the why
   # (_ecowhy); printed by print_suggested. Its q40 number is priced at the TARGET
   # geometry (EST_SHORT + the current sample) so a downscale re-sample recomposes
@@ -3663,7 +3663,7 @@ if [ "$MODE" = "studio" ]; then
   [ -n "$EST_SHORT" ] && [ "${EST_SHORT:-0}" != "${SHORT:-0}" ] && _q40w="q40 at ${HLABEL:-${EST_SHORT}p} lands ~$(fmt_mb "$_q40tgt") $(pct_vs_src "$_q40tgt")"
   if [ -n "$LOCAL_SRC" ] && [ "${OWN_OUT:-0}" = "1" ]; then
     # V4.6: our own output fed back in — already efficient by construction; say
-    # the truth neutrally and let him shrink it if the MB matter (his ruling).
+    # the truth neutrally and let the user shrink it if the MB matter.
     _ecohead="one of this suite's own encodes — already efficient"
     _ecowhy="${_q40w} — re-encoding a re-encode trades quality; shrink only if the MB matter"
   elif [ "$BLOAT" = "1" ] && [ -n "$LOCAL_SRC" ]; then
@@ -3673,7 +3673,7 @@ if [ "$MODE" = "studio" ]; then
   elif [ "$LEAN" = "1" ] && [ -z "$LOCAL_SRC" ]; then
     _ecohead="a lean ${PLAT_WORD}"
     if awk -v q="${_q40tgt:-0}" -v s="${SRC_MB:-0}" 'BEGIN{ exit !(s>0 && q >= 0.95*s) }'; then
-      _ecowhy="a re-encode only grows it; a lower rung is the MB win${_P:-}"   # V4.5c: one line with the `p · back to PICKER` headline   # V4.4: his A run — "barely shrinks" under a table where nothing shrank
+      _ecowhy="a re-encode only grows it; a lower rung is the MB win${_P:-}"   # V4.5c: one line with the `p · back to PICKER` headline   # V4.4: an A run — "barely shrinks" under a table where nothing shrank
     else _ecowhy="a re-encode barely shrinks it — keep unless you need the MB"; fi
   elif [ -z "$LOCAL_SRC" ]; then
     _ecohead="a ${PLAT_WORD}, already efficient"; _ecowhy="smaller only by softer; their encoder wins at equal bytes — keep unless you need the MB"
@@ -3683,7 +3683,7 @@ if [ "$MODE" = "studio" ]; then
   [ "$IS_FILM" = "1" ] && _ecowhy="${_ecowhy} · film never re-encodes invisibly"
   _ecoline="${_ecohead} (${_pq}): ${_ecowhy}"   # one-line form (headless logs, older callers)
   }
-  # V4.5 (his ruling): wherever the advice says "re-rip a rung", `p` at the next
+  # V4.5: wherever the advice says "re-rip a rung", `p` at the next
   # prompt hands the run back to PICKER on the same URL (a lower rung downloads
   # DIRECT — no re-encode). URL sources with a stream list only: never a local
   # file, never a live capture. The sentence ends "(p)" so the key is offered
@@ -3692,10 +3692,10 @@ if [ "$MODE" = "studio" ]; then
   [ -z "$LOCAL_SRC" ] && [ "${VOD_SRC_IS_LIVE_CAPTURE:-0}" != "1" ] && [ "$_forced" = "0" ] && [ -n "$PYTHON" ] && [ -s "${INFO:-/nonexistent}" ] && [ -n "$URL" ] && PICK_OK=1
   # (a FORCED fix — defect / non-QT codec — keeps p off the table: that file can't be kept as-is,
   # so "hand it back and keep it" has no honest meaning there; the fix runs first)
-  _P=""   # V4.5b (his ruling): no "(p)" suffix — a full line sits right under the sentence that says re-rip
+  _P=""   # V4.5b: no "(p)" suffix — a full line sits right under the sentence that says re-rip
   P_LINE="type ${C_BOLD}p${C_RESET}${C_MAG} — back to PICKER & rip a different stream"
   compose_dial_advice
-  # ---- V4.2: the advice SPLITS by moment (his 8.16 ruling: "nimble, at the
+  # ---- V4.2: the advice SPLITS by moment (8.16: "nimble, at the
   # logical time"). Here, right before the downscale ask = the RESOLUTION
   # sentence; the DIAL sentence ($_ecoline, "suggested: …") prints right above
   # the table where the dial is chosen. Numbers: q40 at native (probed) vs at
@@ -3728,22 +3728,22 @@ if [ "$MODE" = "studio" ]; then
     # only rungs BELOW the source are listed (8.13 field catch: a 720p60
     # source offered "4·720 5·1080" — nonsensical). Custom is `c` (stable key
     # — the numbers shift as rungs filter); any non-option ANNOUNCES the
-    # keep-native fallback instead of silently eating it (his intended
+    # keep-native fallback instead of silently eating it (an intended
     # 1080→720 run typed 7 and silently kept native).
-    # V4.1 (his spec): 0·keep sits first (nearest the prompt), rungs run
+    # V4.1: 0·keep sits first (nearest the prompt), rungs run
     # NEAREST-FIRST so `1` is the likeliest pick (1080 → 1·720), two rows,
     # and the prompt states the consequence, not the code.
     _dn=0; _dmenu=""; _dvals=""
-    _NB=$(printf '\302\240')   # NBSP: survives wrap_rail's word split — his "0·keep (…),  1·720,  2·540" spacing
+    _NB=$(printf '\302\240')   # NBSP: survives wrap_rail's word split — the "0·keep (…),  1·720,  2·540" spacing
     for _dv in 1080 720 540 480 360; do
       [ "$_dv" -lt "$SHORT" ] 2>/dev/null || continue
-      _dn=$((_dn+1)); _dmenu="${_dmenu}${_dn}·${C_BOLD}${_dv}${C_RESET},${_NB} "; _dvals="$_dvals $_dv"   # V4.5b: labels bold, keys plain (his ruling)
+      _dn=$((_dn+1)); _dmenu="${_dmenu}${_dn}·${C_BOLD}${_dv}${C_RESET},${_NB} "; _dvals="$_dvals $_dv"   # V4.5b: labels bold, keys plain
     done
     frame_rail ""
-    # V4.4b (his C ruling — "resolution: keep 1080p" read like a command): the ask is
+    # V4.4b (the C ruling — "resolution: keep 1080p" read like a command): the ask is
     # QUESTION → options → purple `advice:` (the concierge, one sentence, right above
     # the prompt) → prompt whose default names the advice. Purple = the concierge.
-    # V4.5 (his Window A ruling): the ask matches PICKER's convention — the default
+    # V4.5 (the Window A ruling): the ask matches PICKER's convention — the default
     # WEARS the word Enter (never a `0` to cross-reference), the question word is
     # bold purple (it IS a question), the prompt names the meaning: `[Enter = keep]`.
     # `0`/`00`/`keep`/`k` still mean keep (muscle memory never runs an unasked encode).
@@ -3755,7 +3755,7 @@ if [ "$MODE" = "studio" ]; then
       _dsel=$(printf '%s' "$_dsel" | tr -d ' \t' | tr 'A-Z' 'a-z')
       case "$_dsel" in 0*[0-9]*) _dsel=$(printf '%s' "$_dsel" | sed 's/^0*//'); [ -z "$_dsel" ] && _dsel=0 ;; esac
       case "$_dsel" in keep|k) _dsel=0 ;; esac
-      # V4.3 (his A run typed `4f` here and fell into a table of BIGGER rows): a
+      # V4.3 (an A run typed `4f` here and fell into a table of BIGGER rows): a
       # RECIPE token at the size ask is forgiven — say so and ask again.
       case "$_dsel" in
         [0-9]*f|f|fast|lq|mq|hq|[0-9]*fast)
@@ -3770,7 +3770,7 @@ if [ "$MODE" = "studio" ]; then
     case "$_dsel" in
       0) : ;;
       z|Z)
-        # ---- Z-CROP (V3.9, his spec: NOTES/Z-CROP-SPEC.md) --------------------
+        # ---- Z-CROP (V3.9) ---------------------------------------------
         # Find the moving PiP box inside a Zoom-webcast recording; crop to it
         # exactly. Everything here is ADDITIVE: ZMODE stays 0 unless a crop is
         # confirmed, and the normal one-table flow is untouched when it is 0.
@@ -3791,7 +3791,7 @@ if [ "$MODE" = "studio" ]; then
                 set -- $_zres   # BOX bw bh x y W H cov mot
                 _zbw=$2; _zbh=$3; _zbx=$4; _zby=$5; _zW=$6; _zH=$7; _zcov=$8; _zmot=$9
                 if [ "${SLIPMAT_Z_AUTO:-0}" = "1" ] && ! [ -t 0 ]; then
-                  # V4.5m auto policy (his 9.21 ruling — "small borders addressed"): the
+                  # V4.5m auto policy (9.21 — "small borders addressed"): the
                   # 9.18 batch showed real 91-96% boxes eaten by the >=90 skip and real
                   # 86-88% boxes eaten by the old 85% rail top. Unattended now: a box
                   # that IS the frame = plan B; under the 20% floor = not trusted
@@ -3860,10 +3860,10 @@ if [ "$MODE" = "studio" ]; then
   # fps twins for the table rows. Above ~30fps: half-fps twins (60→30,
   # eye-approved for news 7.13). At ~30fps (broadcast/NTSC): 24fps twins —
   # the user's Permute-Low gold standard (-r 24 flat); theory said 30→24
-  # judders, his MONTHS of Low archives say the eye never caught it on
+  # judders, MONTHS of Low archives say the eye never caught it on
   # broadcast — the eye rules. True film rates (≤26fps) get no fps rows.
-  # His caveat stands: skip fps drops on already-degraded sources.
-  # V4.4 (his E ruling): the twin rows are 24fps ALWAYS — "Permute Low makes it
+  # The caveat stands: skip fps drops on already-degraded sources.
+  # V4.4 (the E ruling): the twin rows are 24fps ALWAYS — "Permute Low makes it
   # 24 no matter what; there's not a 30fps option just because it's 60" — a 60fps
   # source's twins land 24fps too; 30fps lives in custom (`40 half` = 30, announced).
   _fmode=none; _twinrate=""; _twinlbl=""; _twin60=0
@@ -3879,7 +3879,7 @@ if [ "$MODE" = "studio" ]; then
   # (bench-proven: halving ≈ −42%). Probe failure → curves, said honestly.
   # V4.1: the native probe already ran (before the ask); re-sample ONLY when the
   # target geometry changed (a downscale or a crop) — hardness is geometry-
-  # dependent (EO 1.26@720 vs 1.63@1080), so probe-at-target stays load-bearing.
+  # dependent (one broadcast file: 1.26@720 vs 1.63@1080), so probe-at-target stays load-bearing.
   if [ -n "$SCALE" ] && [ "$SCALE" != "$_SC0" ] && [ "$PROBE_SKIPPED_NAT" != "1" ]; then
     probe_screen "Re-sampling at ${HLABEL}" "$SCALE" "$EST_SHORT" ""
   elif [ -n "$SCALE" ] && [ "$SCALE" != "$_SC0" ]; then
@@ -3918,12 +3918,12 @@ if [ "$MODE" = "studio" ]; then
   # bits-aware rung note (8.13 eye rounds R1+R4: at equal bytes the PLATFORM
   # encoder wins — proven on YouTube AND vimeo; our recode earns its place
   # only when it's MUCH leaner or no rung exists). Replaces the old one-way
-  # "platform likely beats this recode" guess, which his vimeo experiment
+  # "platform likely beats this recode" guess, which a vimeo experiment
   # disproved on size. Fires when the source menu had a real rung at the
   # target geometry; compares its size against our sampled q40 row.
   _rungnote=""
   if [ "$VERDICT" != "DEFECT" ] && [ -n "${MENU_MBS:-}" ] && [ "$DUR_S" -gt 0 ] 2>/dev/null && [ "${EST_SHORT:-0}" -gt 0 ] 2>/dev/null \
-     && [ "${EST_SHORT:-0}" != "${SHORT:-0}" ]; then   # V4.5b (his EO log): at native the "rung" IS this file — "re-rip 1080p" was nonsense
+     && [ "${EST_SHORT:-0}" != "${SHORT:-0}" ]; then   # V4.5b (a broadcast log): at native the "rung" IS this file — "re-rip 1080p" was nonsense
     _rmb=""
     for _mp in $MENU_MBS; do
       case "$_mp" in "$EST_SHORT":*) _rmb="${_mp#*:}"; break ;; esac
@@ -3958,7 +3958,7 @@ if [ "$MODE" = "studio" ]; then
     _TEST_ARR[$_tn]="$_te"; _TETA_ARR[$_tn]="$_tt"
   }
   # V4.1: the notes are concierge INSIGHT — why this row over its neighbours
-  # (his eye verdicts, in plain words); printed under the row as `↳ …`.
+  # (the eye verdicts, in plain words); printed under the row as `↳ …`.
   _twinsaid=0
   for _rq in 25 30 35 40; do
     _sn=""
@@ -3984,17 +3984,17 @@ if [ "$MODE" = "studio" ]; then
     fi
   done
   # suggested row: defect/codec-forced → q40 (the Q_AUTO default); bloated
-  # LOCAL recordings → q40 (the big transparent win — his Permute use case);
+  # LOCAL recordings → q40 (the big transparent win — the Permute use case);
   # everything else INCLUDING fat platform rips → row 0, keep lossless (R2/R4
   # eye rounds: platform encoders win at equal bytes — a rip's shrink is a
-  # quality trade HE opts into, never a default).
+  # quality trade the USER opts into, never a default).
   if [ "$_forced" = "1" ] || { [ "$BLOAT" = "1" ] && [ -n "$LOCAL_SRC" ] && [ "${OWN_OUT:-0}" != "1" ]; }; then _tsug=$_i40; else _tsug=0; fi   # V4.6: an own output never gets the bloat suggestion — row 0 unless forced
   say ""
   if [ "${ZMODE:-0}" = "1" ]; then
-    # ---- Z-CROP: exactly ONE question after the crop (his rule) -------------
+    # ---- Z-CROP: exactly ONE question after the crop -----------------------
     # A crop is always an encode (physics) — no row 0. Three dials priced by
     # the same probe (run at the CROPPED geometry): 1 = keep quality (q40 —
-    # near-lossless on soft webcast content, his pick) · 2 = compress a little
+    # near-lossless on soft webcast content, the default) · 2 = compress a little
     # (q30) · 3 = hq (q50). Enter = 1. The pick is mapped onto the existing
     # table rows / custom path so everything downstream is UNCHANGED.
     _zi30=""; _zi40=""
@@ -4005,9 +4005,9 @@ if [ "$MODE" = "studio" ]; then
     _zt40=""; [ -n "${_TETA_ARR[${_zi40:-1}]:-}" ] && _zt40=$(fmt_dur "${_TETA_ARR[${_zi40:-1}]}")
     _zt30=""; [ -n "${_TETA_ARR[${_zi30:-1}]:-}" ] && _zt30=$(fmt_dur "${_TETA_ARR[${_zi30:-1}]}")
     # V4.0: rows carry the mode + ETA; `2f`/`lqf`/bare `f` = that row with fast
-    # flags; lq/mq/hq = q30/q40/q50 aliases (his 8.15 rulings). Enter = q40
-    # (his verdict on the q40-vs-q50 pair: "hard to tell; 40 is the default").
-    # q30 carries the soft-content caution from his eye ("degraded … bump it up").
+    # flags; lq/mq/hq = q30/q40/q50 aliases (8.15). Enter = q40
+    # (the verdict on the q40-vs-q50 pair: "hard to tell; 40 is the default").
+    # q30 carries the soft-content caution from the eye test ("degraded … bump it up").
     wrap_rail "" "  " "crop ${ZBOX} · source $(fmt_mb "$SRC_MB") — the crop is most of the win; how much more to compress?" "${C_MAG}${C_BOLD}quality?${C_RESET}${_NB} "
     frame_rail "$(printf ' %s%-3s %-29s %-8s %s%s' "$C_DIM" "#" "recipe (quality flags)" "est" "≈time   notes" "$C_RESET")"   # ≈ is 3 bytes: hand-padded
     frame_rail "$(printf ' %s%-3s%s %-29s %-8s %-7s ' "$C_BOLD" "1)" "$C_RESET" "keep quality (q40 · mq)" "~$(fmt_mb "${_TEST_ARR[${_zi40:-1}]:-0}")" "${_zt40:-?}")near-lossless on webcast content  ${C_GRN}← suggested${C_RESET} · ${C_BOLD}[Enter]${C_RESET}"
@@ -4021,22 +4021,22 @@ if [ "$MODE" = "studio" ]; then
     case "$_zq" in
       2|lq) _pick="${_zi30:-$_zi40}" ;;
       3|hq) _pick="c"; _ZCUSTOM="50" ;;
-      [1-9][0-9]|q[1-9][0-9]) _pick="c"; _ZCUSTOM="${_zq#q}" ;;   # V4.5j: a typed q is VERBATIM (his law) — it used to fall silently to q40
+      [1-9][0-9]|q[1-9][0-9]) _pick="c"; _ZCUSTOM="${_zq#q}" ;;   # V4.5j: a typed q is VERBATIM (the law) — it used to fall silently to q40
       *) _pick="${_zi40:-1}" ;;
     esac
   else
   [ -n "$_rungnote" ] && { wrap_rail "" "  " "${_rungnote}"; [ "$PICK_OK" = "1" ] && frame_rail "  ${C_MAG}${P_LINE}${C_RESET}"; }   # V4.3 decision line; V4.5b: the p line under it
-  # V4.0 (his design, 8.15): every row is a COMPLETE recipe incl. encoder mode
+  # V4.0 (8.15): every row is a COMPLETE recipe incl. encoder mode
   # — the numbered rows are QUALITY (Permute-Low flag family), each priced with
   # a probe-measured ETA; `f` on a row (`1f`, `1 f`, bare `f` = suggested row)
   # is the same recipe with fast flags, priced by derivation at the pick.
-  # V4.1/V4.2 TABLE (his design): quality | fast side-by-side pairs (size ·
+  # V4.1/V4.2 TABLE: quality | fast side-by-side pairs (size ·
   # time each), provenance named in the header (probe-verified vs estimated),
   # a blank line between q-groups, the note under its row as a dim `↳`, and
-  # the size flags as plain sentences under the row too (his 8.16 rulings).
+  # the size flags as plain sentences under the row too (8.16).
   _prov="probe-verified"; [ -z "${SAMP_RATIO:-}" ] && _prov="estimated (s probes${LEARN_N:+ · curve tuned by ${LEARN_N} past probe$([ "$LEARN_N" != 1 ] && printf s)})"   # V4.4b
   frame_rail ""
-  # V4.3 (his 8.17 rulings): the `suggested:` sentence is STRUCTURED (headline ·
+  # V4.3 (8.17): the `suggested:` sentence is STRUCTURED (headline ·
   # class/stats · why); every size cell carries its % vs the source (the source
   # size sits in the header); anything true of EVERY row is said ONCE above the
   # table (say-it-once); dim = telemetry only — the ↳ notes are decisions and
@@ -4048,11 +4048,11 @@ if [ "$MODE" = "studio" ]; then
   else
     _dhead="$_ecohead"; _dclass="$_ecoclass"; _dwhy="$_ecowhy"
   fi
-  # V4.4b (his 8.17 late rulings): a BOLD `ORIGINAL SIZE:` line sits above the table
+  # V4.4b (8.17 late): a BOLD `ORIGINAL SIZE:` line sits above the table
   # (size · rate · geometry); the `suggested:` sentence is ONE purple line and moves
   # to the BOTTOM, right above the choice (with the lean warning) — advice sits
   # where the decision is made. The class stats no longer repeat under it.
-  # V4.5c (his 8.18 note typed INTO the custom prompt: "cant find current fps … add it to the
+  # V4.5c (an 8.18 note typed INTO the custom prompt: "cant find current fps … add it to the
   # ORIGINAL SIZE line"): the fps rides here, right above the table where `half`/`24` are chosen.
   frame_rail "${C_BOLD}ORIGINAL SIZE: $(fmt_mb "$SRC_MB") · $(fmt_mbmin "$SRC_KBPS") · $(geom_word "${WIDTH:-0}" "${HEIGHT:-0}") · $(fmt_fps "$RFR")${C_RESET}"
   # say-it-once: when EVERY row lands at/above the source, one line here (not 8×)
@@ -4063,13 +4063,13 @@ if [ "$MODE" = "studio" ]; then
   done
   [ "$_allbig" = "1" ] && [ "$_tn" -gt 0 ] && wrap_rail "$C_YEL" "  " "every recipe below lands at or near the source ($(fmt_mb "$SRC_MB")) — no MB to win here, only picture traded"
   frame_rail ""
-  # V4.4 geometry (his ruling: `keep` + `q40(24fps)` buy the room): recipe col 11,
+  # V4.4 geometry (`keep` + `q40(24fps)` buy the room): recipe col 11,
   # size cell 7 + % cell 7 (`(+104%)` fits), time 8 — the fast pair mirrors it.
   frame_rail "${C_MAG}${C_BOLD}recipe?${C_RESET}"   # V4.5: every ask opens with its question, bold purple
   frame_rail "$(printf ' %s%-3s %-11s %-23s %s  %-23s%s%s' "$C_DIM" "#" "recipe" "quality (Enter)" "$B_V" "fast (add f)" "sizes · times ${_prov}" "$C_RESET")"
   frame_rail "$(printf ' %s%-3s %-11s %-14s %s %s  %-14s %s%s' "$C_DIM" "" "" "size (vs src)" "time    " "$B_V" "size (vs src)" "time" "$C_RESET")"
   if [ "$_forced" = "0" ]; then
-    # V4.5c (his Q1-A ruling): on a LEAN rip the concierge's action is "re-rip a lower rung",
+    # V4.5c (the Q1-A ruling): on a LEAN rip the concierge's action is "re-rip a lower rung",
     # so Enter = p (back to PICKER) — the marker moves to the `p)` row; keep stays `0`/`k`.
     _tsug_p=0; [ "$_tsug" = "0" ] && [ "$PICK_OK" = "1" ] && [ "${LEAN:-0}" = "1" ] && _tsug_p=1
     _s0=""; [ "$_tsug" = "0" ] && [ "$_tsug_p" = "0" ] && _s0="  ${C_GRN}← suggested${C_RESET} · ${C_BOLD}[Enter]${C_RESET}"   # V4.5: the default row wears the word
@@ -4077,7 +4077,7 @@ if [ "$MODE" = "studio" ]; then
   fi
   _r=1; _lastq=""
   while [ "$_r" -le "$_tn" ]; do
-    # a blank line between q-groups (q25 pair · q30 pair · …) — his 1b
+    # a blank line between q-groups (q25 pair · q30 pair · …) — ruling 1b
     [ -n "$_lastq" ] && [ "${_TQ_ARR[$_r]}" != "$_lastq" ] && frame_rail ""
     _lastq="${_TQ_ARR[$_r]}"
     _sfl=""; [ "$_r" = "$_tsug" ] && _sfl="  ${C_GRN}← suggested${C_RESET} · ${C_BOLD}[Enter]${C_RESET}"
@@ -4091,7 +4091,7 @@ if [ "$MODE" = "studio" ]; then
     # the % is one char wider than its bytes suggest (−, U+2212): pad by hand
     _cell1="$_es$(_rep $((7-${#_es})) ' ')$(_rep $((7-${#_pc})) ' ')$_pc"; _cell2="$_fes$(_rep $((7-${#_fes})) ' ')$(_rep $((7-${#_fpc})) ' ')$_fpc"
     _pad1=$((15-${#_cell1})); [ "$_pad1" -lt 1 ] && _pad1=1; _pad2=$((15-${#_cell2})); [ "$_pad2" -lt 1 ] && _pad2=1
-    # V4.5c (his Q2-A ruling): rows read by outcome — BOLD = concierge-approved (lands ≥10%
+    # V4.5c (the Q2-A ruling): rows read by outcome — BOLD = concierge-approved (lands ≥10%
     # under the source, above the eye floor), YELLOW = questionable (within 10% of the
     # source: a quality trade, no MB win · or below the eye floor), RED = obvious no-go
     # (lands bigger than the source). Unknown estimates stay plain.
@@ -4112,16 +4112,16 @@ if [ "$MODE" = "studio" ]; then
   done
   frame_rail ""
   frame_rail "$(printf ' %sc%s)  custom%s' "$C_BOLD" "$C_RESET" "$( [ -z "${SAMP_RATIO:-}" ] && printf '        %ss%s)  probe this file (real sizes and times)' "$C_BOLD" "$C_RESET" )")"
-  # V4.5c (his ruling: "p needs to be just like c"): a `p)` row on every URL-source table;
+  # V4.5c ("p needs to be just like c"): a `p)` row on every URL-source table;
   # on a lean rip it is the suggested action and wears the word Enter.
   if [ "$PICK_OK" = "1" ]; then
     if [ "${_tsug_p:-0}" = "1" ]; then frame_rail "$(printf ' %sp%s)  %sback to PICKER%s — re-rip a lower rung, no re-encode  %s← suggested%s · %s[Enter]%s' "$C_BOLD" "$C_RESET" "$C_BOLD" "$C_RESET" "$C_GRN" "$C_RESET" "$C_BOLD" "$C_RESET")"
     else frame_rail "$(printf ' %sp%s)  back to PICKER — re-rip a different stream, no re-encode' "$C_BOLD" "$C_RESET")"; fi
   fi
-  # V4.4 (his A run: the un-probed table promised six rows under 175MB; the probe
+  # V4.4 (an A run: the un-probed table promised six rows under 175MB; the probe
   # put every one above it): on a lean rip, an un-probed table carries a warning
-  # right above the choice — the estimates stay (he likes them), the trust doesn't.
-  # the suggested sentence — ONE line, purple, bold headline (his 8.17 late ruling)
+  # right above the choice — the estimates stay (by request), the trust doesn't.
+  # the suggested sentence — ONE line, purple, bold headline (8.17 late)
   if [ "${_tsug_p:-0}" = "1" ]; then wrap_rail "$C_MAG" "           " "${C_BOLD}p · back to PICKER${C_RESET}${C_MAG} — ${_dhead}: ${_dwhy}" "${C_MAG}suggested: "
   elif [ "$_tsug" = "0" ]; then wrap_rail "$C_MAG" "           " "${C_BOLD}keep${C_RESET}${C_MAG} — ${_dhead}: ${_dwhy}" "${C_MAG}suggested: "
   else wrap_rail "$C_MAG" "           " "${C_BOLD}row ${_tsug} (q${_TQ_ARR[$_tsug]})${C_RESET}${C_MAG} — ${_dhead}: ${_dwhy}" "${C_MAG}suggested: "; fi
@@ -4134,7 +4134,7 @@ if [ "$MODE" = "studio" ]; then
     if [ "${_tsug_p:-0}" = "1" ]; then _tsugw="p · back to PICKER"; _tsugd="p"
     elif [ "$_tsug" = "0" ]; then _tsugw="keep"; _tsugd="0"; else _tsugw="${_tsug} · q${_TQ_ARR[$_tsug]}"; _tsugd="$_tsug"; fi
     _pick=$(ask_line "$(rail)recipe ${C_BOLD}[Enter = ${_tsugw}]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" "$_tsugd")
-    # V4.4 (his A run typed S, then s — two full probes): after a probe, `s` is a no-op
+    # V4.4 (an A run typed S, then s — two full probes): after a probe, `s` is a no-op
     case "$(printf '%s' "$_pick" | tr -d ' \t' | tr 'A-Z' 'a-z')" in
       s) [ -n "${SAMP_RATIO:-}" ] && { frame_rail "${C_DIM}already probed — these sizes and times are real; pick a row${C_RESET}"; continue; } ;;
       keep|k) _pick=0 ;;
@@ -4149,8 +4149,8 @@ if [ "$MODE" = "studio" ]; then
   # suggested row below, exactly as before.
   _pick=$(printf '%s' "$_pick" | tr -d ' \t' | tr 'A-Z' 'a-z')
   case "$_pick" in *f) FAST_PICK=1; _pick="${_pick%f}" ;; esac
-  # V4.2 (his 8.15 test: he typed `00` meaning 0 — the engine read it as stray
-  # input, fell to the suggested row and ran an 8-minute encode he never asked
+  # V4.2 (an 8.15 test: a user typed `00` meaning 0 — the engine read it as stray
+  # input, fell to the suggested row and ran an 8-minute encode nobody asked
   # for): a numeric answer is normalized — leading zeros dropped, `00` = 0.
   case "$_pick" in
     0*[0-9]*) _pick=$(printf '%s' "$_pick" | sed 's/^0*//'); [ -z "$_pick" ] && _pick=0 ;;
@@ -4169,7 +4169,7 @@ if [ "$MODE" = "studio" ]; then
   case "$_pick" in
     c|C) : ;;
     *)
-      case "$_pick" in ''|*[!0-9]*) _pick="$_tsug" ;; *) _pick=$((10#$_pick)) ;; esac   # 8.16 field catch: his "00" meant 0, not "stray → suggested"
+      case "$_pick" in ''|*[!0-9]*) _pick="$_tsug" ;; *) _pick=$((10#$_pick)) ;; esac   # 8.16 field catch: a typed "00" meant 0, not "stray → suggested"
       if [ "$_pick" != "0" ]; then
         { [ "$_pick" -ge 1 ] 2>/dev/null && [ "$_pick" -le "$_tn" ] 2>/dev/null; } || _pick="$_tsug"
       fi
@@ -4184,7 +4184,7 @@ if [ "$MODE" = "studio" ]; then
   if [ "$_pick" = "c" ] || [ "$_pick" = "C" ]; then
     if [ -n "${_ZCUSTOM:-}" ]; then _cin="$_ZCUSTOM"   # zoom-crop option 3 (q50) — no further question
     else
-    # V4.0 compact cheat sheet (his spec): the reminder line names every token.
+    # V4.0 compact cheat sheet: the reminder line names every token.
     # V4.4: the cheat sheet is a wrapped dim line, the prompt short (was a 178-col read -p)
     wrap_rail "$C_DIM" "        " "custom — q value 1-100 (HIGHER = better + bigger; 30·40·50 or lq/mq/hq) · '24'/'half' fps · 'fast' · '4000k' bitrate (-b:v smears text; eye-proven halo) — e.g. '33 half fast'$([ "${PICK_OK:-0}" = "1" ] && printf " · 'p' = back to PICKER (re-rip a rung, no re-encode)")"
     _cin=$(ask_line "$(rail)custom ${C_CYAN}${G_ARR}${C_RESET}" "$Q_MEDLOW")
@@ -4201,7 +4201,7 @@ if [ "$MODE" = "studio" ]; then
         hq)         _cq=50 ;;
         24|half|h)  _cf="$_ctok" ;;
         [0-9]*k)    _cbr="$_ctok" ;;
-        # V4.5c (his 8.18 log: `50F`, `Q50 F` were "not a token" and fell to q40 — twice, then a
+        # V4.5c (an 8.18 log: `50F`, `Q50 F` were "not a token" and fell to q40 — twice, then a
         # Ctrl-C each time): the row convention carries into custom — `50f` = q50 fast, `q50` = q50
         [0-9]*f)    _cq="${_ctok%f}"; FAST_PICK=1 ;;
         q[0-9]*f)   _cq="${_ctok#q}"; _cq="${_cq%f}"; FAST_PICK=1 ;;
@@ -4221,9 +4221,9 @@ if [ "$MODE" = "studio" ]; then
       esac
     else
         [ -z "$_cq" ] && _cq=$Q_MEDLOW
-        # VERBATIM q (his 8.13 ruling, [[qv-not-bv]]): send EXACTLY what he
+        # VERBATIM q (8.13 ruling, [[qv-not-bv]]): send EXACTLY what the user
         # typed — the receipts ledger is how bucket truth accumulates; never
-        # silently edit his number. The bucket map survives as an FYI only.
+        # silently edit the user's number. The bucket map survives as an FYI only.
         _selq="$_cq"
         _bq=$(awk -v q="$_cq" 'BEGIN{
           n=split("20:21:20 22:24:22 25:27:25 28:29:29 30:32:30 33:35:35 36:37:37 38:40:40 41:42:42 43:45:45 46:47:47 48:50:50 51:52:52 53:54:54 55:56:56", B, " ")
@@ -4233,7 +4233,7 @@ if [ "$MODE" = "studio" ]; then
         [ "$_selq" = "50" ] && frame_rail "${C_DIM}(q50 = Permute-Med)${C_RESET}"
         _sellbl="q${_selq}"
         # fps tokens (8.13 rulings): honored on ANY source, never silently
-        # dropped — his "38 half" on a 29.97fps vimeo encoded native without a
+        # dropped — a "38 half" on a 29.97fps vimeo encoded native without a
         # word. 'half' at ~30fps means the sensible step = 24 ("concierge is
         # the adult in the room"), not literal 15.
         case "$_cf" in
@@ -4295,7 +4295,7 @@ if [ "$MODE" = "studio" ]; then
     DO_REENCODE=1; KEEP_ORIGINAL=1; [ "$_forced" = "0" ] && VOL_RE=1
     if [ "$DUR_S" -gt 0 ] 2>/dev/null && [ "${EST_SHORT:-0}" -gt 0 ] 2>/dev/null; then
       _gmb=$(est_mb "$(est_dial "$Q" "$_selfps")" "$DUR_S")
-      # V4.6 (his 9.21 ruling — high dials always available, numbers honest): a dial
+      # V4.6 (9.21 — high dials always available, numbers honest): a dial
       # ABOVE the probed q40 was extrapolated off the curve's measured range (the
       # film q60 test landed +54% off). One extra sample AT that dial makes it real —
       # a few seconds, only when a high dial is actually picked. Z-AUTO batches skip
@@ -4315,7 +4315,7 @@ if [ "$MODE" = "studio" ]; then
       # real, not a table. Same number the table row showed.
       _eta_s=$(eta_secs "$_selfps"); _epre="≈"
       # V4.0 fast pick: DERIVED pricing from the measured constants — the probe
-      # is never re-run in fast mode (his rule): time ÷1.9, bytes ×1.065. The
+      # is never re-run in fast mode (rule): time ÷1.9, bytes ×1.065. The
       # size estimate is what the receipts ledger will judge, so it must be the
       # fast number, not the quality one.
       if [ "$FAST_PICK" = "1" ]; then
@@ -4356,10 +4356,10 @@ if [ "$MODE" = "studio" ]; then
     fi
   fi
   box_bot
-  # V4.2 (his 4b): the encode's file name carries the RECIPE — "(720p q30 24fps
+  # V4.2: the encode's file name carries the RECIPE — "(720p q30 24fps
   # fast)" instead of "(reencode)". Geometry only when changed, fps only when
   # changed, "fast" only when fast; a bitrate pick shows the bitrate. Z-crop
-  # keeps its own [Z] naming (his ruling: never rename away a real name).
+  # keeps its own [Z] naming (never rename away a real name).
   RECIPE_TAG=""
   if [ "$DO_REENCODE" = "1" ]; then
     [ -n "$SCALE" ] && [ "${ZMODE:-0}" != "1" ] && RECIPE_TAG="$HLABEL"
@@ -4382,10 +4382,10 @@ if [ "$DO_REENCODE" = "0" ] && [ "$CODEC_OK" = "0" ]; then
 fi
 
 # V3.7 local-file rails. (a) Row 0 / guard-decline on a LOCAL source means "do
-# nothing" — the user's file already exists; minting a lossless duplicate of his
+# nothing" — the user's file already exists; minting a lossless duplicate of their
 # own file would be noise. Exit clean (the unwritten name-claim stub is swept by
 # cleanup). (b) A local run never mints an "(original)" sibling and never offers
-# delete-original — the original IS his file, sitting where he left it.
+# delete-original — the original IS the user's file, sitting where they left it.
 if [ -n "$LOCAL_SRC" ]; then
   if [ "$DO_REENCODE" = "0" ]; then
     say ""
@@ -4502,12 +4502,12 @@ reencode() {
   mv -f "$ENC_TMP" "$OUT" || die "could not move the finished encode into place."
   ENC_EL=$((SECONDS - ENC_T0))
   ok "encoded in $(fmt_dur $(( ENC_EL > 0 ? ENC_EL : 1 )))"
-  # ETA accountability (V4.0, his ask): ONE greppable line per encode — quoted
+  # ETA accountability (V4.0): ONE greppable line per encode — quoted
   # ETA vs actual, with the encoder mode — so ETA drift is gleanable across all
   # logs exactly like the size ledger below (`grep -h 'eta check' LOGS/*/*`).
   # Fires whenever an ETA was quoted (STUDIO); BEST/AUTO quote none, stay quiet.
   if [ -n "${SAMP_ETA_S:-}" ]; then
-    # V4.2: the ledger names the LOAD at quote time (his 1GB run: probed under a
+    # V4.2: the ledger names the LOAD at quote time (a 1 GB run: probed under a
     # 4-instance battery → said 32:38, ran 7:58 alone) so drift can be read per class
     note "eta check: said $(fmt_dur "$SAMP_ETA_S") → ran $(fmt_dur $(( ENC_EL > 0 ? ENC_EL : 1 ))) ($(awk -v e="$SAMP_ETA_S" -v a="$(( ENC_EL > 0 ? ENC_EL : 1 ))" 'BEGIN{ if (e>0) printf "%+.0f%%", (a-e)/e*100 }')) · ${ENC_MODE}${SAMP_LOAD:+ · quoted under load ($SAMP_LOAD)}"
   fi
@@ -4570,10 +4570,10 @@ if [ "$DO_REENCODE" = "1" ]; then
     fi
     NAME=$(uniquify "${NAME} (${RECIPE_TAG:-reencode})")
   fi
-  # zoom-crop naming (V3.9, his ruling — dynamic to what is known): never
+  # zoom-crop naming (V3.9 — dynamic to what is known): never
   # rename away a real name. Local file → its basename + " [Z]"; URL rip →
   # the extracted title + " [Z]"; a bare timestamp stem with nothing real
-  # behind it (his 20260715_141443 recordings) → humanized "7.15.26 - 2.14PM [Z]".
+  # behind it (e.g. 20260715_141443 recordings) → humanized "7.15.26 - 2.14PM [Z]".
   if [ "${ZMODE:-0}" = "1" ]; then
     _zn="$BASE_STEM"   # the pre-suffix stem (URL title); local files use their basename below
     _zst="$_zn"; [ -n "$LOCAL_SRC" ] && { _zst=$(basename "$LOCAL_SRC"); _zst="${_zst%.*}"; }
@@ -4644,9 +4644,9 @@ SIZE=$(du -h "$OUT" 2>/dev/null | awk '{print $1}')
 # STUDIO: DELETE ORIGINAL? — fires ONLY when two keepable files exist (never AUTO).
 if [ -n "$ORIG_OUT" ] && [ -f "$ORIG_OUT" ]; then
   say ""
-  # V4.2 (his 3a): one question, no names — the receipt names the encode; the
-  # original is the same name without the recipe suffix, and he knows it exists
-  # because he is being asked about it.
+  # V4.2: one question, no names — the receipt names the encode; the
+  # original is the same name without the recipe suffix, and the user knows it exists
+  # because they are being asked about it.
   box_top "STUDIO"
   if [ "$(ask_yn "$(rail)Delete the pristine original, keep only the encode? ${C_BOLD}[y/N]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" n)" = "y" ]; then
     rm -f "$ORIG_OUT"; ORIG_OUT=""
@@ -4660,11 +4660,11 @@ fi
 cleanup_scratch
 
 say ""
-# ---- the receipt (V4.1 redesign, his spec): label column, TWO columns — the
+# ---- the receipt (V4.1 redesign): label column, TWO columns — the
 # important datum starts every line (file · size · time), secondary facts sit
 # dim on the right; the checker speaks ONLY when it found or fixed something
 # (the run log still records the numbers — the ledger needs them); no session
-# time, no "source untouched", nothing repeated. Order = what he looks for.
+# time, no "source untouched", nothing repeated. Order = what the user looks for.
 box_top "DONE"
 _flbl="file"; [ "$DO_REENCODE" = "1" ] && _flbl="encoded"
 box_file "$_flbl" "$(basename "$OUT")"
@@ -4680,11 +4680,11 @@ _how=""
 case "$PATHTAG" in
   RE-ENCODE*) _how="$([ "$RE_MODE" = br ] && printf '%s' "$BR" || printf 'q%s' "$Q")$([ "$MODE" = "studio" ] && printf ' · %s' "$ENC_MODE")" ;;
   LOSSLESS*)  _how="lossless copy" ;;
-  DIRECT*)    _how="" ;;   # V4.4: silenced (his ruling — the file IS the copy)
+  DIRECT*)    _how="" ;;   # V4.4: silenced (the file IS the copy)
   *)          _how="$PATHTAG" ;;
 esac
 # V4.4: BEST/PICKER lossless receipts = file · size · time only (the geometry was
-# said at the pick; his B ruling) — the right column stays for re-encodes and STUDIO
+# said at the pick) — the right column stays for re-encodes and STUDIO
 if [ "$MODE" != "studio" ] && [ "$DO_REENCODE" != "1" ]; then _geo=""; _how=""; fi
 box_line2 "$_sizel" "${_geo:+${_geo} $(fmt_fps "${RFR_OUT:-$RATE}") ${VOK}${AOK:+/$AOK}}"
 # time: encode leads when there was one; the recipe (and download) ride right
@@ -4704,13 +4704,13 @@ awk -v d="$DRIFT" 'BEGIN{ split(d,a," "); exit !(a[1]+0 > 0.25) }' 2>/dev/null &
 logln "  check: ${FINALDEF}% bad PTS · drift ${DRIFT} · source ${VERDICT} (${DEFECT}%)"
 [ -n "${RETRY_NOTE:-}" ] && box_line "note    $RETRY_NOTE"
 [ -n "${AVFIX_NOTE:-}" ] && box_line "note    $AVFIX_NOTE"
-# (V4.2: no `kept` line — the original's existence is implied by the delete question he just answered)
+# (V4.2: no `kept` line — the original's existence is implied by the delete question just answered)
 [ -n "${ZBOX:-}" ] && [ "${ZMODE:-0}" = "1" ] && box_line "crop    ${ZBOX} (zoom-crop)"
 [ -n "${OUT_FALLBACK:-}" ] && box_line "note    $OUT_FALLBACK"
 [ -n "${SLIPMAT_ALSO_KEPT:-}" ] && box_line "kept    $SLIPMAT_ALSO_KEPT"   # V4.5: the STUDIO file this re-rip came from
-box_file path "$(dirname "$OUT")/"   # V4.4b (his B ruling): the FOLDER, in the box — the name was just said; no dim full-path echo
+box_file path "$(dirname "$OUT")/"   # V4.4b: the FOLDER, in the box — the name was just said; no dim full-path echo
 box_bot
-# (V4.3: the "open in QuickTime to confirm" line is gone — his 8.17 ruling: silence it)
+# (V4.3: the "open in QuickTime to confirm" line is gone — 8.17: silence it)
 [ -n "$ORIG_OUT" ] && note "$ORIG_OUT"
 logln "  $OUT"
 # NMX quiz finalize (8.10.26): answers present now -> rename immediately; none
