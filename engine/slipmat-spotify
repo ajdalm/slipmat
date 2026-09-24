@@ -2,10 +2,12 @@
 # =============================================================================
 #  slipmat-spotify — the Spotify door of the slipmat audio suite
 #
-#    slipmat spotify <link>   track, album or playlist link →
+#    slipmat spotify <link>   playlist, album or track link →
 #                             AAC-320 .m4a files, the same treatment as
 #                             `slipmat audio`: Apple's encoder, full tags,
 #                             true-square art, source stamp in Composer.
+#    slipmat spotify --login  log in now (browser), no rip — `slipmat hello`
+#                             offers this so the first rip just works
 #
 #  The ripper is mr-rippah by cvdub (github.com/cvdub/mr-rippah), extended —
 #  see ripper/slipmat_ripper/rippah.py for what this version adds. It needs
@@ -14,6 +16,8 @@
 #
 #  Its Python lives in its own environment (~/.slipmat/spotify-env), built
 #  by `uv` on first use and rebuilt only when ripper/requirements.txt changes.
+#  One build at a time (a mkdir lock); the finished environment is swapped in
+#  whole, so ten Spotify windows opened at once share one build.
 # =============================================================================
 set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
@@ -30,10 +34,14 @@ SPOTIFY_GHOSTS=""      # a file path = keep a list of tracks Spotify no longer p
 SPOTIFY_LEDGER="$HOME/.slipmat/spotify-ledger.txt"
 [ -f "$HOME/.slipmat/config" ] && . "$HOME/.slipmat/config"
 [ -n "${AUDIO_OUTDIR:-}" ] && OUTDIR="$AUDIO_OUTDIR"
+# a rips folder inside slipmat's own folder would mix media into a git clone
+case "$OUTDIR/" in "$REPO/"*) OUTDIR="$HOME/Downloads/SLIPMAT"; OUTDIR_MOVED=1 ;; esac
 
 LINK="${1:-}"
-[ -n "$LINK" ] || { printf '[slipmat-spotify] no link. usage: slipmat spotify <track|album|playlist link>\n' >&2; exit 1; }
+[ -n "$LINK" ] || { printf '[slipmat-spotify] no link. usage: slipmat spotify <playlist|album|track link>  (or --login)\n' >&2; exit 1; }
 shift
+LOGIN=0; [ "$LINK" = "--login" ] && LOGIN=1
+CREDS="$HOME/Library/Caches/Mr. Rippah/credentials.json"   # the ripper's saved login
 
 IS_TTY=0; [ -t 1 ] && IS_TTY=1
 title() { [ "$IS_TTY" = "1" ] && printf '\033]0;%s\007' "$1" > /dev/tty 2>/dev/null || true; }
@@ -41,42 +49,84 @@ LOGDAY="$HOME/.slipmat/logs/$(date +%Y-%m-%d)"; mkdir -p "$LOGDAY" 2>/dev/null
 RUNLOG="$LOGDAY/$(date +%H%M%S)_spotify_$$.log"
 log() { printf '%s\n' "$*" >> "$RUNLOG" 2>/dev/null; }
 say() { printf '%s\n' "$*"; log "$*"; }
-die() { say ""; say "✗ $*"; title "✗ SPOTIFY failed"
-        mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) ✗ spotify.log" 2>/dev/null; exit 1; }
+# the run log gets its final name exactly once; a same-second twin gets (2)
+seal_log() {
+  [ -f "$RUNLOG" ] || return 0
+  local base="$LOGDAY/$(date +%H%M%S) $1" n
+  n="$base.log"; i=2
+  while [ -e "$n" ]; do n="$base ($i).log"; i=$((i+1)); done
+  mv "$RUNLOG" "$n" 2>/dev/null && RUNLOG=""
+}
+LOCK=""
+on_exit() {  # closed window / Ctrl-C: release the build lock, keep the log
+  [ -n "$LOCK" ] && rmdir "$LOCK" 2>/dev/null
+  [ -n "$RUNLOG" ] && seal_log "✗ stopped spotify"
+}
+trap on_exit EXIT
+die() { say ""; say "✗ $*"; title "✗ SPOTIFY failed"; seal_log "✗ spotify"; exit 1; }
 T0=$SECONDS
 
 case "$LINK" in
-  *open.spotify.com/*|spotify:*) ;;
+  --login|*open.spotify.com/*|spotify:*) ;;
   *spotify.link/*) die "that's a Spotify short link — open it in a browser and copy the full open.spotify.com address instead." ;;
   *) die "not a Spotify link: $LINK  (copy a track, album or playlist link from Spotify: Share → Copy link)" ;;
 esac
 
 say ""
-say " SLIPMAT SPOTIFY  ·  AAC-320 m4a · plays everywhere (booth-safe)"
-say "  $LINK"
+if [ "$LOGIN" = "1" ]; then say " SLIPMAT SPOTIFY  ·  login"
+else
+  say " SLIPMAT SPOTIFY  ·  AAC-320 m4a · plays everywhere (booth-safe)"
+  say "  $LINK"
+fi
 log "start: $(date '+%Y-%m-%d %H:%M:%S')"
+[ "${OUTDIR_MOVED:-0}" = "1" ] && [ "$LOGIN" = "0" ] && say "  (the saved rips folder is inside slipmat's own folder — using $OUTDIR; rerun slipmat hello to pick another)"
 
 # ---- the ripper's own python environment ------------------------------------
 VENV="$HOME/.slipmat/spotify-env"; REQ="$REPO/ripper/requirements.txt"
 PY="$VENV/bin/python"
 want=$(shasum "$REQ" | cut -c1-16)
-if [ ! -x "$PY" ] || [ "$(cat "$VENV/.req" 2>/dev/null)" != "$want" ]; then
+env_stale() { [ ! -x "$PY" ] || [ "$(cat "$VENV/.req" 2>/dev/null)" != "$want" ]; }
+if env_stale; then
   UV="$(command -v uv 2>/dev/null)"
   [ -n "$UV" ] || die "the Spotify ripper needs uv to set itself up:  brew install uv   (then run this again)"
-  say "  first run: setting up the Spotify ripper (about a minute, once) …"
-  # built beside the live one and swapped in whole, so a rip starting in
-  # another window never sees a half-built environment
-  NEW="$VENV.new.$$"; rm -rf "$NEW"
-  if "$UV" venv -q --relocatable --python '>=3.13' "$NEW" >>"$RUNLOG" 2>&1 \
-     && "$UV" pip install -q --python "$NEW/bin/python" -r "$REQ" >>"$RUNLOG" 2>&1; then
-    printf '%s' "$want" > "$NEW/.req"
-    rm -rf "$VENV.old.$$"; [ -d "$VENV" ] && mv "$VENV" "$VENV.old.$$"
-    mv "$NEW" "$VENV" && rm -rf "$VENV.old.$$"
-    say "  ✓ ripper ready"
-  else
-    rm -rf "$NEW"
-    die "couldn't set up the Spotify ripper — the log has uv's reason: $RUNLOG"
+  # one builder at a time: mkdir either creates the lock or fails, atomically.
+  # A lock older than 10 minutes belongs to a crashed build — take it over.
+  waited=0
+  until mkdir "$VENV.lock" 2>/dev/null; do
+    [ -n "$(find "$VENV.lock" -maxdepth 0 -mmin +10 2>/dev/null)" ] && { rmdir "$VENV.lock" 2>/dev/null; continue; }
+    [ "$waited" = "0" ] && say "  another window is setting up the Spotify ripper — waiting for it …"
+    waited=1; sleep 2
+  done
+  LOCK="$VENV.lock"
+  if env_stale; then   # the build we waited on may have done the job
+    say "  first run: setting up the Spotify ripper (about a minute, once) …"
+    # built beside the live one and swapped in whole, so a rip starting in
+    # another window never sees a half-built environment
+    NEW="$VENV.new.$$"; rm -rf "$NEW"
+    if "$UV" venv -q --relocatable --python '>=3.13' "$NEW" >>"$RUNLOG" 2>&1 \
+       && "$UV" pip install -q --python "$NEW/bin/python" -r "$REQ" >>"$RUNLOG" 2>&1; then
+      printf '%s' "$want" > "$NEW/.req"
+      rm -rf "$VENV.old.$$"; [ -d "$VENV" ] && mv "$VENV" "$VENV.old.$$"
+      mv "$NEW" "$VENV" && rm -rf "$VENV.old.$$"
+      say "  ✓ ripper ready"
+    else
+      rm -rf "$NEW"
+      die "couldn't set up the Spotify ripper — the log has uv's reason: $RUNLOG"
+    fi
   fi
+  rmdir "$LOCK" 2>/dev/null; LOCK=""
+fi
+
+if [ ! -s "$CREDS" ]; then
+  say "  first Spotify login on this Mac: your browser opens Spotify's login page —"
+  say "  log in with a Premium account, then come back here. It's remembered after."
+fi
+
+if [ "$LOGIN" = "1" ]; then
+  SLIPMAT_LOG="$RUNLOG" PYTHONPATH="$REPO/ripper" "$PY" -m slipmat_ripper --login
+  RC=$?
+  if [ "$RC" -eq 0 ]; then seal_log "SPOTIFY login"; else seal_log "✗ spotify login"; fi
+  exit "$RC"
 fi
 
 # ---- where the files go -----------------------------------------------------
@@ -104,12 +154,12 @@ say ""
 if [ "$RC" -eq 0 ]; then
   say "── DONE ── took $(( (SECONDS - T0) / 60 ))m$(( (SECONDS - T0) % 60 ))s ─────────────────────────"
   title "✓ SPOTIFY done"
-  mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) SPOTIFY.log" 2>/dev/null
+  seal_log "SPOTIFY"
 else
   say "✗ nothing ripped. Common causes: the account isn't Premium, the link is"
   say "  private, or Spotify is rate-limiting — wait a few minutes, run it again."
   say "  (Finished tracks are remembered, so a rerun picks up where this stopped.)"
   title "✗ SPOTIFY failed"
-  mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) ✗ spotify.log" 2>/dev/null
+  seal_log "✗ spotify"
 fi
 exit "$RC"

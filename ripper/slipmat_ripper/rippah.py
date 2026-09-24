@@ -185,6 +185,11 @@ def spotify_oauth_callback(url: str) -> None:
     Args:
         url: The Spotify OAuth authentication URL to open.
     """
+    # say it out loud — otherwise the terminal sits silent while the browser
+    # waits on a login the user may not have noticed
+    logger.info("Spotify's login page is opening in your browser — log in there "
+                "(Premium account), then come back: this window waits for it.")
+    logger.info(f"(nothing opened? visit this address yourself: {url})")
     webbrowser.open(url)
 
 

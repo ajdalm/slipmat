@@ -21,7 +21,9 @@ from .rippah import MrRippah
 def main() -> int:
     ap = argparse.ArgumentParser(prog="slipmat spotify",
                                  description="rip a Spotify track, album or playlist")
-    ap.add_argument("uri", help="Spotify track / album / playlist link or URI")
+    ap.add_argument("uri", nargs="?", help="Spotify track / album / playlist link or URI")
+    ap.add_argument("--login", action="store_true",
+                    help="log in to Spotify now (browser) and exit — no rip")
     ap.add_argument("-c", "--clear-spotify-credentials", action="store_true",
                     help="forget the saved Spotify login (the next rip asks again)")
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -42,6 +44,21 @@ def main() -> int:
     if args.clear_spotify_credentials:
         MrRippah.default_credentials_path().unlink(missing_ok=True)
         log.info("Saved Spotify login cleared — the next rip opens the login page.")
+
+    if args.login:
+        creds = MrRippah.default_credentials_path()
+        if creds.exists():
+            log.info("✓ already logged in to Spotify — nothing to do.")
+            return 0
+        with MrRippah(download_directory=Path.home() / "Downloads" / "SLIPMAT"):
+            pass
+        if creds.exists():
+            log.info("✓ logged in to Spotify — the login is saved for every future rip.")
+            return 0
+        log.error("Spotify login didn't finish — the first Spotify rip will ask again.")
+        return 1
+    if not args.uri:
+        ap.error("a Spotify link is required (or --login)")
 
     uri = MrRippah.spotify_url_to_uri(args.uri.strip())
     is_list = MrRippah.is_spotify_playlist_uri(uri) or MrRippah.is_spotify_album_uri(uri)
