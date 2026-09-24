@@ -266,6 +266,24 @@ TERM_SIZE="48x132"          # V4.3: 48 rows × 132 cols (he resized his own 112�
 [ -f "$HOME/.slipmat/config" ] && . "$HOME/.slipmat/config"
 [ -n "${SLIPMAT_EMBED_HOSTS:-}" ] && VIMEO_EMBED_HOSTS="$SLIPMAT_EMBED_HOSTS"
 mkdir -p "$HOME/.slipmat" 2>/dev/null
+# Output-folder guard: finished files must never land inside slipmat's own app
+# folder (the folder holding engine/) — an update, reinstall or a broad git
+# command there would sweep them along. `slipmat hello` refuses such a folder at
+# setup; this catches a config edited by hand. Falls back to the default folder
+# and says so once (header + doctor).
+_self="$0"
+while [ -L "$_self" ]; do
+  _lnk=$(readlink "$_self"); case "$_lnk" in /*) _self="$_lnk" ;; *) _self="$(dirname "$_self")/$_lnk" ;; esac
+done
+APPDIR=$(cd "$(dirname "$_self")/.." 2>/dev/null && pwd -P)
+OUTDIR_NOTE=""
+if [ -n "$APPDIR" ] && [ -d "$APPDIR/engine" ] && [ "$APPDIR" != "/" ] && [ "$APPDIR" != "$(cd "$HOME" 2>/dev/null && pwd -P)" ]; then
+  _od=$(cd "$OUTDIR" 2>/dev/null && pwd -P) || _od="${OUTDIR%/}"
+  case "$_od/" in "$APPDIR/"*)
+    OUTDIR_NOTE="the output folder in ~/.slipmat/config ($OUTDIR) is inside slipmat's own app folder — saving to $HOME/Downloads/SLIPMAT instead (run slipmat hello to pick another)"
+    OUTDIR="$HOME/Downloads/SLIPMAT" ;;
+  esac
+fi
 # -----------------------------------------------------------------------------
 
 URL="${1:-}"
@@ -434,12 +452,48 @@ cookie_hint() {
   # setup, so discovering the cookie trick via a failure lands on the exact
   # words the guide already used. Evidence = the last probe attempt's stderr.
   [ "${USE_COOKIES:-1}" = "1" ] || return 0
-  grep -qiE 'sign[ -]?in|log[ -]?in|age[ -]?restrict|confirm your age|members[ -]?only|private video|premium|authenticat|this account|subscriber' "${PROBE_ERR:-/nonexistent}" 2>/dev/null || return 0
+  cat "${PROBE_ERR:-/dev/null}" "${YTERR:-/dev/null}" 2>/dev/null \
+    | grep -qiE 'sign[ -]?in|log[ -]?in|age[ -]?restrict|confirm your age|members[ -]?only|private video|premium|authenticat|this account|subscriber' || return 0
   printf ' ↳ This looks login-gated. slipmat borrows Firefox'\''s cookies: log in to this site in Firefox itself, then re-run — the site will treat slipmat like you.'
 }
 die_net() {
   if ! net_up; then die "you appear to be OFFLINE (no internet) — check wifi and try again. Original error: $*"
   else die "$*$(ytdlp_age_note)$(cookie_hint)"; fi
+}
+# ---- yt-dlp's own words on failure -------------------------------------------
+# Download calls send yt-dlp's STDERR to $YTERR — a plain file redirect, not a
+# pipe. The native progress bar draws on STDOUT (with --quiet, yt-dlp keeps its
+# bar on stdout and sends only errors to stderr), so the terminal is untouched.
+# After a failed attempt the ERROR line(s) are shown once and logged; a final
+# failure carries them in the receipt itself.
+YTERR=""
+yterr_lines() {   # $1 = file → up to 3 distinct ERROR lines; else the last 2 lines (a crash)
+  [ -s "${1:-}" ] || return 0
+  _yl=$(tr '\r' '\n' < "$1" | sed $'s/\033\\[[0-9;]*m//g' | grep -E '^ERROR:' | awk '!s[$0]++' | tail -3)
+  [ -n "$_yl" ] || _yl=$(tr '\r' '\n' < "$1" | sed $'s/\033\\[[0-9;]*m//g' | grep -v '^[[:space:]]*$' | tail -2)
+  printf '%s' "$_yl"
+}
+yterr_said() {    # the die-message form: ":" + the indented lines, then the caller's hint
+  _ys=$(yterr_lines "${YTERR:-}")
+  if [ -n "$_ys" ]; then
+    printf ':\n%s\n  ' "$(printf '%s\n' "$_ys" | sed 's/^/    /')"
+    case "$_ys" in *"No space left on device"*|*"Errno 28"*)
+      printf 'The disk is full — free up space, then run the same link again. ' ;; esac
+  else
+    printf ' — yt-dlp printed no error text. '
+  fi
+}
+yterr_show() {    # an attempt that will be RETRIED: show + log its error once
+  _ys=$(yterr_lines "${YTERR:-}"); [ -n "$_ys" ] || return 0
+  while IFS= read -r _yln; do note "yt-dlp: $_yln"; done <<EOF
+$_ys
+EOF
+}
+yterr_log() {     # log only (a silent internal retry)
+  _ys=$(yterr_lines "${YTERR:-}"); [ -n "$_ys" ] || return 0
+  while IFS= read -r _yln; do logln "  yt-dlp: $_yln"; done <<EOF
+$_ys
+EOF
 }
 
 # Platform tag for the "- YT@handle" name segment (empty tag -> bare "@handle").
@@ -461,8 +515,13 @@ platform_tag() {
 
 # TikTok (and X) put the REAL @handle in the URL path — metadata often carries a
 # numeric id or a display name instead. Pull `/@handle/` straight from the URL.
+# Instagram stories carry it too: instagram.com/stories/<handle>/<item id>/
+# ("highlights" is a path word there, not a handle).
 url_handle() {
-  printf '%s' "$1" | sed -n 's#.*/@\([A-Za-z0-9._-]\{1,\}\)/.*#\1#p' | head -1
+  _uh=$(printf '%s' "$1" | sed -n 's#.*/@\([A-Za-z0-9._-]\{1,\}\)/.*#\1#p' | head -1)
+  [ -z "$_uh" ] && _uh=$(printf '%s' "$1" | sed -n -E 's#.*instagram\.com/stories/([A-Za-z0-9._]+).*#\1#p' | head -1)
+  [ "$_uh" = "highlights" ] && _uh=""
+  printf '%s' "$_uh"
 }
 
 # Set the Terminal window/tab title (tty only) — with 10+ instances open, the
@@ -1194,7 +1253,7 @@ EOF
 # auto-skips the watermarked "download" format (it has no resolution). QT-playable
 # = h264/hevc; vp9/av1 are still grabbed but flagged to re-encode for QuickTime.
 VR_PY='
-import sys, json
+import sys, json, re
 cmd = sys.argv[1] if len(sys.argv) > 1 else ""
 try:
     data = json.load(sys.stdin)
@@ -1234,7 +1293,16 @@ def is_audio_only(f):
     # tracks often report acodec=None, so do NOT require a named codec here.
     # (Storyboards carry image dimensions, so p_of is set and they are excluded.)
     vc = (f.get("vcodec") or "none").lower()
-    return vc in ("none", "") and p_of(f) is None
+    if vc not in ("none", "") or p_of(f) is not None: return False
+    # BOTH codecs unknown (missing, not "none") on a direct video-container file
+    # = a codec-less VIDEO file (a bare CDN mp4 dump), not an audio track: HLS and
+    # DASH audio renditions state vcodec "none" or ride a manifest protocol.
+    if (f.get("vcodec") is None and f.get("acodec") is None
+            and str(f.get("protocol") or "").startswith("http")
+            and "audio" not in str(f.get("format_id") or "").lower()
+            and (f.get("ext") or "").lower() in ("mp4", "mov", "m4v", "webm", "mkv")):
+        return False
+    return True
 def is_qt(f):
     # QuickTime-playable WITHOUT a re-encode: known h264/hevc, OR a ready .mp4
     # whose codec yt-dlp could not name (Instagram/TikTok serve good h264/h265
@@ -1427,24 +1495,42 @@ elif cmd == "plrescue":
     # read a real 2-clip article as a photo/text post. Pick the LEAD video-bearing
     # entry and emit what the caller needs to rewrite $URL like an embed rescue:
     # count \037 title \037 id \037 date \037 direct-mp4 \037 manifest \037 other-titles
+    #   \037 handle \037 matched (1 = the entry the link itself names)
     # Prints nothing on a non-playlist dump (the common case).
     if (data.get("_type") == "playlist"):
         ents = [e for e in (data.get("entries") or []) if e]
         vents = [e for e in ents if any(has_video(f) for f in (e.get("formats") or []))]
         if vents:
-            e = vents[0]
+            e = vents[0]; matched = ""
+            # a link that names ONE item of a reel (instagram.com/stories/<user>/<numeric
+            # id>/) gets THAT item, never the lead one. Entry ids are shortcodes: the
+            # numeric id in base64 over the Instagram alphabet.
+            m = re.search(r"instagram\.com/stories/(?!highlights/)[^/?#]+/(\d{6,})", sys.argv[2] if len(sys.argv) > 2 else "")
+            if m:
+                _abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+                n = int(m.group(1)); code = ""
+                while n: n, r = divmod(n, 64); code = _abc[r] + code
+                hit = [v for v in vents if str(v.get("id") or "") in (code, m.group(1))]
+                if hit: e = hit[0]; matched = "1"
             efm = e.get("formats") or []
             # direct = best NON-manifest video file (https/http protocol); the fast
             # path when it exists. manifest = the master m3u8 off any hls rung.
+            # Audio-bearing (or audio-unknown) files outrank video-only ones: a bare
+            # file cannot be paired with audio later (a story reel lists its DASH
+            # video-only renditions as plain https files too).
             dvs = [f for f in efm if has_video(f) and str(f.get("protocol") or "https").startswith("http")]
-            direct = max(dvs, key=lambda f: (p_of(f) or 0, tbr(f))).get("url") if dvs else ""
+            direct = max(dvs, key=lambda f: ((f.get("acodec") or "").lower() != "none", p_of(f) or 0, tbr(f))).get("url") if dvs else ""
             mans = [str(f.get("manifest_url") or "") for f in efm if f.get("manifest_url")]
             manifest = mans[0] if mans else ""
             eid = str(e.get("id") or "")
             if len(eid) > 16: eid = ""   # CNN ids are 42-char hashes — junk in a filename; the log keeps the url
-            others = " | ".join((v.get("title") or "?")[:70] for v in vents[1:3])
+            others = " | ".join((v.get("title") or "?")[:70] for v in [v for v in vents if v is not e][:2])
+            # the handle rides along for Instagram reels only (other playlist pages keep
+            # their proven naming)
+            handle = str(e.get("channel") or "") if "instagram" in str(e.get("extractor_key") or data.get("extractor_key") or "").lower() else ""
             print(SEP.join([str(len(vents)), (e.get("title") or ""), eid,
-                            str(e.get("upload_date") or ""), direct or "", manifest or "", others]))
+                            str(e.get("upload_date") or ""), direct or "", manifest or "", others,
+                            handle, matched]))
     elif not vids:
         # V4.5i (9.16.26, his fox5ny article): the GENERIC extractor can succeed on a
         # news page yet describe its clip as ONE dimensionless, codec-less file — only
@@ -1580,7 +1666,7 @@ EOF
       # into $INFO, then rebuild this menu; naming keeps the ORIGINAL metadata.
       frame_rail "${C_DIM}re-reading the source's stream list …${C_RESET}"
       box_bot
-      if "$YTDLP" $COOKIES $REFARGS $IMPARGS --no-warnings -J "$URL" > "$INFO.fresh" 2>"$PROBE_ERR" && info_json_ok "$INFO.fresh"; then
+      if "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --no-warnings -J "$URL" > "$INFO.fresh" 2>>"$PROBE_ERR" && info_json_ok "$INFO.fresh"; then
         mv -f "$INFO.fresh" "$INFO"
       else
         rm -f "$INFO.fresh"
@@ -1681,6 +1767,7 @@ if [ "$URL" = "--doctor" ]; then
   else printf '  · no YouTube token helper on port 4416 — fine for most use; heavy YouTube ripping benefits from the bgutil-ytdlp-pot-provider plugin\n'; fi
   _pyv=""; for _p in /opt/homebrew/bin/python3 /usr/bin/python3; do [ -x "$_p" ] && { _pyv="$_p"; break; }; done
   printf '  %s python3: %s\n' "$([ -n "$_pyv" ] && printf '✓' || printf '✗')" "${_pyv:-MISSING (picker degrades to selector mode)}"
+  [ -n "$OUTDIR_NOTE" ] && printf '  ! %s\n' "$OUTDIR_NOTE"
   _free=$(df -k "$OUTDIR" 2>/dev/null | awk 'NR==2{printf "%.1f", $4/1048576}')
   printf '  %s free space at OUTPUTS: %sGB\n' "$(awk -v f="${_free:-0}" 'BEGIN{print (f<5)?"!":"✓"}')" "${_free:-?}"
   _ck="$HOME/Library/Application Support/Firefox/Profiles"
@@ -1787,6 +1874,7 @@ if [ -n "$LOCAL_SRC" ]; then
 fi
 WORKDIR="$WORKROOT/$WORKSTEM"          # this run's private scratch
 mkdir -p "$WORKDIR" || die "cannot create work dir $WORKDIR"
+YTERR="$WORKDIR/ytdlp.err"             # the current download attempt's yt-dlp stderr (see yterr_lines)
 # housekeeping: sweep crash leftovers older than 2 days (never touches live runs).
 # 8.10 L5 F1: BEFORE deleting a stale workdir, REPLAY its claims ledger — a
 # kill -9/power-loss run can't run its traps, orphaning 0-byte claim stubs (and
@@ -1815,7 +1903,26 @@ done
 # Terminal window (HUP). cleanup_scratch is idempotent, so paths that already
 # cleaned explicitly are unaffected. NOTE: deliberately NO trap on INT — Ctrl-C
 # semantics (yt-dlp finalizes live captures, bash continues) must stay untouched.
-trap cleanup_scratch EXIT
+# A run that ends by SIGNAL (the window closed at a prompt, a second Ctrl-C)
+# never reaches finish_log, so its log would keep the HHMMSS_PID temp name. The
+# EXIT trap (bash runs it on SIGINT/SIGHUP/TERM deaths too) closes it honestly:
+# a live capture that left a file keeps that name, anything else reads
+# "✗ closed <title>". Every normal and die path has already run finish_log
+# (RUNLOG is then empty), so this is a no-op there. Still NO trap on INT.
+on_exit() {
+  cleanup_scratch
+  [ -f "${RUNLOG:-/nonexistent}" ] || return 0
+  case "$RUNLOG" in
+    *_$$.log)
+      _xl="✗ closed${ID_TITLE:+ $ID_TITLE}"
+      if [ "${IS_LIVE:-0}" = "1" ] && [ -n "${NAME:-}" ]; then
+        for _xg in "$OUTDIR/${NAME}".*; do [ -s "$_xg" ] && { _xl="$NAME"; break; }; done
+      fi
+      logln ""; logln "run ended by a signal (window closed or Ctrl-C) before it finished"
+      finish_log "$_xl" ;;
+  esac
+}
+trap on_exit EXIT
 trap 'cleanup_scratch; exit 143' TERM
 trap 'cleanup_scratch; exit 129' HUP
 
@@ -1875,6 +1982,17 @@ if [ "$USE_COOKIES" = "1" ]; then
     *)                              COOKIES="--cookies-from-browser $COOKIE_BROWSER" ;;
   esac
 fi
+# ---- single-item Instagram story links ----------------------------------------
+# instagram.com/stories/<user>/<numeric id>/ names ONE item, but the extractor
+# returns the user's whole reel unless told otherwise. --no-playlist makes it
+# return exactly that item on EVERY call, so the story page (not a bare CDN
+# file) stays the download target and yt-dlp pairs video + audio itself.
+# Empty for every other link — their calls are byte-identical.
+PLARGS=""
+case "$URL" in
+  *instagram.com/stories/highlights/*) : ;;
+  *instagram.com/stories/*/[0-9]*)     PLARGS="--no-playlist" ;;
+esac
 
 # yt-dlp download verbosity: show its NATIVE progress bar (speed/MB/total/ETA) and
 # nothing else. We run yt-dlp UNPIPED so the bar updates in place on a tty — piping it
@@ -2089,7 +2207,7 @@ vimeo_unlock() {
       # pages) fall through untouched.
       _vid=$(printf '%s' "$URL" | sed -n 's|.*vimeo\.com/\([0-9][0-9]*\).*|\1|p')
       [ -n "$_vid" ] || return 0
-      "$YTDLP" $COOKIES --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR"
+      "$YTDLP" $COOKIES $PLARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
       info_json_ok "$INFO" && return 0
       _vh=$(printf '%s' "$URL" | sed -n 's|.*vimeo\.com/[0-9][0-9]*/\([0-9a-zA-Z][0-9a-zA-Z]*\).*|\1|p')
       note "vimeo.com refused anonymous access — retrying via the embed player …"
@@ -2099,11 +2217,11 @@ vimeo_unlock() {
     *) return 0 ;;
   esac
   # public player URLs need no referer — try plain first, never send one uninvited
-  "$YTDLP" $COOKIES --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR"
+  "$YTDLP" $COOKIES $PLARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
   info_json_ok "$INFO" && return 0
   for _h in $VIMEO_EMBED_HOSTS; do
     note "embed-locked player URL — trying referer ${_h#https://} …"
-    if "$YTDLP" $COOKIES --referer "$_h" --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR" && info_json_ok "$INFO"; then
+    if "$YTDLP" $COOKIES $PLARGS --referer "$_h" --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" && info_json_ok "$INFO"; then
       REFARGS="--referer $_h"
       ok "unlocked via ${_h#https://}"
       return 0
@@ -2116,7 +2234,7 @@ vimeo_unlock() {
     [ -n "${PROBE_NPID:-}" ] && { kill "$PROBE_NPID" 2>/dev/null; PROBE_NPID=""; }
     _pg=$(ask_line "$(rail)embed-locked Vimeo — paste the PAGE URL it is embedded on ${C_CYAN}${G_ARR}${C_RESET}" "")
     if [ -n "$_pg" ]; then
-      if "$YTDLP" $COOKIES --referer "$_pg" --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR" && info_json_ok "$INFO"; then
+      if "$YTDLP" $COOKIES $PLARGS --referer "$_pg" --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" && info_json_ok "$INFO"; then
         REFARGS="--referer $_pg"
         VIMEO_LOCKED=""
         ok "unlocked via that page"
@@ -2134,13 +2252,14 @@ say ""
 printf '%s SLIPMAT %s%s  %smode %s · %s%s\n' "$C_BOLD$C_CYAN" "$VERSION" "$C_RESET" "$C_DIM" "$MODE" "$HLABEL" "$C_RESET"
 logln "SLIPMAT v$VERSION"
 note "$URL"
+{ [ -z "$LOCAL_SRC" ] || [ -n "$OUT_FALLBACK" ]; } && [ -n "$OUTDIR_NOTE" ] && warn "$OUTDIR_NOTE"
 
 # ---- [1] source probe — ONE `yt-dlp -J` dump feeds naming, live, AND formats --
 # Tolerant: if it fails, every field is empty, we name from a safe fallback, treat
 # the source as VOD (ambiguous -> VOD), and the picker degrades to a selector.
 M_ID=""; M_TITLE=""; M_UPID=""; M_CHANNEL=""; M_UPLOADER=""; M_UPDATE=""; M_LIVE=""; M_DUR=""
 INFO="$WORKDIR/info.json"
-PROBE_ERR="$WORKDIR/probe.err"   # the LAST probe attempt's stderr — login-gate evidence for cookie_hint
+PROBE_ERR="$WORKDIR/probe.err"   # EVERY probe attempt's stderr (appended) — login-gate evidence for cookie_hint
 if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
   step 1 "reading source …"
   T_PROBE0=$SECONDS
@@ -2157,11 +2276,11 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
   # V4.6: Truth Social has no yt-dlp extractor — probing it just burned ~2s failing
   # before every rescue. Recognize the domain up front; embed_hunt gets the first turn.
   TS_FAST=0; case "$URL" in *truthsocial.com/*) TS_FAST=1; : > "$INFO" ;; esac
-  [ "$TS_FAST" = "1" ] || [ -s "$INFO" ] || "$YTDLP" $COOKIES $REFARGS --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR"
+  [ "$TS_FAST" = "1" ] || [ -s "$INFO" ] || "$YTDLP" $COOKIES $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
   # bot-block escalation: plain probe failed -> one retry as a real browser
   if [ "$TS_FAST" != "1" ] && ! info_json_ok "$INFO" && imp_available; then
     note "site refused the probe — retrying as a real browser …"
-    if "$YTDLP" $COOKIES $REFARGS --impersonate firefox --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR" \
+    if "$YTDLP" $COOKIES $PLARGS $REFARGS --impersonate firefox --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" \
         && info_json_ok "$INFO"; then
       IMPARGS="--impersonate firefox"
       ok "unlocked via browser impersonation"
@@ -2200,9 +2319,9 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
         RESCUE_PAGE_URL="$URL"   # V4.5f: the page keeps naming duty (platform tag · /@handle/) after the rewrite
         case "$_embl" in "C-SPAN"*|"manifest in page") imp_available && IMPARGS="--impersonate firefox" ;; esac
         URL="$_embu"
-        "$YTDLP" $COOKIES $REFARGS --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR"
+        "$YTDLP" $COOKIES $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
         if ! info_json_ok "$INFO" && imp_available; then
-          "$YTDLP" $COOKIES $REFARGS --impersonate firefox --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR" \
+          "$YTDLP" $COOKIES $PLARGS $REFARGS --impersonate firefox --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" \
             && info_json_ok "$INFO" && IMPARGS="--impersonate firefox"
         fi
       fi
@@ -2215,7 +2334,7 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
   # (never on an already-rescued target: an embed rescue leaves $INFO as a bare-CDN
   # dump on purpose — a second "rescue" here clobbered the Threads caption, 9.17)
   if [ -z "${RESCUE_PAGE_URL:-}" ] && info_json_ok "$INFO" && [ -n "$PYTHON" ]; then
-    _pl=$("$PYTHON" -c "$VR_PY" plrescue < "$INFO" 2>/dev/null)
+    _pl=$("$PYTHON" -c "$VR_PY" plrescue "$URL" < "$INFO" 2>/dev/null)
     if [ -n "$_pl" ]; then
       _plc=$(printf '%s' "$_pl" | cut -d"$(printf '\037')" -f1)
       RESCUE_TITLE=$(printf '%s' "$_pl" | cut -d"$(printf '\037')" -f2)
@@ -2224,10 +2343,15 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
       _pld=$(printf '%s' "$_pl" | cut -d"$(printf '\037')" -f5)
       _plm=$(printf '%s' "$_pl" | cut -d"$(printf '\037')" -f6)
       _plo=$(printf '%s' "$_pl" | cut -d"$(printf '\037')" -f7)
+      _plh=$(printf '%s' "$_pl" | cut -d"$(printf '\037')" -f8)
+      _plx=$(printf '%s' "$_pl" | cut -d"$(printf '\037')" -f9)
+      [ -n "$_plh" ] && RESCUE_HANDLE="$_plh"
       _plu=""
       if [ "$MODE" = "best" ]; then _plu="${_pld:-$_plm}"; else _plu="${_plm:-$_pld}"; fi
       if [ -n "$_plu" ]; then
-        if [ "${_plc:-1}" -gt 1 ] 2>/dev/null; then
+        if [ "$_plx" = "1" ]; then
+          ok "the reel carries ${_plc} clips — ripping the one this link points at"
+        elif [ "${_plc:-1}" -gt 1 ] 2>/dev/null; then
           ok "the page carries ${_plc} clips — ripping the lead one"
           [ -n "$_plo" ] && note "also on this page (not ripped): ${_plo}"
         else
@@ -2238,9 +2362,9 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
         RESCUE_PAGE_URL="$URL"   # the page keeps naming duty (platform tag · /@handle/)
         PL_RESCUE=1              # gates the blank-id kill below (plrescue targets only)
         URL="$_plu"
-        "$YTDLP" $COOKIES $REFARGS --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR"
+        "$YTDLP" $COOKIES $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
         if ! info_json_ok "$INFO" && imp_available; then
-          "$YTDLP" $COOKIES $REFARGS --impersonate firefox --no-warnings -J "$URL" > "$INFO" 2>"$PROBE_ERR" \
+          "$YTDLP" $COOKIES $PLARGS $REFARGS --impersonate firefox --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" \
             && info_json_ok "$INFO" && IMPARGS="--impersonate firefox"
         fi
       fi
@@ -2251,7 +2375,7 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
   elif [ -s "$INFO" ] || [ -z "$PYTHON" ]; then
     # no python (or want a belt-and-suspenders): lightweight --print for naming/live
     FMT=$'%(id)s\037%(title)s\037%(uploader_id)s\037%(channel)s\037%(uploader)s\037%(upload_date)s\037%(live_status)s\037%(duration)s'
-    META=$("$YTDLP" $COOKIES $REFARGS $IMPARGS --no-warnings --skip-download --print "$FMT" "$URL" 2>/dev/null | head -1)
+    META=$("$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --no-warnings --skip-download --print "$FMT" "$URL" 2>/dev/null | head -1)
   fi
   if [ -n "${META:-}" ]; then
     OLDIFS=$IFS; IFS=$'\037'
@@ -2293,6 +2417,14 @@ EOF
   # REAL id from a dedicated extractor — Radio-Canada mediaconsole, wiped here 9.17)
   [ "${PL_RESCUE:-0}" = "1" ] && [ -z "${RESCUE_ID:-}" ] && case "$M_ID" in CSPAN|CNN) ;; *) M_ID="" ;; esac
   [ -n "$PROBE_NPID" ] && { kill "$PROBE_NPID" 2>/dev/null; wait "$PROBE_NPID" 2>/dev/null; }
+  # the probe's own error lines are telemetry (the download gets its own try and
+  # speaks for itself on failure) — log them before scratch cleanup takes the file
+  _pe=$(yterr_lines "$PROBE_ERR")
+  if [ -n "$_pe" ]; then
+    while IFS= read -r _pln; do logln "  probe: $_pln"; done <<EOF
+$_pe
+EOF
+  fi
   # probe tripwire (8.11): a slow probe DESPITE the warm token server is the
   # signal that Google pierced the server tier — log it with teeth so the
   # watchdog sees timestamps instead of the user seeing molasses.
@@ -2576,7 +2708,7 @@ if [ "$IS_LIVE" = "1" ]; then
   # TEMPLATE — a title containing "%(" would abort or expand template keys.
   # Escape every % (yt-dlp reads %% as literal %); VOD paths use $WORKSTEM, safe.
   NAME_TMPL=$(printf '%s' "$NAME" | sed 's/%/%%/g')
-  "$YTDLP" $COOKIES $REFARGS $IMPARGS --quiet --no-warnings \
+  "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
     -f "$LIVE_F" \
     --downloader-args "ffmpeg_i:-loglevel error" \
     --postprocessor-args "ffmpeg:-movflags +faststart" \
@@ -2881,24 +3013,27 @@ if [ "$FAST" = "1" ]; then
   TRY_INFO=0
   [ "$FRESH_EXTRACT" = "0" ] && [ -s "${INFO:-}" ] && TRY_INFO=1
   DL_T0=$SECONDS
+  # (stderr → $YTERR, a file; the progress bar is stdout and stays on the terminal)
   fast_dl() {
+    : > "$YTERR"
     if [ "$TRY_INFO" = "1" ]; then
-      "$YTDLP" $COOKIES $REFARGS $IMPARGS --load-info-json "$INFO" -f "$DLSEL" --merge-output-format mp4 \
+      "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --load-info-json "$INFO" -f "$DLSEL" --merge-output-format mp4 \
         --fragment-retries 10 --retries 10 --skip-unavailable-fragments \
-        $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s"
+        $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" 2>>"$YTERR"
     else
-      "$YTDLP" $COOKIES $REFARGS $IMPARGS -f "$DLSEL" --merge-output-format mp4 \
+      "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "$DLSEL" --merge-output-format mp4 \
         --fragment-retries 10 --retries 10 --skip-unavailable-fragments \
-        $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL"
+        $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR"
     fi
     return $?
   }
   fast_dl; YTRC=$?
   if [ "$YTRC" -ne 0 ] && [ "$TRY_INFO" = "1" ]; then
+    yterr_log
     note "cached source info didn't resolve — re-reading fresh …"
     TRY_INFO=0; fast_dl; YTRC=$?
   fi
-  [ "$YTRC" -eq 0 ] || die_net "download failed (yt-dlp exit $YTRC) — see the messages above. ${VIMEO_LOCKED:+This Vimeo is EMBED-LOCKED and no known host unlocked it — run PICKER and paste the page it is embedded on. }${VIMEO_LOCKED:-${NET_DIE_HINT:-The link may be expired, private, or need a login.}}"
+  [ "$YTRC" -eq 0 ] || die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)${VIMEO_LOCKED:+This Vimeo is EMBED-LOCKED and no known host unlocked it — run PICKER and paste the page it is embedded on. }${VIMEO_LOCKED:-${NET_DIE_HINT:-The link may be expired, private, or need a login.}}"
   DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
   [ -n "$DLF" ] || die "download produced no file."
   # ---- audio-verify (memory: tiktok-h265-is-video-only) ------------------------
@@ -2912,10 +3047,11 @@ if [ "$FAST" = "1" ]; then
     warn "downloaded stream is video-only, but the source has audio — re-fetching an audio-bearing rendition …"
     _alt=$("$PYTHON" -c "$VR_PY" audioalt "$(file_short_side "$DLF")" < "$INFO" 2>/dev/null)
     rm -f "$DLF"
-    "$YTDLP" $COOKIES $REFARGS $IMPARGS -f "${_alt:+$_alt/}$AVCHAIN" --merge-output-format mp4 \
+    : > "$YTERR"
+    "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "${_alt:+$_alt/}$AVCHAIN" --merge-output-format mp4 \
       --fragment-retries 10 --retries 10 --skip-unavailable-fragments \
-      $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" \
-      || die "audio re-fetch failed — see the messages above."
+      $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR" \
+      || die "audio re-fetch failed$(yterr_said)"
     DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
     [ -n "$DLF" ] || die "audio re-fetch produced no file."
     if [ "$(audio_streams "$DLF")" = "0" ]; then
@@ -3047,10 +3183,11 @@ else
   # measured from the produced file's duration, never by parsing yt-dlp output.
   DL_T0=$SECONDS
   run_download() {   # $1 = the selector chain for this attempt
-    "$YTDLP" $COOKIES $REFARGS $IMPARGS -f "$1" \
+    : > "$YTERR"       # stderr → a file (not a pipe): errors reach the log + receipt; the bar (stdout) is untouched
+    "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "$1" \
       --hls-use-mpegts --merge-output-format mkv \
       --fragment-retries 10 --retries 10 --skip-unavailable-fragments \
-      $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL"
+      $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR"
     return $?
   }
   # stage the newest produced download into an mkv scratch at $MKV. yt-dlp keeps a
@@ -3150,6 +3287,7 @@ else
         _ppz=$(stat -f %z "$_pp" 2>/dev/null); _ppz=${_ppz:-0}
         if [ "$_ppz" -gt 10485760 ] 2>/dev/null; then
           SAME_RETRY=1
+          yterr_show
           warn "download died mid-flight (transient CDN error) — resuming the same rung, $(du -h "$_pp" | awk '{print $1}') already in hand …"
           RETRY_NOTE="resumed mid-download after a CDN error"
           continue
@@ -3172,6 +3310,7 @@ if not u:
     if ".m3u8" not in u: u=""
 print(u or "")' < "$INFO" 2>/dev/null)
         if [ -n "$_mf" ] && [ "$_mf" != "$URL" ]; then
+          yterr_show
           warn "the page went blank between the read and the download (their site does this) — going straight at its manifest …"
           logln "  manifest swap: $URL -> $_mf"
           [ -z "$REFARGS" ] && REFARGS="--referer $URL"   # V4.5e: the page vouches for its own manifest
@@ -3184,6 +3323,7 @@ print(u or "")' < "$INFO" 2>/dev/null)
       _next=""
       [ "$IS_HLS" = "1" ] && [ "$DL_RETRIES" -lt 2 ] && _next=$(next_rung_below "$_att_short")
       if [ -n "$_next" ]; then
+        yterr_show
         warn "download failed (yt-dlp exit $YTRC) — retrying at ${_next}p (lower finishes faster — more likely to complete before the CDN stalls again) …"
         rm -f "$WORKDIR/${WORKSTEM}".* 2>/dev/null   # dead attempt's .part/.ytdl must not confuse the next format
         CUR_SEL=$(sel_for_rung "$_next"); _att_short="$_next"
@@ -3192,14 +3332,15 @@ print(u or "")' < "$INFO" 2>/dev/null)
       fi
       if [ -n "$BEST_MKV" ] && [ -s "$BEST_MKV" ]; then
         MKV="$BEST_MKV"
+        yterr_show
         warn "keeping the most complete attempt (${BEST_COV}% of the show) — these 503 walls are transient; the SAME link again in a few minutes usually completes."
         RETRY_NOTE="partial: ${BEST_COV}% of the show (fragments kept failing)"
         break
       fi
       if [ "$IS_HLS" = "1" ]; then
-        die_net "download failed (yt-dlp exit $YTRC) — see the yt-dlp messages above. These CDN walls are usually TRANSIENT: run the SAME link again in a minute (a lower resolution finishes faster); copy a fresh link only if it keeps failing."
+        die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)These CDN walls are usually TRANSIENT: run the SAME link again in a minute (a lower resolution finishes faster); copy a fresh link only if it keeps failing."
       else
-        die_net "download failed (yt-dlp exit $YTRC) — see the messages above. ${VIMEO_LOCKED:+This Vimeo is EMBED-LOCKED and no known host unlocked it — run PICKER and paste the page it is embedded on. }${VIMEO_LOCKED:-${NET_DIE_HINT:-The link may be expired, private, or need a login.}}"
+        die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)${VIMEO_LOCKED:+This Vimeo is EMBED-LOCKED and no known host unlocked it — run PICKER and paste the page it is embedded on. }${VIMEO_LOCKED:-${NET_DIE_HINT:-The link may be expired, private, or need a login.}}"
       fi
     fi
     stage_mkv || die "download reported success but left no usable file (unexpected)."
@@ -3257,7 +3398,7 @@ print(u or "")' < "$INFO" 2>/dev/null)
     _alt=$("$PYTHON" -c "$VR_PY" audioalt "$(file_short_side "$MKV")" < "$INFO" 2>/dev/null)
     rm -f "$MKV"
     run_download "${_alt:+$_alt/}$AVCHAIN"; YTRC=$?
-    [ "$YTRC" -eq 0 ] || die "audio re-fetch failed (yt-dlp exit $YTRC) — see the messages above."
+    [ "$YTRC" -eq 0 ] || die "audio re-fetch failed (yt-dlp exit $YTRC)$(yterr_said)"
     stage_mkv || die "audio re-fetch left no usable file."
     if [ "$(audio_streams "$MKV")" = "0" ]; then
       warn "still no audio — the source's audio metadata appears wrong; continuing with the video-only file."
@@ -4349,7 +4490,15 @@ reencode() {
     cleanup_scratch
     exit 130
   fi
-  { [ "$_rc" -eq 0 ] && [ -s "$ENC_TMP" ]; } || { surface_log "$FF_LOG"; die "re-encode failed."; }
+  if ! { [ "$_rc" -eq 0 ] && [ -s "$ENC_TMP" ]; }; then
+    # a full disk is the common real cause — and ffmpeg's own log sits on that
+    # same full volume (often empty), so the free space itself is the witness
+    _wkb=$(df -k "$WORKDIR" 2>/dev/null | awk 'NR==2{print $4}')
+    if grep -qiE 'No space left on device|Errno 28' "$FF_LOG" 2>/dev/null || [ "${_wkb:-999999}" -lt 51200 ] 2>/dev/null; then
+      die "re-encode failed — the disk is full ($(( ${_wkb:-0} / 1024 ))MB left on the working volume). Free up space, then run it again."
+    fi
+    surface_log "$FF_LOG"; die "re-encode failed."
+  fi
   mv -f "$ENC_TMP" "$OUT" || die "could not move the finished encode into place."
   ENC_EL=$((SECONDS - ENC_T0))
   ok "encoded in $(fmt_dur $(( ENC_EL > 0 ? ENC_EL : 1 )))"
