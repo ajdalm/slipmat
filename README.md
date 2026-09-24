@@ -4,8 +4,8 @@
 
 ⌘C & hit the menu bar. A URL, or a file in Finder — same move.
 
-- **Video** never stutters in QuickTime. Every rip is verified after
-  download; a defective stream gets fixed automatically.
+- **Video** never stutters in QuickTime. Every download is verified after
+  it lands; a defective stream gets fixed automatically.
 - **Audio** downloads become clean .m4a files: AAC-320 through Apple's
   encoder, square album artwork, and the original source quality stamped in
   the **Composer** field (rekordbox can show it as a column, and stores
@@ -14,7 +14,7 @@
 - **Spotify** playlists, albums and tracks get the same treatment, straight
   from Spotify's 320k stream.
 
-Every rip prints a receipt, and every run keeps a log in `~/.slipmat/logs` —
+Every download prints a receipt, and every run keeps a log in `~/.slipmat/logs` —
 toss a fail log at an AI agent and slipmat becomes self-diagnosing.
 
 ## Install
@@ -22,7 +22,7 @@ toss a fail log at an AI agent and slipmat becomes self-diagnosing.
 A Mac running macOS 12 (Monterey) or later, with [Homebrew](https://brew.sh).
 Re-encoding (fixing a stuttering stream, STUDIO's shrink/crop) uses Apple
 Silicon's hardware HEVC encoder in constant-quality mode, which Intel Macs
-don't offer — on an Intel Mac, plain rips work but re-encodes will fail.
+don't offer — on an Intel Mac, plain downloads work but re-encodes will fail.
 
 ```
 brew install ffmpeg yt-dlp uv
@@ -31,7 +31,7 @@ cd slipmat
 ./slipmat hello
 ```
 
-(`uv` is only for Spotify rips — skip it if you'll never rip from Spotify.)
+(`uv` is only for Spotify — skip it if you'll never use Spotify.)
 
 The Homebrew version of yt-dlp handles nearly every site. A few stubborn
 sites only respond to real web browsers — for those, the pip version of
@@ -58,12 +58,12 @@ in Firefox, slipmat can download things that need your account — members-only
 videos, age-restricted content, premium streams. To use a different browser
 (or no cookies), set `COOKIE_BROWSER` / `USE_COOKIES` in `~/.slipmat/config`.
 
-**Spotify rips** need a Spotify Premium account and `uv` (it builds the
-ripper's own Python the first time it's needed). `slipmat hello` offers to
+**Spotify** needs a Spotify Premium account and `uv` (it builds the
+Spotify engine's own Python the first time it's needed). `slipmat hello` offers to
 log you in to Spotify during setup (or later: `./slipmat spotify --login`);
 the login opens in your browser once and is remembered after that.
 Stopping mid-playlist is safe — finished tracks are remembered and skipped
-next time. The ripper is [mr-rippah](https://github.com/cvdub/mr-rippah)
+next time. The Spotify engine is [mr-rippah](https://github.com/cvdub/mr-rippah)
 by cvdub, with upgrades: if Spotify quietly serves a lower tier than 320k,
 the track fails loudly instead of landing as a weaker file; rate-limit
 pacing and stall recovery; album links; and Music.app delivery.
@@ -103,7 +103,7 @@ The same tools, from the command line:
 ./slipmat z-batch -c 50 <folder>     # unattended zoom-crop/re-encode a folder
 ```
 
-Rips land in `~/Downloads/SLIPMAT` (or wherever you told `hello`); run logs
+Downloads land in `~/Downloads/SLIPMAT` (or wherever you told `hello`); run logs
 in `~/.slipmat/logs/<day>/`. `~/.slipmat/config` holds every dial: folders,
 browser cookies, quality, naming style, your own embed-page hosts.
 
