@@ -122,14 +122,26 @@ fi
 prev() { [ -f "$CONF" ] || return 0; ( . "$CONF" >/dev/null 2>&1; eval "printf '%s' \"\${$1:-}\"" ); }
 PREV_OUT="$(prev OUTDIR)"; PREV_AUD="$(prev AUDIO_OUTDIR)"; PREV_AUTO="$(prev AUDIO_AUTO_ADD)"
 
+# a rips folder INSIDE slipmat's own folder would mix media into a git clone
+# (one careless commit away from uploading it) — never offer or accept one
+in_repo() { case "$1/" in "$REPO/"*) return 0 ;; esac; return 1; }
+
 # ---- Q1: video folder -------------------------------------------------------
 DEF_OUT="${PREV_OUT:-$HOME/Downloads/SLIPMAT}"
+if in_repo "$DEF_OUT"; then
+  printf '\n %s(your saved folder is inside slipmat'\''s own app folder — suggesting a separate one)%s\n' "$DM" "$RS"
+  DEF_OUT="$HOME/Downloads/SLIPMAT"
+fi
 ask "where" "should VIDEO rips land?"
 printf '   %s[Enter]%s  %s%s%s     — or type any folder path\n' "$PB" "$RS" "$B" "$(short_home "$DEF_OUT")" "$RS"
 while :; do
   printf '  %s[Enter = %s]%s ' "$DM" "$(short_home "$DEF_OUT")" "$RS"; IFS= read -r a || a=""
   [ -z "$a" ] && { OUTDIR="$DEF_OUT"; break; }
   OUTDIR="$(expand_path "$a")"
+  if in_repo "$OUTDIR"; then
+    printf '   that'\''s inside slipmat'\''s own app folder — pick a folder outside %s\n' "$(short_home "$REPO")"
+    continue
+  fi
   mkdir -p "$OUTDIR" 2>/dev/null && [ -w "$OUTDIR" ] && break
   printf '   can'\''t create/write %s — try another path\n' "$OUTDIR"
 done
@@ -143,7 +155,7 @@ echo
 # Enter wears the previous answer: 1, 2, or the custom folder you typed last time
 AUD_DEF=1; AUD_MEAN="Slipmat folder"
 if [ -n "$PREV_AUTO" ]; then AUD_DEF=2; AUD_MEAN="Music.app"
-elif [ -n "$PREV_AUD" ]; then AUD_DEF="$PREV_AUD"; AUD_MEAN="$(short_home "$PREV_AUD")"; fi
+elif [ -n "$PREV_AUD" ] && ! in_repo "$PREV_AUD"; then AUD_DEF="$PREV_AUD"; AUD_MEAN="$(short_home "$PREV_AUD")"; fi
 k1="[1]"; k2="[2]"; [ "$AUD_DEF" = "1" ] && k1="[Enter/1]"; [ "$AUD_DEF" = "2" ] && k2="[Enter/2]"
 printf '   %s%-9s%s  %sSlipmat download folder%s — %s%s%s\n' "$PB" "$k1" "$RS" "$B" "$RS" "$DM" "$(short_home "$OUTDIR")" "$RS"
 echo
@@ -174,6 +186,10 @@ while :; do
       break ;;
     *)
       AUDIO_OUTDIR="$(expand_path "$a")"
+      if in_repo "$AUDIO_OUTDIR"; then
+        printf '   that'\''s inside slipmat'\''s own app folder — pick a folder outside %s\n' "$(short_home "$REPO")"
+        AUDIO_OUTDIR=""; continue
+      fi
       mkdir -p "$AUDIO_OUTDIR" 2>/dev/null && [ -w "$AUDIO_OUTDIR" ] \
         && { printf '   %s✓ audio → %s%s\n' "$GN" "$AUDIO_OUTDIR" "$RS"; break; }
       printf '   can'\''t create/write %s — try another path\n' "$AUDIO_OUTDIR" ;;
