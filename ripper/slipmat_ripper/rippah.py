@@ -690,6 +690,13 @@ class MrRippah:
                         self.connect()
                         self._fail_streak = 0
                         self._current_delay = max(self._current_delay, 35)
+                except Exception as e:  # a network blip, an encoder error, odd metadata
+                    logger.warning(f"{track_uri} RIP FAILED ({type(e).__name__}: {e}) — moving on")
+                    results.append(TrackRipResult(uri=track_uri, title=None, success=False,
+                                                  failure_reason=f"{type(e).__name__}: {e}"))
+                    progress.update(task, advance=1)
+                    self._fail_streak = getattr(self, "_fail_streak", 0) + 1
+                    continue
                 else:
                     if result.skipped:
                         # a ledger skip touched no server — no
@@ -963,7 +970,7 @@ class MrRippah:
                 image = metadata.album.cover_group.image[-1]
                 file_id_hex = image.file_id.hex()
                 cdn_url = f"{SPOTIFY_CDN_URL}{file_id_hex}"
-                response = requests.get(cdn_url)
+                response = requests.get(cdn_url, timeout=30)
                 if response.status_code == 200:
                     mp["covr"] = [MP4Cover(_squarify_jpeg(response.content), imageformat=MP4Cover.FORMAT_JPEG)]
             mp.save()
@@ -1010,7 +1017,7 @@ class MrRippah:
                 image = metadata.album.cover_group.image[-1]
                 file_id_hex = image.file_id.hex()
                 cdn_url = f"{SPOTIFY_CDN_URL}{file_id_hex}"
-                response = requests.get(cdn_url)
+                response = requests.get(cdn_url, timeout=30)
                 if response.status_code == 200:
                     audio.add(
                         APIC(

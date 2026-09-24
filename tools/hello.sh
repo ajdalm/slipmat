@@ -188,7 +188,9 @@ while :; do
   case "$a" in
     ""|1) printf '   %s✓ audio → %s%s\n' "$GN" "$OUTDIR" "$RS"; break ;;
     2|m|M)
-      for cand in \
+      # a previously saved folder that still exists wins (a library on another disk)
+      [ -n "$PREV_AUTO" ] && [ -d "$PREV_AUTO" ] && AUDIO_AUTO_ADD="$PREV_AUTO"
+      [ -n "$AUDIO_AUTO_ADD" ] || for cand in \
         "$HOME/Music/Music/Media.localized/Automatically Add to Music.localized" \
         "$HOME/Music/iTunes/iTunes Media/Automatically Add to iTunes.localized"; do
         [ -d "$cand" ] && { AUDIO_AUTO_ADD="$cand"; break; }
@@ -216,7 +218,9 @@ done
 # ---- write config (managed block; user lines outside it survive) ------------
 mkdir -p "$CONF_DIR"
 TMP="$CONF_DIR/.config.new.$$"
-{ [ -f "$CONF" ] && sed '/^# ── set by slipmat hello/,/^# ── end slipmat hello/d' "$CONF"
+{ # awk 1 guarantees the kept lines end in a newline (an editor that drops the
+  # final newline would otherwise glue our marker onto the last line)
+  [ -f "$CONF" ] && sed '/^# ── set by slipmat hello/,/^# ── end slipmat hello/d' "$CONF" | awk 1
   printf '# ── set by slipmat hello (rerun `slipmat hello` to change) ──\n'
   # %q: the config is SOURCED by the engines, so a folder name holding a quote,
   # $ or backtick must be escaped, not pasted raw into shell code

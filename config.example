@@ -20,7 +20,8 @@
 #SPOTIFY_GHOSTS=1            # list tracks Spotify no longer plays (~/.slipmat/spotify-ghosts.txt, or give a path)
 #SPOTIFY_LEDGER="$HOME/.slipmat/spotify-ledger.txt"   # finished-track list (resume + no double rips)
 
-# Browser whose cookies yt-dlp reads (firefox/chrome/safari); 0 disables cookies:
+# Browser whose cookies yt-dlp reads (firefox/chrome/safari). USE_COOKIES=0
+# turns cookies off entirely:
 #COOKIE_BROWSER=firefox
 #USE_COOKIES=1
 

@@ -48,7 +48,7 @@ say ""
 /usr/bin/caffeinate -i -w $$ &   # the night run survives idle sleep; released when the batch exits
 
 # summary rows collect here (parallel arrays — bash 3.2)
-R_NAME=(); R_RES=(); R_SIZE=(); R_TIME=()
+R_NAME=(); R_RES=(); R_SIZE=(); R_TIME=(); FAILS=0
 n=0
 for SRC in "${FILES[@]}"; do
   n=$((n+1))
@@ -112,9 +112,9 @@ for SRC in "${FILES[@]}"; do
     say "   ○ $why · $TKS"
     R_NAME+=("$base"); R_RES+=("$why"); R_SIZE+=("-"); R_TIME+=("$TKS")
   else
-    err=$(printf '%s\n' "$OUT" | grep -E 'slipmat-video ERROR' | tail -1 | cut -c1-90)
+    err=$(printf '%s\n' "$OUT" | grep -E '\[slipmat ERROR\]' | tail -1 | cut -c1-90)
     say "   ✗ FAILED (exit $RC) ${err:+— $err}"
-    R_NAME+=("$base"); R_RES+=("FAILED (exit $RC)"); R_SIZE+=("-"); R_TIME+=("$TKS")
+    R_NAME+=("$base"); R_RES+=("FAILED (exit $RC)"); R_SIZE+=("-"); R_TIME+=("$TKS"); FAILS=$((FAILS+1))
   fi
 done
 
@@ -128,3 +128,4 @@ done
 say ""
 say "batch log: $BLOG"
 printf '\033]0;Z AUTO BATCH done · %s files\007' "${#FILES[@]}"
+[ "$FAILS" -eq 0 ]   # exit status: 1 if any file failed

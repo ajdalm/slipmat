@@ -59,6 +59,11 @@ seal_log() {
 }
 LOCK=""
 on_exit() {  # closed window / Ctrl-C: release the build lock, keep the log
+  if [ -n "${VENV:-}" ]; then
+    # killed mid-swap: put the previous env back; killed mid-build: drop the half one
+    [ -d "$VENV" ] || { [ -d "$VENV.old.$$" ] && mv "$VENV.old.$$" "$VENV" 2>/dev/null; }
+    rm -rf "$VENV.new.$$" 2>/dev/null
+  fi
   [ -n "$LOCK" ] && rmdir "$LOCK" 2>/dev/null
   [ -n "$RUNLOG" ] && seal_log "✗ stopped spotify"
 }

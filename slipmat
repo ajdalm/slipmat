@@ -12,7 +12,9 @@
 #   slipmat doctor                                check the toolchain
 # A bare URL or file path routes to video: `slipmat <url> best` works.
 set -u
-HERE="$(cd "$(dirname "$0")" && pwd)"
+# resolve a symlinked install so hello/audio/spotify/z-batch find the repo
+SELF="$0"; while [ -L "$SELF" ]; do _l=$(readlink "$SELF"); case "$_l" in /*) SELF="$_l" ;; *) SELF="$(dirname "$SELF")/$_l" ;; esac; done
+HERE="$(cd "$(dirname "$SELF")" && pwd)"
 CMD="${1:-}"
 usage() { sed -n '2,13p' "$0" | sed 's/^# //;s/^#//'; }
 case "$CMD" in

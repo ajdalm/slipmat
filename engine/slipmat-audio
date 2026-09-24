@@ -102,7 +102,7 @@ say "  $URL"
 log "start: $(date '+%Y-%m-%d %H:%M:%S')"
 
 # one metadata read for naming/tags (yt-dlp prints NA for gaps)
-META=$("$YTDLP" $COOKIES --no-playlist --no-warnings --skip-download \
+META=$("$YTDLP" $COOKIES --no-playlist --no-warnings --skip-download -f "bestaudio/bestaudio*/best" \
   --print $'%(extractor_key)s\037%(title)s\037%(artist,uploader,creator|)s\037%(id)s\037%(uploader_id)s\037%(channel)s\037%(uploader)s\037%(upload_date)s\037%(acodec|?)s\037%(abr|0)s' \
   "$URL" 2>/dev/null | head -1)
 OLDIFS=$IFS; IFS=$'\037'
@@ -181,6 +181,15 @@ TMPD=$(mktemp -d)
     # text field rekordbox shows as a column for both m4a (©wrt) and AIFF
     # (TCOM), and one stores almost never fill — Album/Comments stay the DJ's.
     ABR_INT=${M_ABR%%.*}
+    # a muxed source (no audio-only stream) reports abr 0 — read the real
+    # audio bitrate and codec off the downloaded file instead
+    if [ "${ABR_INT:-0}" -eq 0 ] 2>/dev/null; then
+      _sbr=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=bit_rate -of csv=p=0 "$SRC" 2>/dev/null)
+      case "$_sbr" in ''|*[!0-9]*) _sbr="" ;; esac
+      [ -n "$_sbr" ] && ABR_INT=$(( _sbr / 1000 ))
+      _sac=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$SRC" 2>/dev/null)
+      [ -n "$_sac" ] && { [ -z "$M_ACODEC" ] || [ "$M_ACODEC" = "?" ] || [ "$M_ACODEC" = "none" ]; } && M_ACODEC="$_sac"
+    fi
     SRCQ="src=${M_ACODEC:-?} ${ABR_INT:-?}kbps"
     LQ=""; TAG_STAMP="src ${M_ACODEC:-?} ${ABR_INT:-?}kbps"
     # Album stays empty unless the Album convention is switched on (an empty
@@ -255,9 +264,13 @@ ARTPY
       if [ -n "${AUDIO_AUTO_ADD:-}" ] && [ -d "$AUDIO_AUTO_ADD" ]; then
         AA_OUT="$AUDIO_AUTO_ADD/${NAME}.m4a"
         n=2; while [ -e "$AA_OUT" ]; do AA_OUT="$AUDIO_AUTO_ADD/${NAME} ($n).m4a"; n=$((n+1)); done
-        mv "$STAGE" "$AA_OUT" && OUT="$AA_OUT" && say "  → delivered to Music (auto-import)"
+        # land under a dot-name first: if the library sits on another volume the
+        # move is a copy, and Music must never import a half-written file
+        _tmpd="$AUDIO_AUTO_ADD/.${NAME}.$$.part"
+        mv "$STAGE" "$_tmpd" && mv "$_tmpd" "$AA_OUT" && OUT="$AA_OUT" && say "  → delivered to Music (auto-import)"
       else
-        mv "$STAGE" "$OUT"
+        _tmpd="$OUTDIR/.${NAME}.$$.part"
+        mv "$STAGE" "$_tmpd" && mv "$_tmpd" "$OUT"
       fi
     fi
   fi
@@ -293,7 +306,7 @@ case "$BR" in ''|*[!0-9]*) BR=0 ;; esac   # "N/A" inside $(( )) is N÷A → set 
 case "$DU" in ''|*[!0-9]*) DU=0 ;; esac
 say ""
 say "── DONE ─────────────────────────────────────────────"
-say "  audio   ${AC:-?} · $(( ${BR:-0} / 1000 )) kbps   (source: ${M_ACODEC:-?} ${M_ABR%%.*}kbps)"
+say "  audio   ${AC:-?} · $(( ${BR:-0} / 1000 )) kbps   (source: ${M_ACODEC:-?} ${ABR_INT:-?}kbps)"
 say "  length  $(( ${DU:-0} / 60 )):$(printf '%02d' $(( ${DU:-0} % 60 )))   size $(( SZ / 1048576 ))MB"
 say "  took    $(( SECONDS - T0 ))s"
 say "  file    $(basename "$OUT")"
