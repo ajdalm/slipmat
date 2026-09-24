@@ -4365,6 +4365,14 @@ if [ "$MODE" = "studio" ]; then
       _gfire=0
       [ "$VOL_RE" = "1" ] && awk -v e="$_gmb" -v s="$SRC_MB" 'BEGIN{ exit !(s>0 && e >= 0.90*s) }' && _gfire=1
       [ "$VOL_RE" = "1" ] && [ -n "${_ceil:-}" ] && [ "$Q" -gt "$_ceil" ] 2>/dev/null && _gfire=1
+      # z-auto crops are exempt: the box was already accepted, and a crop is kept for
+      # its frame, not its size. The auto "N" here used to drop real crops of
+      # efficient sources (0.3 Mbps hevc PiP → "kept untouched"). Interactive
+      # STUDIO still asks; plan-B plains (no crop) still obey the guard.
+      if [ "$_gfire" = "1" ] && [ "${ZMODE:-0}" = "1" ] && [ "${SLIPMAT_Z_AUTO:-0}" = "1" ] && ! [ -t 0 ]; then
+        _gfire=0
+        frame_rail "crop lands ~$(fmt_mb "$_gmb") vs $(fmt_mb "$SRC_MB") now — kept for the frame, not the size (z-auto)"
+      fi
       if [ "$_gfire" = "1" ]; then
         warn "q${Q} probably will NOT shrink this file — it lands ~$(fmt_mb "$_gmb") vs $(fmt_mb "$SRC_MB") now${_ceil:+ (break-even ≈ q$_ceil)}."
         if [ "$(ask_yn "$(rail)re-encode anyway? ${C_BOLD}[y/N]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" n)" != "y" ]; then

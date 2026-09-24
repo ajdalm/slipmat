@@ -90,7 +90,7 @@ for SRC in "${FILES[@]}"; do
   rname=$(printf '%s\n' "$OUT" | grep -oE 'encoded .*\[Z\]( \([0-9]+\))?\.mp4' | head -1 | sed 's/^encoded //')
   [ -n "$rname" ] && [ -s "$dir/$rname" ] && ZOUT="$dir/$rname"
   if [ -s "$ZOUT" ]; then
-    ZB=$(stat -f %z "$ZOUT"); PCTD=$(awk -v a="$SB" -v b="$ZB" 'BEGIN{ if(a>0) printf "−%d%%", (1-b/a)*100 }')
+    ZB=$(stat -f %z "$ZOUT"); PCTD=$(awk -v a="$SB" -v b="$ZB" 'BEGIN{ if(a>0){ d=(1-b/a)*100; if(d>=0) printf "−%d%%", d; else printf "+%d%%", -d } }')
     DEST="$ZOUT"
     if [ -n "$SUBDIR" ]; then
       _t="$dir/$SUBDIR/$(basename "$ZOUT")"
@@ -100,7 +100,7 @@ for SRC in "${FILES[@]}"; do
     say "   ✓ crop ${box:-?} (${pct:-?}% of frame) · $(awk -v b="$SB" 'BEGIN{printf "%.0fM", b/1048576}')→$(awk -v b="$ZB" 'BEGIN{printf "%.0fM", b/1048576}') ($PCTD) · $TKS · q${QC}"
     R_NAME+=("$base"); R_RES+=("crop ${box:-?} · ${pct:-?}%"); R_SIZE+=("$(awk -v a="$SB" -v b="$ZB" 'BEGIN{printf "%.0fM→%.0fM", a/1048576, b/1048576}') $PCTD"); R_TIME+=("$TKS")
   elif [ -s "$POUT" ]; then
-    PB=$(stat -f %z "$POUT"); PCTD=$(awk -v a="$SB" -v b="$PB" 'BEGIN{ if(a>0) printf "−%d%%", (1-b/a)*100 }')
+    PB=$(stat -f %z "$POUT"); PCTD=$(awk -v a="$SB" -v b="$PB" 'BEGIN{ if(a>0){ d=(1-b/a)*100; if(d>=0) printf "−%d%%", d; else printf "+%d%%", -d } }')
     why="no box"; printf '%s\n' "$OUT" | grep -q 'z-auto rail' && why="rail: box ${pct:-?}%"
     printf '%s\n' "$OUT" | grep -q "that's [0-9]*% of the frame" && why="box ≈ full frame"
     say "   ○ $why — plain re-encode · $(awk -v b="$SB" 'BEGIN{printf "%.0fM", b/1048576}')→$(awk -v b="$PB" 'BEGIN{printf "%.0fM", b/1048576}') ($PCTD) · $TKS · q${Q}"
