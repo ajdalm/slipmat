@@ -1082,7 +1082,7 @@ ask_line() {
   if [ "${SLIPMAT_Z_AUTO:-0}" = "1" ] && ! [ -t 0 ]; then
     case "$_prompt" in
       *downscale*)     _ans="z" ;;
-      *quality*)       _ans="${SLIPMAT_Z_QCROP:-50}" ;;   # V4.5m: crops ride the hq dial (9.21 — low-rez PiP sources degrade at 45; q50 = the eye-tested tier for degraded sources); plan-B plains keep SLIPMAT_Z_Q
+      *quality*)       _ans="${SLIPMAT_Z_QCROP:-56}" ;;   # crops ride a high dial (9.21: low-rez PiP sources degrade at 45; 9.24: q56 — measured with `slipmat compare`, less added banding than q50 in dark scenes); plan-B plains keep SLIPMAT_Z_Q
       *recipe*)        _ans="c" ;;                       # plan B (no box): plain re-encode …
       *"custom"*)      _ans="${SLIPMAT_Z_Q:-45}" ;;     # … at the same dial, via custom-q verbatim
     esac

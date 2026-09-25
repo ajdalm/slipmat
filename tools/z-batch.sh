@@ -1,7 +1,7 @@
 #!/bin/bash
 # z-batch.sh — unattended zoom-crop (Z) on files and/or folders.
 # usage: z-batch.sh [-c N] [-q N] [-d SUBDIR] <file|folder> ...
-#   -c N       quality dial for CROP encodes (default 50 — cropped PiP sources are
+#   -c N       quality dial for CROP encodes (default 56 — cropped PiP sources are
 #              usually low-res already, so they get the gentler setting)
 #   -q N       quality dial for plan-B plain re-encodes (default 45)
 #   -d SUBDIR  move successful crops ([Z] outputs) into <source folder>/SUBDIR/
@@ -17,9 +17,10 @@
 # accepted, 20-85% sanity rail, out-of-rail/no-box = plan B (plain re-encode, same q,
 # no crop), quality flags always (never the fast recipe).
 set -u
-Q=45; QC=50; SUBDIR=""
+Q=45; QC=56; SUBDIR=""
 # -q = the plan-B (plain) dial · -c = the CROP dial (low-res PiP sources visibly
-# degrade at 45, so crops default to q50)
+# degrade at 45; 9.24: crops default to q56 — q55≡q56 is one real bucket, less added
+# banding in dark scenes than q50 at +34% size, measured with `slipmat compare`)
 num() { case "$2" in ''|*[!0-9]*) echo "z-batch: -$1 needs a number (got '$2')"; exit 1 ;; esac; }
 while getopts "q:c:d:" _o; do case $_o in
   q) num q "$OPTARG"; Q=$OPTARG ;; c) num c "$OPTARG"; QC=$OPTARG ;; d) SUBDIR=$OPTARG ;;
