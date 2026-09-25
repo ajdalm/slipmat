@@ -9,6 +9,7 @@
 #                                                 → the same AAC-320 m4a
 #   slipmat spotify --login                       log in to Spotify (once)
 #   slipmat z-batch [opts] <folder>               unattended zoom-crop / re-encode batch
+#   slipmat compare <file> <q> <q> [...]          measure quality dials on your file first
 #   slipmat doctor                                check the toolchain
 # A bare URL or file path routes to video: `slipmat <url> best` works.
 set -u
@@ -16,7 +17,7 @@ set -u
 SELF="$0"; while [ -L "$SELF" ]; do _l=$(readlink "$SELF"); case "$_l" in /*) SELF="$_l" ;; *) SELF="$(dirname "$SELF")/$_l" ;; esac; done
 HERE="$(cd "$(dirname "$SELF")" && pwd)"
 CMD="${1:-}"
-usage() { sed -n '2,13p' "$0" | sed 's/^# //;s/^#//'; }
+usage() { sed -n '2,14p' "$0" | sed 's/^# //;s/^#//'; }
 case "$CMD" in
   hello|setup) shift; exec /bin/bash "$HERE/tools/hello.sh" "$@" ;;
   ""|help)
@@ -29,6 +30,7 @@ case "$CMD" in
   audio)   shift; exec "$HERE/engine/slipmat-audio" "$@" ;;
   spotify) shift; exec "$HERE/engine/slipmat-spotify" "$@" ;;
   z-batch) shift; exec /bin/bash "$HERE/tools/z-batch.sh" "$@" ;;
+  compare) shift; exec /bin/bash "$HERE/tools/compare.sh" "$@" ;;
   doctor)
     "$HERE/engine/slipmat-video" --doctor
     FF=/opt/homebrew/bin/ffmpeg; [ -x "$FF" ] || FF="$(command -v ffmpeg || printf '%s' "$FF")"
