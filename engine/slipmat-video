@@ -212,6 +212,25 @@ FFPROBE=/opt/homebrew/bin/ffprobe
 [ -x "$FFMPEG"  ] || FFMPEG="$(command -v ffmpeg  || printf '%s' "$FFMPEG")"    # Intel brew (/usr/local) and
 [ -x "$FFPROBE" ] || FFPROBE="$(command -v ffprobe || printf '%s' "$FFPROBE")"  # non-brew installs live on PATH
 
+# ---- encoder: Apple Silicon = hardware HEVC at constant quality (-q:v). Intel
+# has no constant-quality hardware mode (fixed bitrate smears text), so it falls
+# back to software x264 at constant quality (-crf). The q dial stays the one
+# language; q_to_crf translates it. SLIPMAT_ENCODER=x264 forces the fallback
+# (testing), =vt forces hardware.
+SW_ENC=0
+case "${SLIPMAT_ENCODER:-}" in x264) SW_ENC=1 ;; vt) ;; *) [ "$(uname -m)" = "arm64" ] || SW_ENC=1 ;; esac
+q_to_crf() { awk -v q="$1" 'BEGIN{ c=int(38-q*0.4+0.5); if (c<14) c=14; if (c>28) c=28; print c }'; }
+venc_q() {   # $1 = q on the dial → encoder args (PRIO rides the hardware path only)
+  if [ "$SW_ENC" = 1 ]; then printf -- '-c:v libx264 -preset faster -crf %s -pix_fmt yuv420p' "$(q_to_crf "$1")"
+  else printf -- '-c:v hevc_videotoolbox -q:v %s %s' "$1" "${PRIO:-}"; fi
+}
+venc_br() {  # $1 = bitrate
+  if [ "$SW_ENC" = 1 ]; then printf -- '-c:v libx264 -preset faster -b:v %s -pix_fmt yuv420p' "$1"
+  else printf -- '-c:v hevc_videotoolbox -b:v %s %s' "$1" "${PRIO:-}"; fi
+}
+VCODEC_WORD=hevc; VRAW_FMT=hevc; VOUT_TAG="-tag:v hvc1"
+[ "$SW_ENC" = 1 ] && { VCODEC_WORD=h264; VRAW_FMT=h264; VOUT_TAG="-tag:v avc1"; }
+
 OUTDIR="$HOME/Downloads/SLIPMAT"   # where finished .mp4s land
 WORKROOT="$HOME/.slipmat/work"        # scratch ROOT; each run gets its OWN subdir
                                        # (per-run isolation: 10+ simultaneous instances
@@ -834,8 +853,8 @@ sample_probe() {
   if [ "$_pD" -le 72 ]; then
     awk -v d="$_pDF" -v R="$_pRN" 'BEGIN{ printf "%.0f\n", d*R }' > "$_pW/expect"   # V4.4 progress bar: frames expected
     "$FFMPEG" -hide_banner -loglevel error -nostats -progress "$_pW/p0" -y -i "$_pS" -map 0:v:0 \
-      -fps_mode cfr -r "$_pR" $_pSC -c:v hevc_videotoolbox -q:v "$_pQ" ${PRIO:-} -an \
-      -f hevc "$_pW/w0.hevc" </dev/null 2>/dev/null || return 1
+      -fps_mode cfr -r "$_pR" $_pSC $(venc_q "$_pQ") -an \
+      -f "$VRAW_FMT" "$_pW/w0.hevc" </dev/null 2>/dev/null || return 1
     _pB=$(stat -f %z "$_pW/w0.hevc" 2>/dev/null); [ "${_pB:-0}" -gt 0 ] || return 1
     awk -v B="$_pB" -v A="${_pAB:-0}" -v D="$_pDF" -v R="$_pRN" -v el="$((SECONDS-_pT0))" 'BEGIN{
       if (el<1) el=1
@@ -863,8 +882,8 @@ sample_probe() {
       _pwK=$(awk -v b="$_pwB" '$1==b{print $2}' "$_pW/profile")
       ( "$FFMPEG" -hide_banner -loglevel error -nostats -progress "$_pW/p$_pwB" -y \
           -ss "$((_pwB * 8))" -t 8 -i "$_pS" -map 0:v:0 -fps_mode cfr -r "$_pR" $_pSC \
-          -c:v hevc_videotoolbox -q:v "$_pQ" ${PRIO:-} -an \
-          -f hevc "$_pW/w$_pwB.hevc" </dev/null 2>/dev/null \
+          $(venc_q "$_pQ") -an \
+          -f "$VRAW_FMT" "$_pW/w$_pwB.hevc" </dev/null 2>/dev/null \
         && { _pwb=$(stat -f %z "$_pW/w$_pwB.hevc")
              _pwf=$(grep '^frame=' "$_pW/p$_pwB" | tail -1 | cut -d= -f2)
              awk -v s="$_pwK" -v b="$_pwb" -v f="$_pwf" -v R="$_pRN" -v g="$_pwG" 'BEGIN{
@@ -899,8 +918,8 @@ sample_probe() {
     _pB1=$(head -1 "$_pW/buckets" | cut -d' ' -f1)
     if "$FFMPEG" -hide_banner -loglevel error -nostats -progress "$_pW/tspd.prog" -y \
          -ss "$((_pB1 * 8))" -t 8 -i "$_pS" -map 0:v:0 -fps_mode cfr -r "$_pR" $_pSC \
-         -c:v hevc_videotoolbox -q:v "$_pQ" ${PRIO:-} -an \
-         -f hevc "$_pW/tspd.hevc" </dev/null 2>/dev/null; then
+         $(venc_q "$_pQ") -an \
+         -f "$VRAW_FMT" "$_pW/tspd.hevc" </dev/null 2>/dev/null; then
       _pt1=$(perl -MTime::HiRes=time -e 'printf "%.3f", time' 2>/dev/null || true)
       _pf1=$(grep '^frame=' "$_pW/tspd.prog" 2>/dev/null | tail -1 | cut -d= -f2)
       _pSF=$(awk -v f="${_pf1:-0}" -v a="${_pt0:-0}" -v b="${_pt1:-0}" 'BEGIN{
@@ -1050,7 +1069,7 @@ probe_screen() {
     logln "  probe check: said $(fmt_dur "$_pest") → ran $(fmt_dur $(( _pel > 0 ? _pel : 1 ))) · ${_psh}p"
     # V4.4 curve ledger: the NATIVE-geometry ratio teaches the curve for next time
     # (test fixtures never teach it: nothing under /tmp, nothing shorter than 60s)
-    if [ "${_psh:-0}" = "${SHORT:-x}" ] && [ -n "${CURVE_LEDGER:-}" ] && [ "${DUR_S:-0}" -ge 60 ] 2>/dev/null \
+    if [ "$SW_ENC" != 1 ] && [ "${_psh:-0}" = "${SHORT:-x}" ] && [ -n "${CURVE_LEDGER:-}" ] && [ "${DUR_S:-0}" -ge 60 ] 2>/dev/null \
        && case "${LOCAL_SRC:-}" in /tmp/*|/private/tmp/*|/var/folders/*) false ;; *) true ;; esac; then
       printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%Y-%m-%d)" "$CLS" "${PLAT_WORD:-?}" "$_psh" "${EST_FPS:-?}" "$SAMP_RATIO" "$(abridge "${_sname:-$(basename "$MKV")}" 40)" >> "$CURVE_LEDGER" 2>/dev/null || true
       logln "  curve ledger: +1 (${CLS}/${PLAT_WORD:-?} · ${_psh}p · ratio ${SAMP_RATIO})"
@@ -1775,7 +1794,7 @@ if [ "$URL" = "--doctor" ]; then
     _ck="$HOME/Library/Application Support/Firefox/Profiles"
     printf '  %s firefox profile dir (cookies): %s\n' "$([ -d "$_ck" ] && printf '✓' || printf '!')" "$([ -d "$_ck" ] && echo present || echo absent — cookie-dependent sites may need login)"
   else printf '  · cookies from %s (set in config)\n' "$COOKIE_BROWSER"; fi
-  [ "$(uname -m)" = "arm64" ] || printf '  ! Intel Mac: re-encodes (hardware HEVC at constant quality) will fail here; plain downloads work\n'
+  [ "$SW_ENC" = 1 ] && printf '  · Intel Mac: re-encodes use software x264 (slower than Apple Silicon); plain downloads unchanged\n'
   _strays=$(ls -A "$WORKROOT" 2>/dev/null | grep -cv '^\.DS_Store$')
   printf '  %s scratch entries: %s (quiz dirs + live runs are normal; junk is swept at 48h)\n' "✓" "${_strays:-0}"
   _xw=$(find "$HOME/.slipmat/logs" -name "*✗*" -mtime -7 2>/dev/null | wc -l | tr -d ' ')
@@ -4482,19 +4501,20 @@ reencode() {
   _mlbl=""; [ "$MODE" = "studio" ] && _mlbl=" · ${ENC_MODE} flags"
   # V4.1 step line: the TARGET leads (what you'll get), then the recipe; the exact
   # CFR fraction and the -vf string go to the run log only
-  _tgt="$(geom_word "$(_out_dims_w)" "$(_out_dims_h)") $(fmt_fps "$RATE") hevc"
-  logln "  encode flags: CFR -r $RATE${SCALE:+ $SCALE}${PRIO:+ $PRIO}"
+  _tgt="$(geom_word "$(_out_dims_w)" "$(_out_dims_h)") $(fmt_fps "$RATE") ${VCODEC_WORD}"
+  logln "  encode flags: CFR -r $RATE${SCALE:+ $SCALE}$([ "$SW_ENC" = 1 ] || printf '%s' "${PRIO:+ $PRIO}")"
+  [ "$SW_ENC" = 1 ] && logln "  encoder: software x264 (no Apple Silicon) · q${Q:-?} → crf $(q_to_crf "${Q:-40}")"
   if [ "$RE_MODE" = "br" ]; then
     step 3 "$_lbl → ${_tgt} · -b:v $BR${_mlbl} …"
     "$FFMPEG" -hide_banner -loglevel error -nostats -progress pipe:1 -y -i "$MKV" $VAMAP -fps_mode cfr -r "$RATE" $SCALE \
-      -c:v hevc_videotoolbox -b:v "$BR" ${PRIO:-} -tag:v hvc1 \
+      $(venc_br "$BR") $VOUT_TAG \
       $AOPT -movflags +faststart -max_muxing_queue_size 40000 "$ENC_TMP" </dev/null \
       2>"$FF_LOG" | awk -v tty="$IS_TTY" -v dur="$DUR_US" -v E="$ESC" -v B="$BAR_F" -v D="$BAR_E" "$ENC_FILTER"
     _rc=${PIPESTATUS[0]:-1}; _rcf=${PIPESTATUS[1]:-0}   # :- guards: the INT trap body resets PIPESTATUS (set -u)
   else
     step 3 "$_lbl → ${_tgt} · q${Q}${_mlbl} …"
     "$FFMPEG" -hide_banner -loglevel error -nostats -progress pipe:1 -y -i "$MKV" $VAMAP -fps_mode cfr -r "$RATE" $SCALE \
-      -c:v hevc_videotoolbox -q:v "$Q" ${PRIO:-} -tag:v hvc1 \
+      $(venc_q "$Q") $VOUT_TAG \
       $AOPT -movflags +faststart -max_muxing_queue_size 40000 "$ENC_TMP" </dev/null \
       2>"$FF_LOG" | awk -v tty="$IS_TTY" -v dur="$DUR_US" -v E="$ESC" -v B="$BAR_F" -v D="$BAR_E" "$ENC_FILTER"
     _rc=${PIPESTATUS[0]:-1}; _rcf=${PIPESTATUS[1]:-0}   # :- guards: the INT trap body resets PIPESTATUS (set -u)
@@ -4528,7 +4548,7 @@ reencode() {
     if grep -qiE 'No space left on device|Errno 28' "$FF_LOG" 2>/dev/null || [ "${_wkb:-999999}" -lt 51200 ] 2>/dev/null; then
       die "re-encode failed — the disk is full ($(( ${_wkb:-0} / 1024 ))MB left on the working volume). Free up space, then run it again."
     fi
-    surface_log "$FF_LOG"; [ "$(uname -m)" = "arm64" ] || die "re-encode failed — this Mac has no Apple Silicon HEVC encoder (plain downloads still work)."
+    surface_log "$FF_LOG"
     die "re-encode failed."
   fi
   mv -f "$ENC_TMP" "$OUT" || die "could not move the finished encode into place."

@@ -21,8 +21,9 @@ toss a fail log at an AI agent and slipmat becomes self-diagnosing.
 
 A Mac running macOS 12 (Monterey) or later, with [Homebrew](https://brew.sh).
 Re-encoding (fixing a stuttering stream, STUDIO's shrink/crop) uses Apple
-Silicon's hardware HEVC encoder in constant-quality mode, which Intel Macs
-don't offer — on an Intel Mac, plain downloads work but re-encodes will fail.
+Silicon's hardware HEVC encoder in constant-quality mode. Intel Macs don't
+have that mode, so there slipmat re-encodes with software x264 at constant
+quality instead — same look, slower encodes, H.264 files.
 
 ```
 brew install ffmpeg yt-dlp uv
