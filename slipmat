@@ -10,6 +10,8 @@
 #   slipmat spotify --login                       log in to Spotify (once)
 #   slipmat z-batch [opts] <folder>               unattended zoom-crop / re-encode batch
 #   slipmat compare <file> <q> <q> [...]          measure quality dials on your file first
+#   slipmat smoke                                 offline self-test, about a minute —
+#                                                 run it before every commit
 #   slipmat doctor                                check the toolchain
 # A bare URL or file path routes to video: `slipmat <url> best` works.
 set -u
@@ -17,7 +19,7 @@ set -u
 SELF="$0"; while [ -L "$SELF" ]; do _l=$(readlink "$SELF"); case "$_l" in /*) SELF="$_l" ;; *) SELF="$(dirname "$SELF")/$_l" ;; esac; done
 HERE="$(cd "$(dirname "$SELF")" && pwd)"
 CMD="${1:-}"
-usage() { sed -n '2,14p' "$0" | sed 's/^# //;s/^#//'; }
+usage() { sed -n '2,16p' "$0" | sed 's/^# //;s/^#//'; }
 case "$CMD" in
   hello|setup) shift; exec /bin/bash "$HERE/tools/hello.sh" "$@" ;;
   ""|help)
@@ -31,9 +33,18 @@ case "$CMD" in
   spotify) shift; exec "$HERE/engine/slipmat-spotify" "$@" ;;
   z-batch) shift; exec /bin/bash "$HERE/tools/z-batch.sh" "$@" ;;
   compare) shift; exec /bin/bash "$HERE/tools/compare.sh" "$@" ;;
+  smoke)   shift; exec /bin/bash "$HERE/tools/smoke.sh" "$@" ;;
   doctor)
     "$HERE/engine/slipmat-video" --doctor
     FF=/opt/homebrew/bin/ffmpeg; [ -x "$FF" ] || FF="$(command -v ffmpeg || printf '%s' "$FF")"
+    # the versions the last green `slipmat smoke` ran on — a mismatch is the hint
+    # after a brew upgrade changed something underneath
+    if [ -s "$HOME/.slipmat/last-green" ]; then
+      _gff=$(sed -n 's/^ffmpeg=//p' "$HOME/.slipmat/last-green"); _gyt=$(sed -n 's/^yt-dlp=//p' "$HOME/.slipmat/last-green"); _gwhen=$(sed -n 's/^when=//p' "$HOME/.slipmat/last-green")
+      _nff=$("$FF" -version 2>/dev/null | head -1 | awk '{print $3}'); _nyt=$(yt-dlp --version 2>/dev/null)
+      if [ "$_gff" = "$_nff" ] && [ "$_gyt" = "$_nyt" ]; then printf '  ✓ last green smoke: %s — same ffmpeg + yt-dlp as now\n' "$_gwhen"
+      else printf '  ! last green smoke: %s on ffmpeg %s · yt-dlp %s — now %s · %s. Run: slipmat smoke\n' "$_gwhen" "$_gff" "$_gyt" "${_nff:-?}" "${_nyt:-?}"; fi
+    else printf '  · no green smoke on record yet — run: slipmat smoke\n'; fi
     printf '  %s aac_at encoder (audio rips): %s\n' \
       "$("$FF" -hide_banner -encoders 2>/dev/null | grep -q aac_at && printf '✓' || printf '✗')" \
       "$("$FF" -hide_banner -encoders 2>/dev/null | grep -q aac_at && echo present || echo 'missing — audio rips need ffmpeg with AudioToolbox')"

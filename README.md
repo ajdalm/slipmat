@@ -113,6 +113,8 @@ The same tools, from the command line:
 ./slipmat spotify --login            # log in to Spotify now (browser, once)
 ./slipmat spotify -c                 # forget the saved Spotify login
 ./slipmat z-batch -c 50 <folder>     # unattended zoom-crop/re-encode a folder
+./slipmat smoke                      # offline self-test, ~10 s (run before a commit)
+./slipmat doctor                     # toolchain check, last green smoke
 ```
 
 Downloads land in `~/Downloads/SLIPMAT` (or wherever you told `hello`); a
@@ -131,6 +133,8 @@ browser cookies, quality, naming style, your own embed-page hosts.
   quoting numbers; estimates are typically within a few percent.
 - Live streams record straight to mp4; press Ctrl-C to stop, and the file
   is finalized and playable.
+- A download that is taking too long steps down on Ctrl-C: 1080p → 720p →
+  480p, one rung per press, then cancel. Each step says what the next press does.
 - Embed rescue: when a page's video can't be reached the normal way,
   slipmat reads the page itself and finds the embedded video (og:video,
   JSON-LD, iframes, raw manifests, and several site-specific handlers).

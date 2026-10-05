@@ -7,7 +7,36 @@ for most of it. Ground rules first:
   Ctrl-C the pty tears and ffmpeg dies mid-finalize, corrupting live captures.
 - **Never pipe the download or live capture; never trap INT** in the video
   engine — Ctrl-C must finalize the file, not kill the writer mid-write.
-- Simulated Ctrl-C = process-group INT with the pty master held open.
+- Simulated Ctrl-C = process-group INT with the pty master held open. A job
+  started with `&` from a script inherits SIGINT as *ignored* (POSIX), so
+  yt-dlp never sees the interrupt there — launch through a pty, or reset the
+  disposition first (`python3 -c 'import os,signal,sys;
+  signal.signal(signal.SIGINT, signal.SIG_DFL); os.execv(sys.argv[1], sys.argv[1:])' engine/slipmat-video …`).
+
+## The smoke battery — run it before every commit
+
+```bash
+./slipmat smoke        # ~10 s, offline; -k keeps the scratch folder, -v prints engine output under a FAIL
+```
+
+`tools/smoke.sh` builds three synthetic clips (clean vp9 · rotated h264 with a
+Display Matrix · a clip missing 30% of its frames with the survivors' timestamps
+kept), runs the real engine on them under a throwaway HOME, and prints one line
+per check. The checks are rules that once broke in the field:
+
+- every script parses (`bash -n`)
+- `--concurrent-fragments` / `--retry-sleep` stay out of the download code
+- the engine recognizes yt-dlp's "Interrupted by user" (Ctrl-C = step down a rung, not a CDN error)
+- your `SLIPMAT_EMBED_HOSTS` are never named in a run log whose source is elsewhere (sweeps your own logs written since the engine last changed; read-only)
+- BEST on vp9 produces hevc, prints no size heads-up, and every probed value is comma-free
+- the stutter detector flags the broken-PTS clip and the CFR fix produces hevc
+- z-batch on the rotated clip produces hevc, reads codec and frame rate clean, and describes the frame as *shown* (`360p`, not `360p (V)`)
+- every run logged under the throwaway HOME
+
+All green writes `~/.slipmat/last-green` (ffmpeg + yt-dlp versions); `slipmat doctor`
+shows it beside the live versions, so a `brew upgrade` that changed something
+underneath is one line away. A ruling that can be checked belongs here as an
+assertion — that is how drift stops.
 
 ## Offline encode fixture (no network)
 
@@ -20,6 +49,9 @@ SLIPMAT_LOCAL_MKV=/tmp/fix.mkv ./engine/slipmat-video "https://example.test/x" m
 ```
 
 ## Rotated phone video (ffprobe 8 trailing-comma regression, 10.5.26)
+
+(`slipmat smoke` builds this clip and asserts both the comma fix and the
+rotation-aware dimensions; the recipe stays here for hand checks.)
 
 Portrait/rotated phone recordings carry a Display Matrix. ffprobe 8 prints that nested
 section as an EMPTY trailing csv field (`h264,` `60/1,`), which once broke every local
