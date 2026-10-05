@@ -45,7 +45,8 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.6a"          # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
+VERSION="4.6b"          # 10.5.26 — Instagram reels/posts rip cookieless (logged-in API returns empty JSON)
+                        # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
                         # re-probe · live receipt = video duration · TS probe short-circuit ·
                         # honest blind-probe death · stage-on-source-volume
@@ -2001,6 +2002,11 @@ esac
 # dependency, proven to finish a 2 GB show in ~100s cookieless). Everything else passes
 # cookies (helps YouTube auth/premium, harmless elsewhere). NO retry-without-cookies.
 # (memory: cookies-are-inert-and-reliable)
+# Instagram reels/posts (10.5.26): a LOGGED-IN session makes Instagram's video-info
+# API answer with an EMPTY body ("Failed to parse JSON", three fails in a row on a
+# public reel, stable AND nightly yt-dlp). The same page reads fine cookieless, so
+# public reels/posts go without cookies. Stories/highlights keep them — those
+# need the login.
 # One stranger-proofing exception: no Firefox profile on this Mac at all →
 # --cookies-from-browser would ERROR on every rip. Stand down silently; the
 # hello/README guidance ("log in in Firefox") is how cookies come back.
@@ -2009,6 +2015,7 @@ COOKIES=""
 if [ "$USE_COOKIES" = "1" ]; then
   case "$(lc "$URL")" in
     *newsmax*|*nmxvod*|*akamaized*) COOKIES="" ;;
+    *instagram.com/reel/*|*instagram.com/reels/*|*instagram.com/p/*) COOKIES="" ;;
     *)                              COOKIES="--cookies-from-browser $COOKIE_BROWSER" ;;
   esac
 fi
