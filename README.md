@@ -97,7 +97,7 @@ tilted squares, top right of your screen) and pick:
 
 An optional sixth, `[SLIPMAT VIDEO] AUTO CROP(PiP)`, takes files selected in
 Finder (screen recordings with a small video box in a static frame) and crops
-each one to the moving picture, unattended. `hello` offers it after the five.
+each one to the moving picture, unattended. `hello` offers it after the six.
 
 The same tools, from the command line:
 
