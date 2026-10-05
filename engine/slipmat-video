@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.6b"          # 10.5.26 — Instagram reels/posts rip cookieless (logged-in API returns empty JSON)
+VERSION="4.7"           # 10.5.26 — Ctrl-C mid-download steps down a rung by name · rotation-aware dimensions · `slipmat smoke`
                         # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
                         # re-probe · live receipt = video duration · TS probe short-circuit ·
@@ -530,6 +530,22 @@ yterr_log() {     # log only (a silent internal retry)
 $_ys
 EOF
 }
+# A Ctrl-C during a download reaches yt-dlp, which prints "ERROR: Interrupted by
+# user" and exits 1 — the same exit code as a real failure. The words tell them
+# apart. by_hand reads the last attempt's stderr; dl_canceled ends the run the
+# way the encode cancel does: said as the user's decision, nothing kept, exit 130.
+by_hand() { grep -q 'Interrupted by user' "${YTERR:-/nonexistent}" 2>/dev/null; }
+dl_canceled() {
+  [ -n "${SPID:-}" ] && { kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null; SPID=""; }
+  yterr_log
+  printf '\n'
+  warn "download canceled (Ctrl-C) — nothing kept."
+  [ -n "${QDIR:-}" ] && [ -d "${QDIR:-}" ] && printf 'failed\n' > "$QDIR/final" 2>/dev/null
+  term_title "✗ canceled · $(abridge "${ID_TITLE:-}" 50)"
+  finish_log "✗ canceled ${ID_TITLE:-}"
+  cleanup_scratch
+  exit 130
+}
 
 # Platform tag for the "- YT@handle" name segment (empty tag -> bare "@handle").
 # Tags stay SHORT (user spec): TT not TikTok, VM not Vimeo.
@@ -710,6 +726,16 @@ file_short_side() {
   "$FFPROBE" -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$1" 2>/dev/null \
     | awk -F, 'NR==1 { if ($1+0>0 && $2+0>0) print ($1<$2 ? $1 : $2)+0 }'
 }
+# video_rotation FILE → the Display Matrix rotation in degrees ("" when none).
+# Phone recordings store the frame one way and carry a matrix that turns it;
+# every player (and ffmpeg's decoder, so every filter here) shows the TURNED
+# frame. turned ROT → true on a quarter turn, when stored width/height describe
+# a picture nobody sees and must be swapped.
+video_rotation() {
+  "$FFPROBE" -v error -select_streams v:0 -show_entries stream_side_data=rotation -of csv=p=0 "$1" 2>/dev/null \
+    | tr -d ' ,' | sed 's/\.0*$//' | head -1
+}
+turned() { case "${1:-}" in 90|-90|270|-270) return 0 ;; *) return 1 ;; esac; }
 
 # ---- size/time estimates (8.10.26 · CALIB-derived, this machine's encoder) ----
 # est_kbps <class> <q> <short> <fps> -> expected TOTAL kbps (audio included: the
@@ -2476,7 +2502,10 @@ EOF
   # speaks for itself on failure) — log them before scratch cleanup takes the file
   _pe=$(yterr_lines "$PROBE_ERR")
   if [ -n "$_pe" ]; then
-    while IFS= read -r _pln; do logln "  probe: $_pln"; done <<EOF
+    # a probe that recovered (embed page, impersonation, manifest) still has its
+    # earlier tries' errors on file — label them so a reader of the log is not misled
+    _plbl="probe"; [ -s "${INFO:-/nonexistent}" ] && info_json_ok "$INFO" 2>/dev/null && _plbl="probe (an earlier try — recovered)"
+    while IFS= read -r _pln; do logln "  $_plbl: $_pln"; done <<EOF
 $_pe
 EOF
   fi
@@ -3090,6 +3119,7 @@ if [ "$FAST" = "1" ]; then
     return $?
   }
   fast_dl; YTRC=$?
+  [ "$YTRC" -ne 0 ] && by_hand && dl_canceled
   if [ "$YTRC" -ne 0 ] && [ "$TRY_INFO" = "1" ]; then
     yterr_log
     note "cached source info didn't resolve — re-reading fresh …"
@@ -3113,7 +3143,7 @@ if [ "$FAST" = "1" ]; then
     "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "${_alt:+$_alt/}$AVCHAIN" --merge-output-format mp4 \
       --fragment-retries 10 --retries 10 --skip-unavailable-fragments \
       $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR" \
-      || die "audio re-fetch failed$(yterr_said)"
+      || { by_hand && dl_canceled; die "audio re-fetch failed$(yterr_said)"; }
     DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
     [ -n "$DLF" ] || die "audio re-fetch produced no file."
     if [ "$(audio_streams "$DLF")" = "0" ]; then
@@ -3162,6 +3192,7 @@ if [ "$FAST" = "1" ]; then
       AOK=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$OUT")
       OUTW=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$OUT")
       OUTH=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$OUT")
+      if turned "$(video_rotation "$OUT")"; then _sw="$OUTW"; OUTW="$OUTH"; OUTH="$_sw"; fi   # a copied matrix: report the frame as shown
       SIZE=$(du -h "$OUT" 2>/dev/null | awk '{print $1}')
       cleanup_scratch
       say ""
@@ -3324,7 +3355,7 @@ else
         _cb=$(du -k "$WORKDIR" 2>/dev/null | tail -1 | awk '{print $1*1024}'); _cb=${_cb:-0}
         _el=$((SECONDS - _t0))
         awk -v d="$(( _cb - _pb ))" -v c="$_cb" -v e="$_el" \
-          'BEGIN{ printf "  [speed] %d:%02d  %.0fMB total · %.1fMB/s (last 30s)\n", e/60, e%60, c/1048576, d/30/1048576 }'
+          'BEGIN{ if (d<0) d=0; printf "  [speed] %d:%02d  %.0fMB total · %.1fMB/s (last 30s)\n", e/60, e%60, c/1048576, d/30/1048576 }'
         # V4.5c (a 19:09 NMX rip: 0.0 MB/s for 5 min at ~99%, a frozen bar and no words):
         # the opening speed is kept for the receipt's throttle note; a STALL (three
         # samples under 0.2 MB/s) is said ONCE on the screen — the bar redraws under it.
@@ -3344,6 +3375,24 @@ else
   while :; do
     run_download "$CUR_SEL"; YTRC=$?
     if [ "$YTRC" -ne 0 ]; then
+      # BY HAND first: a Ctrl-C on a slow top rung is the user's step-down key
+      # (the same ladder, one rung at once, said as their decision) — not CDN
+      # weather to resume, not a blank page to swap. Nothing below = a cancel.
+      if by_hand; then
+        _next=""
+        [ "$IS_HLS" = "1" ] && [ "$DL_RETRIES" -lt 2 ] && _next=$(next_rung_below "$_att_short")
+        [ -n "$_next" ] || dl_canceled   # (logs yt-dlp's line itself)
+        yterr_log
+        _from="${_att_short:+${_att_short}p}"; _from="${_from:-the top stream}"
+        _again="another Ctrl-C = cancel"
+        if [ "$DL_RETRIES" -lt 1 ]; then _below=$(next_rung_below "$_next"); [ -n "$_below" ] && _again="another Ctrl-C = ${_below}p"; fi
+        printf '\n'
+        warn "Ctrl-C at ${_from} — stepping down to ${_next}p (${_again}) …"
+        rm -f "$WORKDIR/${WORKSTEM}".* 2>/dev/null   # the stopped attempt's .part/.ytdl must not confuse the next format
+        CUR_SEL=$(sel_for_rung "$_next"); _att_short="$_next"
+        DL_RETRIES=$((DL_RETRIES+1)); SAME_RETRY=0; RETRY_NOTE="stepped down to ${_next}p by hand (Ctrl-C at ${_from})"
+        continue
+      fi
       # SAME-RUNG RESUME first (8.10.26): NMX-class 503 walls are transient CDN
       # weather — the identical command 30s later pulled at 21MB/s. If a partial
       # is already in hand, retry the SAME rung ONCE; yt-dlp resumes the .part
@@ -3492,6 +3541,14 @@ AVGFR=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=avg_frame_r
 VCODEC=$(lc "$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$MKV")")
 HEIGHT=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$MKV")
 WIDTH=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$MKV")
+# a quarter-turned Display Matrix (phone video): describe the frame as SHOWN —
+# the orientation tag, the short side and the downscale axis all follow from
+# these two numbers, and ffmpeg's filters see the turned frame too
+ROTATION=$(video_rotation "$MKV")
+if turned "$ROTATION"; then
+  _sw="$WIDTH"; WIDTH="$HEIGHT"; HEIGHT="$_sw"
+  logln "  rotation ${ROTATION}° — stored ${HEIGHT}x${WIDTH}, shown ${WIDTH}x${HEIGHT}"
+fi
 [ -n "$RFR" ] || die "could not read r_frame_rate from the download."
 
 T=$(awk -v r="$RFR" 'BEGIN{ n=split(r,a,"/"); if(n==2 && a[1]>0) printf "%.6f", a[2]/a[1]; else print "0" }')
@@ -4714,6 +4771,7 @@ AOK=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=codec_name -o
 [ -n "$VOK" ] || die "output has no readable video stream (corrupt)."
 OUTW=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$OUT")
 OUTH=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$OUT")
+if turned "$(video_rotation "$OUT")"; then _sw="$OUTW"; OUTW="$OUTH"; OUTH="$_sw"; fi   # a copied matrix: report the frame as shown
 VDUR=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=duration -of csv=p=0 "$OUT")
 ADUR=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=duration -of csv=p=0 "$OUT")
 DRIFT=$(awk -v a="$VDUR" -v b="$ADUR" 'BEGIN{ if(a==""||b==""){print "n/a"; exit} d=a-b; if(d<0)d=-d; printf "%.3f s", d }')
