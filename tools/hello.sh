@@ -318,7 +318,7 @@ printf '      → the same deck-ready .m4a, straight from Spotify'\''s 320k stre
 printf '      Needs Spotify Premium. %s(powered by cvdub'\''s mr-rippah)%s\n' "$DM" "$RS"
 echo
 printf ' Installing takes %sunder a minute%s: press Enter here, then Enter again on each\n' "$B" "$RS"
-printf ' %s"Add Shortcut"%s pop-up — the next one pops up by itself. Five in a row.\n' "$B" "$RS"
+printf ' %s"Add Shortcut"%s pop-up — the next one pops up by itself. Six in a row.\n' "$B" "$RS"
 ask "install" "the shortcut suite?"
 opt "Enter" "install" "the blissful two-click experience"
 opt "n" "skip" "I enjoy typing commands into Terminal by hand, every single time"
@@ -420,7 +420,7 @@ if [ -z "$a" ] || [ "$a" = "y" ] || [ "$a" = "Y" ]; then
     printf ' The shortcuts are already pinned to your menu bar. Find them:\n'
     echo
     printf '   look at the %stop-right of your screen%s, near the clock and Wi-Fi, for\n' "$B" "$RS"
-    printf '   the %sShortcuts icon%s — two stacked, tilted squares. Click it: the five\n' "$B" "$RS"
+    printf '   the %sShortcuts icon%s — two stacked, tilted squares. Click it: the six\n' "$B" "$RS"
     printf '   %s[SLIPMAT …]%s shortcuts are listed right there. That dropdown is slipmat.\n' "$PB" "$RS"
     while :; do
       ask "ready" "— do you see them?"
@@ -470,7 +470,7 @@ if [ -z "$a" ] || [ "$a" = "y" ] || [ "$a" = "Y" ]; then
     printf '   resets that, so it asks once more.\n'
   else
     printf '   Signing didn'\''t work on this Mac (it needs an iCloud login). No drama:\n'
-    printf '   %sshortcuts/SETUP.md%s builds the same five by hand — five short blocks,\n' "$B" "$RS"
+    printf '   %sshortcuts/SETUP.md%s builds the same six by hand — six short blocks,\n' "$B" "$RS"
     printf '   about three minutes.\n'
   fi
 else
