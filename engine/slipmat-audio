@@ -24,6 +24,10 @@ FFMPEG="${FFMPEG:-/opt/homebrew/bin/ffmpeg}"
 FFPROBE="${FFPROBE:-/opt/homebrew/bin/ffprobe}"
 [ -x "$FFMPEG"  ] || FFMPEG="$(command -v ffmpeg  || printf '%s' "$FFMPEG")"
 [ -x "$FFPROBE" ] || FFPROBE="$(command -v ffprobe || printf '%s' "$FFPROBE")"
+# ffprobe 8 adds an empty trailing csv field on streams with side data — strip it once here
+FFPROBE_BIN="$FFPROBE"
+ffprobe_csv() { case " $* " in *"csv="*) "$FFPROBE_BIN" "$@" | sed 's/,$//' ;; *) "$FFPROBE_BIN" "$@" ;; esac; }
+FFPROBE=ffprobe_csv
 OUTDIR="$HOME/Downloads/SLIPMAT"   # video rips share this folder by default
 AUDIO_OUTDIR=""             # set in ~/.slipmat/config to give audio its own folder
 AUDIO_AUTO_ADD=""           # optional: your Music.app "Automatically Add" folder —

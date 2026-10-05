@@ -19,6 +19,27 @@ SLIPMAT_LOCAL_MKV=/tmp/fix.mkv ./engine/slipmat-video "https://example.test/x" m
 # expect: vp9 → HEVC conversion, bar to 100%, a receipt, a run log in ~/.slipmat/logs/
 ```
 
+## Rotated phone video (ffprobe 8 trailing-comma regression, 10.5.26)
+
+Portrait/rotated phone recordings carry a Display Matrix. ffprobe 8 prints that nested
+section as an EMPTY trailing csv field (`h264,` `60/1,`), which once broke every local
+re-encode ("'h264,' can't live in mp4", "Invalid framerate value: 18807/407,"). The engines
+read ffprobe through `ffprobe_csv`, which strips it. Re-check after any ffmpeg upgrade:
+
+```bash
+ffmpeg -hide_banner -loglevel error -y -f lavfi -i testsrc2=duration=4:size=360x640:rate=30 \
+  -f lavfi -i sine=frequency=440:duration=4 -c:v libx264 -pix_fmt yuv420p -c:a aac /tmp/rot0.mp4
+ffmpeg -hide_banner -loglevel error -y -display_rotation 90 -i /tmp/rot0.mp4 -c copy /tmp/rot.mp4   # input option: stamps the matrix
+ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 /tmp/rot.mp4
+# raw ffprobe 8 prints "h264,360,640," — the trailing comma is the bug the wrapper absorbs
+./slipmat z-batch /tmp/rot.mp4
+# expect: a [Z] output beside it, codec hevc, no "Invalid framerate" — and NO comma inside any
+# value in the run log (grep -n ',p (\|h264,\|/[0-9]*,' ~/.slipmat/logs/<day>/*rot*)
+```
+A real 8 s cut of a defective iPhone screen recording lives privately at
+`~/.slipmat/fixtures/rotated-phone-8s.MP4` (stutter 9.93%, rotation 90): the full z-auto path on it
+took 0:25 and landed a 1918x1018 crop.
+
 ## Driving interactive flows (STUDIO, the picker)
 
 `tools/ptydrive.py` answers each prompt when its text appears (a pre-fed Enter

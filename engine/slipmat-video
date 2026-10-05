@@ -212,6 +212,19 @@ FFMPEG=/opt/homebrew/bin/ffmpeg
 FFPROBE=/opt/homebrew/bin/ffprobe
 [ -x "$FFMPEG"  ] || FFMPEG="$(command -v ffmpeg  || printf '%s' "$FFMPEG")"    # Intel brew (/usr/local) and
 [ -x "$FFPROBE" ] || FFPROBE="$(command -v ffprobe || printf '%s' "$FFPROBE")"  # non-brew installs live on PATH
+# ffprobe 8 prints a stream's nested side-data section (the Display Matrix a
+# phone writes on portrait/rotated video) as an EMPTY trailing csv field:
+# "h264," "60/1," "1440,1920,". Every csv read in this file goes through this
+# wrapper, which drops that one comma — one choke point, not 33 call sites.
+# Non-csv output (packet dumps use csv too, json does not) passes untouched.
+FFPROBE_BIN="$FFPROBE"
+ffprobe_csv() {
+  case " $* " in
+    *"csv="*) "$FFPROBE_BIN" "$@" | sed 's/,$//' ;;
+    *)        "$FFPROBE_BIN" "$@" ;;
+  esac
+}
+FFPROBE=ffprobe_csv
 
 # ---- encoder: Apple Silicon = hardware HEVC at constant quality (-q:v). Intel
 # has no constant-quality hardware mode (fixed bitrate smears text), so it falls
@@ -1768,7 +1781,7 @@ EOF3
 # ---- doctor (8.11.26): `slipmat --doctor` — suite self-check, then exit -----
 if [ "$URL" = "--doctor" ]; then
   printf 'SLIPMAT %s doctor\n' "$VERSION"
-  for _t in "$YTDLP" "$FFMPEG" "$FFPROBE"; do
+  for _t in "$YTDLP" "$FFMPEG" "$FFPROBE_BIN"; do
     case "$_t" in *yt-dlp*) _vf="--version" ;; *) _vf="-version" ;; esac   # ffmpeg/ffprobe take ONE dash
     if [ -x "$_t" ]; then printf '  ✓ %-46s %s\n' "$_t" "$("$_t" $_vf 2>/dev/null | head -1 | awk '$1=="ffmpeg"||$1=="ffprobe"{print $3; next}{print}' | cut -c1-30)"
     else printf '  ✗ MISSING: %s\n' "$_t"; fi
@@ -1842,7 +1855,7 @@ if [ -n "$LOCAL_SRC" ]; then
 fi
 [ -x "$YTDLP" ]  || die "yt-dlp not found — install it:  brew install yt-dlp"
 [ -x "$FFMPEG" ] || die "ffmpeg not found — install it:  brew install ffmpeg"
-[ -x "$FFPROBE" ] || die "ffprobe not found (it ships with ffmpeg) — install:  brew install ffmpeg"
+[ -x "$FFPROBE_BIN" ] || die "ffprobe not found (it ships with ffmpeg) — install:  brew install ffmpeg"
 # a local file must actually contain video before we spin up a whole run
 if [ -n "$LOCAL_SRC" ]; then
   "$FFPROBE" -v error -select_streams v:0 -show_entries stream=codec_type -of csv=p=0 "$LOCAL_SRC" 2>/dev/null | grep -q video \
@@ -2256,11 +2269,16 @@ vimeo_unlock() {
   # public player URLs need no referer — try plain first, never send one uninvited
   "$YTDLP" $COOKIES $PLARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
   info_json_ok "$INFO" && return 0
+  # the host list is private config (SLIPMAT_EMBED_HOSTS): tried in the order
+  # written, never named on screen or in the log — logs get handed to agents.
+  _n=0; for _h in $VIMEO_EMBED_HOSTS; do _n=$((_n+1)); done
+  [ "$_n" -gt 0 ] && note "embed-locked player URL — trying your embed pages …"
+  _i=0
   for _h in $VIMEO_EMBED_HOSTS; do
-    note "embed-locked player URL — trying referer ${_h#https://} …"
+    _i=$((_i+1))
     if "$YTDLP" $COOKIES $PLARGS --referer "$_h" --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" && info_json_ok "$INFO"; then
       REFARGS="--referer $_h"
-      ok "unlocked via ${_h#https://}"
+      ok "unlocked via embed page $_i of $_n"
       return 0
     fi
   done
@@ -4583,8 +4601,12 @@ reencode() {
   # social clip at any q) can re-encode to >= its own size. The user's intent in
   # STUDIO is usually "smaller"; say it plainly when that did not happen and
   # point the right DIRECTION on the dial (lower q = smaller — videotoolbox).
+  # Gate (8.14 ruling, restored 10.5): only where he CHOSE a dial — a local file
+  # or STUDIO. BEST/AUTO on a URL are wordless; a vp9 reel MUST re-encode and a
+  # 5M→8M note there is a lecture, not information.
   _so=$(stat -f %z "$OUT" 2>/dev/null); _sm=$(stat -f %z "$MKV" 2>/dev/null)
-  if [ -n "$_so" ] && [ -n "$_sm" ] && [ "$_so" -ge $(( _sm * 95 / 100 )) ] 2>/dev/null; then
+  if { [ -n "${LOCAL_SRC:-}" ] || [ "$RES" = "ask" ]; } \
+     && [ -n "$_so" ] && [ -n "$_sm" ] && [ "$_so" -ge $(( _sm * 95 / 100 )) ] 2>/dev/null; then
     note "heads-up: this re-encode is NOT smaller than its source ($(du -h "$OUT" | awk '{print $1}') vs $(du -h "$MKV" | awk '{print $1}')) — the source was already efficient. A lower dial shrinks it only down to its eye floor (clean q30 · broadcast q25); below that, DOWNSCALE in STUDIO instead. Any stutter/codec fix still applied."
   fi
   PATHTAG="RE-ENCODE HEVC ${RE_MODE}=$([ "$RE_MODE" = br ] && echo "$BR" || echo "q$Q")"

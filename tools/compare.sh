@@ -20,6 +20,10 @@
 set -u
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 SLIPMAT_PYTHON=""; FFMPEG=ffmpeg; FFPROBE=ffprobe
+# ffprobe 8 adds an empty trailing csv field on streams with side data — strip it once here
+FFPROBE_BIN="$FFPROBE"
+ffprobe_csv() { case " $* " in *"csv="*) "$FFPROBE_BIN" "$@" | sed 's/,$//' ;; *) "$FFPROBE_BIN" "$@" ;; esac; }
+FFPROBE=ffprobe_csv
 [ -f "$HOME/.slipmat/config" ] && . "$HOME/.slipmat/config"
 PY="${SLIPMAT_PYTHON:-python3}"; command -v "$PY" >/dev/null 2>&1 || PY=python3
 N=6; SECS=10; CROP=""; OPEN=1; ARGS=()
