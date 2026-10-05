@@ -1,6 +1,6 @@
 #!/bin/bash
-# make-shortcuts.sh — generate + sign the five slipmat menu-bar Shortcuts
-# (six with -c: the optional AUTO CROP(PiP) door to the zoom-crop batch).
+# make-shortcuts.sh — generate + sign the six slipmat menu-bar Shortcuts
+# (seven with -c: the optional AUTO CROP(PiP) door to the zoom-crop batch).
 #
 # A .shortcut file is a plist; Apple's `shortcuts sign` (macOS 12+) signs a
 # generated one so the Shortcuts app will import it via `open` — one press of
@@ -78,6 +78,7 @@ PY
 # audio = light blue, Spotify = green — audio must never read as video
 printf 'building Shortcuts for %s\n' "$REPO"
 make_one "[SLIPMAT VIDEO] AUTO(BEST)"     best    4274264319 || fail=1   # yellow
+make_one "[SLIPMAT VIDEO] AUTO(720p)"     720     4274264319 || fail=1   # yellow
 make_one "[SLIPMAT VIDEO] PICKER"         picker  4271458815 || fail=1   # orange
 make_one "[SLIPMAT VIDEO] STUDIO"         studio  4274264319 || fail=1   # yellow
 make_one "[SLIPMAT WEBAUDIO]"             audio   1440408063 || fail=1   # light blue

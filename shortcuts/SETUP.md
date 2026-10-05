@@ -18,7 +18,7 @@ heading your way. The suite:
 ./slipmat hello
 ```
 
-The setup session builds all five Shortcuts **for your machine**, signed
+The setup session builds all six Shortcuts **for your machine**, signed
 locally and already pinned to the menu bar, then pops up an **"Add
 Shortcut"** window for each — press Enter (or click the button), and the
 next one pops up by itself (Apple requires that one human press; it's the
@@ -29,7 +29,7 @@ After that:
 
 - **Find them:** click the **Shortcuts icon** in the menu bar — two
   stacked, tilted squares, top right of the screen, near the clock. The
-  five `[SLIPMAT …]` shortcuts are in its dropdown.
+  six `[SLIPMAT …]` shortcuts are in its dropdown.
 - **No icon?** On a MacBook with a notch, a full menu bar hides icons
   behind the notch — hold ⌘ and drag icons you don't need off the bar, or
   quit an app that lives up there. On newer macOS, if System Settings has a
@@ -46,7 +46,7 @@ Signing requires the Mac to be signed into iCloud (that's Apple's rule for
 importable Shortcut files, not ours). If signing fails, use the manual way —
 it's two minutes.
 
-## The manual way (five one-line Shortcuts)
+## The manual way (six one-line Shortcuts)
 
 For each row: open the **Shortcuts** app → **＋** new Shortcut → add a single
 **"Run Shell Script"** action → paste the line → name the Shortcut exactly as
@@ -58,6 +58,11 @@ inside the repo to get it).
 **[SLIPMAT VIDEO] AUTO(BEST)**
 ```
 osascript "REPO/shortcuts/launch.applescript" "REPO" best
+```
+
+**[SLIPMAT VIDEO] AUTO(720p)**
+```
+osascript "REPO/shortcuts/launch.applescript" "REPO" 720
 ```
 
 **[SLIPMAT VIDEO] PICKER**
@@ -80,14 +85,14 @@ osascript "REPO/shortcuts/launch.applescript" "REPO" audio
 osascript "REPO/shortcuts/launch.applescript" "REPO" spotify
 ```
 
-Optional sixth, **[SLIPMAT VIDEO] AUTO CROP(PiP)** — select screen recordings in
+Optional seventh, **[SLIPMAT VIDEO] AUTO CROP(PiP)** — select screen recordings in
 Finder, click it, and each one is cropped down to its moving video box,
-unattended (`./slipmat hello` offers it after the five):
+unattended (`./slipmat hello` offers it after the six):
 ```
 osascript "REPO/shortcuts/launch.applescript" "REPO" crop
 ```
 
-All five delegate to one on-disk launcher (`shortcuts/launch.applescript`),
+All six delegate to one on-disk launcher (`shortcuts/launch.applescript`),
 so a `git pull` updates every Shortcut's behavior without touching the
 Shortcuts app again. If a Shortcut ever behaves differently from running
 slipmat in the terminal, it's usually a hand-built Shortcut with an old

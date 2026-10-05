@@ -5,6 +5,7 @@
 --
 -- Modes:
 --   best    rip the best QuickTime-playable version of the copied URL, no questions
+--   720     the same, capped at 720p (the no-questions everyday door)
 --   picker  numbered menu of the source's REAL resolutions
 --   studio  picker + the re-encode concierge; also takes a FILE copied in Finder
 --   audio   best audio -> AAC-320 .m4a (square art, booth-safe)
@@ -93,6 +94,8 @@ on run argv
 	set cmd to ""
 	if mode is "best" then
 		set cmd to quoted form of slip & " video " & quoted form of theURL & " best"
+	else if mode is "720" then
+		set cmd to quoted form of slip & " video " & quoted form of theURL & " 720 auto"
 	else if mode is "picker" then
 		set cmd to quoted form of slip & " video " & quoted form of theURL & " auto"
 	else if mode is "studio" then

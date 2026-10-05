@@ -298,6 +298,8 @@ echo
 printf '   %s[SLIPMAT VIDEO] AUTO(BEST)%s\n' "$PB" "$RS"
 printf '      the best quality your machine can actually play, ripped bulletproof —\n'
 printf '      zero questions asked\n'
+printf '   %s[SLIPMAT VIDEO] AUTO(720p)%s\n' "$PB" "$RS"
+printf '      the same, capped at 720p — the everyday door for long broadcasts\n'
 printf '   %s[SLIPMAT VIDEO] PICKER%s\n' "$PB" "$RS"
 printf '      see the source'\''s REAL resolutions (1080p, 720p, …), pick one,\n'
 printf '      the rest is automatic\n'
@@ -326,10 +328,11 @@ printf '  %s[Enter = install]%s ' "$DM" "$RS"; IFS= read -r a || a=""
 # menu bar isn't showing them yet (page 3 then teaches both routes)
 INSTALLED=0
 NAMES_1="[SLIPMAT VIDEO] AUTO(BEST)"
-NAMES_2="[SLIPMAT VIDEO] PICKER"
-NAMES_3="[SLIPMAT VIDEO] STUDIO"
-NAMES_4="[SLIPMAT WEBAUDIO]"
-NAMES_5="[SLIPMAT SPOTIFY]"
+NAMES_2="[SLIPMAT VIDEO] AUTO(720p)"
+NAMES_3="[SLIPMAT VIDEO] PICKER"
+NAMES_4="[SLIPMAT VIDEO] STUDIO"
+NAMES_5="[SLIPMAT WEBAUDIO]"
+NAMES_6="[SLIPMAT SPOTIFY]"
 # names older installs used — the rename leaves them behind as duplicates
 OLD_NAMES='[SLIPMAT AUDIO] AUTO(BEST)
 [SLIPMAT AUDIO] SPOTIFY'
@@ -376,7 +379,7 @@ if [ -z "$a" ] || [ "$a" = "y" ] || [ "$a" = "Y" ]; then
         *)     printf '\r\033[K   %s?%s %s%s%s  %sno answer — rerun slipmat hello to try again%s\n' "$DM" "$RS" "$C" "$name" "$RS" "$DM" "$RS" ;;
       esac
     }
-    for i in 5 4 3 2 1; do eval "name=\$NAMES_$i"; pop_one "$name"; done
+    for i in 6 5 4 3 2 1; do eval "name=\$NAMES_$i"; pop_one "$name"; done
     # the pop-ups left Shortcuts in front — bring this window back
     [ "${SLIPMAT_HELLO_NO_OPEN:-0}" = "1" ] || open -b "${__CFBundleIdentifier:-com.apple.Terminal}" 2>/dev/null
     INSTALLED=1
@@ -491,6 +494,8 @@ menu_map() {
   printf '   %swhich one?%s\n' "$B" "$RS"
   echo
   printf '   %s%-28s%s  a video worth keeping forever, max quality\n' "$PB" "[SLIPMAT VIDEO] AUTO(BEST)" "$RS"
+  echo
+  printf '   %s%-28s%s  the same, capped at 720p — no questions\n' "$PB" "[SLIPMAT VIDEO] AUTO(720p)" "$RS"
   echo
   printf '   %s%-28s%s  the same, but you choose 1080p / 720p / …\n' "$PB" "[SLIPMAT VIDEO] PICKER" "$RS"
   echo

@@ -51,7 +51,7 @@ one; point it at the pip copy with a `YTDLP=/path/to/yt-dlp` line in
 `./slipmat hello` is a short guided setup. It asks where downloads should
 go (pressing Enter accepts the defaults; audio can be sent straight into
 your Music library), checks that everything is installed, offers the
-Spotify login, and then adds the five slipmat Shortcuts to your menu bar:
+Spotify login, and then adds the six slipmat Shortcuts to your menu bar:
 macOS pops up an "Add Shortcut" window for each one — press Enter, and the
 next one pops up by itself. That's the whole install. If you'd rather set
 the Shortcuts up by hand, see `shortcuts/SETUP.md`.
