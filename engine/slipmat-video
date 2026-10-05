@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.7"           # 10.5.26 — Ctrl-C mid-download steps down a rung by name · rotation-aware dimensions · `slipmat smoke`
+VERSION="4.7.1"         # 10.5.26 — Instagram: login first, one cookieless fallback, stop + 15-min cooldown on refusal
                         # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
                         # re-probe · live receipt = video duration · TS probe short-circuit ·
@@ -466,6 +466,16 @@ nmx_date_from_url() {
 }
 
 is_newsmax() { case "$(lc "$URL")" in *newsmax*|*nmxvod*) return 0 ;; *) return 1 ;; esac; }
+# Instagram runs on a logged-in session, and sessions get flagged by bursts of
+# requests. After a refusal the engine pauses Instagram for IG_CD_MIN minutes:
+# a run inside the pause makes NO request and says when the pause ends. A
+# successful probe clears it. SLIPMAT_IG_COOLDOWN_MIN=0 turns the pause off.
+is_instagram() { case "$(lc "$URL")" in *instagram.com*) return 0 ;; *) return 1 ;; esac; }
+IG_CD="$HOME/.slipmat/ig-cooldown"; IG_CD_MIN="${SLIPMAT_IG_COOLDOWN_MIN:-15}"
+ig_cooldown_set()    { printf '%s\n' "$(( $(date +%s) + IG_CD_MIN*60 ))" > "$IG_CD" 2>/dev/null; }
+ig_cooldown_clear()  { rm -f "$IG_CD" 2>/dev/null; }
+ig_cooldown_active() { [ "$IG_CD_MIN" -gt 0 ] 2>/dev/null && [ -s "$IG_CD" ] && [ "$(cat "$IG_CD" 2>/dev/null)" -gt "$(date +%s)" ] 2>/dev/null; }
+ig_cooldown_until()  { date -r "$(cat "$IG_CD" 2>/dev/null || date +%s)" '+%-I:%M %p' 2>/dev/null; }
 
 # ---- failure-context helpers (8.11.26) --------------------------------------
 # net_up: is the internet reachable at all? (3s cap; used only ON FAILURE so the
@@ -2054,7 +2064,6 @@ COOKIES=""
 if [ "$USE_COOKIES" = "1" ]; then
   case "$(lc "$URL")" in
     *newsmax*|*nmxvod*|*akamaized*) COOKIES="" ;;
-    *instagram.com/reel/*|*instagram.com/reels/*|*instagram.com/p/*) COOKIES="" ;;
     *)                              COOKIES="--cookies-from-browser $COOKIE_BROWSER" ;;
   esac
 fi
@@ -2357,7 +2366,28 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
   # V4.6: Truth Social has no yt-dlp extractor — probing it just burned ~2s failing
   # before every rescue. Recognize the domain up front; embed_hunt gets the first turn.
   TS_FAST=0; case "$URL" in *truthsocial.com/*) TS_FAST=1; : > "$INFO" ;; esac
+  # Instagram (10.5.26): the Firefox login is the normal state — the probe runs
+  # WITH cookies. At most ONE more request after a failure, by failure shape:
+  #   the logged-in API answered empty/unparseable JSON → one retry without cookies
+  #   anything else (restricted audience, login wall, rate limit) → stop here: no
+  #   browser retry, no embed hunt, no blind download — they cannot help and they
+  #   look like a bot on the session. Either way a refusal starts the cooldown.
+  if is_instagram && [ "$TS_FAST" != "1" ] && ig_cooldown_active; then
+    die "Instagram refused a request a little while ago — slipmat is not contacting Instagram until $(ig_cooldown_until), so your login isn't flagged. Run the same link again after that."
+  fi
   [ "$TS_FAST" = "1" ] || [ -s "$INFO" ] || "$YTDLP" $COOKIES $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
+  if is_instagram && [ "$TS_FAST" != "1" ]; then
+    if ! info_json_ok "$INFO" && [ -n "$COOKIES" ] && grep -qi 'json' "$PROBE_ERR" 2>/dev/null; then
+      note "Instagram's logged-in API answered empty — one retry without your login …"
+      COOKIES=""; "$YTDLP" $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
+    fi
+    if info_json_ok "$INFO"; then ig_cooldown_clear
+    else
+      ig_cooldown_set
+      _ige=$(yterr_lines "$PROBE_ERR" | tail -1 | sed -E 's/^ERROR: \[[Ii]nstagram\] [^:]*: //')
+      die "Instagram refused this one${_ige:+ — their words: \"$_ige\"}. slipmat asked $([ -n "$COOKIES" ] && printf 'with your Firefox login' || printf 'with and then without your Firefox login') and stops here: no more Instagram requests until $(ig_cooldown_until), so your login isn't flagged. If it plays in Firefox, run the same link after that."
+    fi
+  fi
   # bot-block escalation: plain probe failed -> one retry as a real browser
   if [ "$TS_FAST" != "1" ] && ! info_json_ok "$INFO" && imp_available; then
     note "site refused the probe — retrying as a real browser …"

@@ -60,6 +60,11 @@ else pass "banned yt-dlp flags absent (--concurrent-fragments, --retry-sleep)"; 
 if grep -q 'Interrupted by user' "$ENGINE"; then pass "engine recognizes yt-dlp's 'Interrupted by user' (Ctrl-C = step down, not a CDN error)"
 else fail "engine does not recognize 'Interrupted by user' — a hand Ctrl-C would be reported as a CDN error"; fi
 
+# ---- 3b. Instagram rips with the Firefox login first; cookieless only as a fallback; refusals start a cooldown
+if grep -q 'is_instagram' "$ENGINE" && grep -q 'ig_cooldown_set' "$ENGINE" && ! grep -q 'instagram.com/reel/\*.*COOKIES=""' "$ENGINE"; then
+  pass "Instagram: login first, one cookieless fallback, cooldown after a refusal"
+else fail "Instagram rule drifted (cookieless by default, or no cooldown)"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:
