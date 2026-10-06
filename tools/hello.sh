@@ -335,7 +335,10 @@ NAMES_5="[SLIPMAT WEBAUDIO]"
 NAMES_6="[SLIPMAT SPOTIFY]"
 # names older installs used — the rename leaves them behind as duplicates
 OLD_NAMES='[SLIPMAT AUDIO] AUTO(BEST)
-[SLIPMAT AUDIO] SPOTIFY'
+[SLIPMAT AUDIO] SPOTIFY
+[SLIPMAT VIDEO] LIVESTREAM - FROM START
+[SLIPMAT VIDEO] LIVESTREAM - LAST 2HRS
+[SLIPMAT VIDEO] LIVESTREAM - LAST 1HR'
 color_of() { case "$1" in *VIDEO*) printf '%s' "$PB" ;; *) printf '%s' "$BL" ;; esac; }
 lib_sig() { shortcuts list --show-identifiers 2>/dev/null | cksum; }
 
@@ -401,28 +404,16 @@ if [ -z "$a" ] || [ "$a" = "y" ] || [ "$a" = "Y" ]; then
         printf '   couldn'\''t sign it — shortcuts/SETUP.md shows the one-line manual way (mode: crop)\n'
       fi
     fi
-    # optional too: livestream doors — a YouTube live from its start, or the last 2 h / 1 h
+    # livestreams need no door of their own (10.5.26 eve): a live YouTube URL in any
+    # video door asks where the capture should start (now · 5 min … 2 h back · from
+    # the start · custom). Other sites record from now and say so.
     echo
-    printf ' Livestreams: %s[SLIPMAT VIDEO] LIVESTREAM - FROM START%s, %sLAST 2HRS%s and %sLAST 1HR%s record a\n' "$PB" "$RS" "$PB" "$RS" "$PB" "$RS"
-    printf ' YouTube live from that far back (YouTube keeps up to 120 hours). Ctrl-C stops and\n'
-    printf ' finalizes. On other sites they record from now and say so.\n'
-    ask "add" "the livestream doors?"
-    opt "Enter" "skip" "I don'\''t record livestreams"
-    opt "y" "add" "three more in the menu"
-    printf '  %s[Enter = skip]%s ' "$DM" "$RS"; IFS= read -r a || a=""
-    if [ "$a" = "y" ] || [ "$a" = "Y" ]; then
-      echo
-      if /bin/bash "$REPO/shortcuts/make-shortcuts.sh" -l "$SCDIR" >/dev/null; then
-        for name in "[SLIPMAT VIDEO] LIVESTREAM - LAST 1HR" "[SLIPMAT VIDEO] LIVESTREAM - LAST 2HRS" "[SLIPMAT VIDEO] LIVESTREAM - FROM START"; do pop_one "$name"; done
-        [ "${SLIPMAT_HELLO_NO_OPEN:-0}" = "1" ] || open -b "${__CFBundleIdentifier:-com.apple.Terminal}" 2>/dev/null
-      else
-        printf '   couldn'\''t sign them — shortcuts/SETUP.md shows the one-line manual way (modes: live-start, live-2h, live-1h)\n'
-      fi
-    fi
+    printf ' Livestreams: copy a live YouTube URL and click any video door — it asks where the\n'
+    printf ' capture should start (now, 5 minutes to 2 hours back, or from the start).\n'
     stale="$(shortcuts list 2>/dev/null | grep -Fx "$OLD_NAMES")"
     if [ -n "$stale" ]; then
       echo
-      printf ' %srenamed since your last install%s — delete the old ones in the Shortcuts\n' "$B" "$RS"
+      printf ' %sno longer needed%s — delete the old ones in the Shortcuts\n' "$B" "$RS"
       printf ' app (right-click → Delete):\n'
       printf '%s\n' "$stale" | while IFS= read -r o; do printf '   %s%s%s\n' "$DM" "$o" "$RS"; done
     fi

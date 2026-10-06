@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-# usage: ptydrive.py OUT.raw TIMEOUT_S -- <engine args...> -- <regex> <answer> [...] [INT@secs]
+# usage: ptydrive.py OUT.raw TIMEOUT_S -- <engine args...> -- <regex> <answer> [...] [INT@secs | CTRLC@secs]\n# INT@ = SIGINT to the process group (kill); CTRLC@ = the ^C byte typed into the pty (what a key does). PTY_COLS/PTY_ROWS size the pty.
 import os, pty, signal, subprocess, sys, time, threading, re
 out = sys.argv[1]; T = float(sys.argv[2]); rest = sys.argv[4:]; sep = rest.index('--')
 args = rest[:sep]; steps = rest[sep+1:]
 m, s = pty.openpty()
+if os.environ.get('PTY_COLS'):   # size the pty like a real window (the engine measures chip rows against it)
+    import fcntl, struct, termios
+    fcntl.ioctl(s, termios.TIOCSWINSZ, struct.pack('HHHH', int(os.environ.get('PTY_ROWS', '44')), int(os.environ['PTY_COLS']), 0, 0))
 p = subprocess.Popen([os.environ.get('SLIPMAT_ENGINE', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'engine', 'slipmat-video'))] + args, stdin=s, stdout=s, stderr=s, preexec_fn=os.setsid)
 os.close(s); buf = bytearray(); lock = threading.Lock(); f = open(out, 'wb')
 def pump():
@@ -23,6 +26,8 @@ while i < len(steps):
     st = steps[i]; i += 1
     if st.startswith('INT@'):
         time.sleep(float(st[4:])); os.killpg(os.getpgid(p.pid), signal.SIGINT); continue
+    if st.startswith('CTRLC@'):   # a real Ctrl-C keypress: the byte goes through the pty's line discipline (VINTR)
+        time.sleep(float(st[6:])); os.write(m, b'\x03'); continue
     rx = st; ans = steps[i].encode().decode('unicode_escape'); i += 1
     t0 = time.time(); ok = False
     while time.time() - t0 < T:

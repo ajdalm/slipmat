@@ -147,18 +147,34 @@ convert its shortcode to the numeric id, rip it — expect `[<that shortcode>]`,
 `IG@<user>`, and an audio stream. (Fake HOME: symlink
 `~/Library/Application Support/Firefox` into it, or cookies stand down.)
 
-## Livestream rewind (network; a hand test, not in smoke)
+## Livestreams (network; hand tests, not in smoke)
 
-The doors `LIVESTREAM - FROM START / LAST 2HRS / LAST 1HR` use yt-dlp's
-`--live-from-start` with `tools/live-rewind.py` narrowing the window. Proof
-recipe (10.5.26, CBS News 24/7 `wFv1SJ43g5s`): a 2-minute rewind, stopped
-after 40 s, must land ONE merged h264/aac mp4 about 155 s long —
+A live YouTube URL with no window word asks where the capture should start
+(`ask_live_start`); the words `from-start` / `last-2h` / `last-90m` on the
+command line pre-answer it. Both capture paths run through
+`tools/live-rewind.py`: yt-dlp in-process, the rewind window swapped into
+yt-dlp's 120 h constant, and a SIGINT handler that makes the FIRST Ctrl-C the
+stop and disarms the terminal's interrupt key until the file is sealed.
+
+Proofs (10.5.26 eve, a 24/7 news stream; `PTY_COLS=104` sizes the pty like the
+BEST window so the chip rows are measured for real):
 
 ```
-HOME=<throwaway> slipmat video 'https://www.youtube.com/watch?v=<live id>' max best last-2m
-# Ctrl-C after ~40 s (from a script: reset SIGINT to default before exec, see above)
-ffprobe -v error -show_entries format=duration -of csv=p=0 "<the file>"   # ≈ 155
+# 1. the ask, answered "2" (10 min back), then TWO Ctrl-C's one second apart:
+#    ONE merged h264/aac mp4 ≈ 10.5 min, no .fNNN halves beside it, a full receipt,
+#    the log says "? where should the capture start? → 2 (last 10m)" and
+#    "stopped by Ctrl-C … later presses were disarmed"
+HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/l1.raw 120 -- '<live url>' max best -- \
+  'capture start' '2\n' INT@40 INT@41
+# 2. the timer: no answer, the capture starts from now after 8 s; two Ctrl-C's → one playable mp4
+HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/l2.raw 120 -- '<live url>' best -- INT@30 INT@31
+# 3. a replay with a window word: the tail is cut and the name says so
+HOME=$H slipmat video '<a 3 h replay of an ended stream>' 720 auto last-5m
+#    → "this stream already ended — taking the last 5m of the 3:46:03 replay", a file ≈ 300 s
+#      named "… (last 5m) [id] - …"
+# then LOOK: cat /tmp/l1.raw in a Terminal tab — the question, two aligned chip rows, Enter row
 ```
 `slipmat smoke` checks offline that the installed yt-dlp still carries the
-rewind hook (the wrapper exits 86 otherwise and the engine records from now).
+rewind hook, that the wrapper still handles SIGINT, that receipts never pick a
+per-stream half, and that the ask stays out of z-auto batches.
 

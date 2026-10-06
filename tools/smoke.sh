@@ -74,6 +74,15 @@ _lpy=$(sed -n '1s/^#![ ]*//p' "$YTDLP" 2>/dev/null); case "$_lpy" in *python*) [
 if [ -z "$_lpy" ]; then skip "live rewind hook — no python with yt_dlp found beside $YTDLP"
 elif SLIPMAT_LIVE_BACK=60 "$_lpy" "$REPO/tools/live-rewind.py" --version >/dev/null 2>"$S/rewind.err"; then pass "live rewind hook present in yt-dlp $("$YTDLP" --version 2>/dev/null) (from-start / last-Nh doors work)"
 else fail "live rewind hook missing — this yt-dlp moved it; the livestream doors record from now ($(head -1 "$S/rewind.err"))" "$S/rewind.err"; fi
+# 10.5.26 eve, seen in the field: a second Ctrl-C mid-seal left NAME.f136.mp4 + NAME.f140.mp4.part and the
+# receipt named the silent video half ("captured 43:08:09"). The wrapper disarms the key after the first
+# press; the engine never picks a per-stream intermediate and re-arms the key afterwards.
+if grep -q 'VINTR' "$REPO/tools/live-rewind.py" && grep -q 'SLIPMAT_LIVE_STOP' "$REPO/tools/live-rewind.py"; then pass "live: the first Ctrl-C disarms the key (live-rewind.py handles SIGINT, flags the REC line)"
+else fail "live: live-rewind.py lost its SIGINT handler (a second Ctrl-C would abort the seal)"; fi
+if grep -q 'f\[0-9\]+\\.\[^.\]+\$' "$ENGINE" && grep -q "stty intr '\^C'" "$ENGINE" && grep -q '^seal_live_orphans()' "$ENGINE"; then pass "live: receipts skip .fNNN halves, orphans get sealed, Ctrl-C is re-armed"
+else fail "live: PRODUCED filter / orphan sealer / stty re-arm drifted"; fi
+if grep -q '^ask_live_start()' "$ENGINE" && grep -q 'SLIPMAT_Z_AUTO:-0}" != "1" ] && \[ "${SLIPMAT_LIVE_ASK' "$ENGINE"; then pass "live: the start ask exists and stays out of z-auto batches"
+else fail "live: the start ask or its z-auto guard is missing"; fi
 
 # ---- 3d. every mode the Shortcut builder emits is one the launcher handles -------
 _lmiss=""

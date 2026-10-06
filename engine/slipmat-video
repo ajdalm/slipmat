@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.8"           # 10.5.26 — livestream rewind: from-start / last-Nh on YouTube (tools/live-rewind.py)
+VERSION="4.9"           # 10.5.26 eve — livestream: the start ask (no doors), first Ctrl-C is the stop, replay tail cut
                         # 10.5.26 — Instagram login-first + cooldown · the re-encode reason is said once
                         # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
@@ -1200,11 +1200,12 @@ if [ -t 1 ]; then
   C_RESET=$'\033[0m'; C_DIM=$'\033[2m'; C_BOLD=$'\033[1m'
   C_CYAN=$'\033[36m'; C_GRN=$'\033[32m'; C_YEL=$'\033[33m'; C_MAG=$'\033[35m'   # V4.4: purple = concierge insight (↳ notes · suggested)
   C_RED=$'\033[31m'   # V4.5c: table rows that land BIGGER than the source (obvious no-go)
+  C_Q=$'\033[1;38;5;141m'; C_ACC=$'\033[38;5;177m'; C_KEY=$'\033[1;7;35m'   # 10.5: question · accent · keycap chip (the chip-form spec)
   B_TL='╭'; B_TR='╮'; B_BL='╰'; B_BR='╯'; B_H='─'; B_V='│'; B_ML='├'; B_MR='┤'
   G_OK='✓'; G_ARR='›'; G_RE='↻'; G_TO='→'; G_REC='●'; BAR_F='█'; BAR_E='░'
 else
   IS_TTY=0
-  C_RESET=''; C_DIM=''; C_BOLD=''; C_CYAN=''; C_GRN=''; C_YEL=''; C_MAG=''; C_RED=''
+  C_RESET=''; C_DIM=''; C_BOLD=''; C_CYAN=''; C_GRN=''; C_YEL=''; C_MAG=''; C_RED=''; C_Q=''; C_ACC=''; C_KEY=''
   B_TL='+'; B_TR='+'; B_BL='+'; B_BR='+'; B_H='-'; B_V='|'; B_ML='+'; B_MR='+'
   G_OK='+'; G_ARR='>'; G_RE='*'; G_TO='->'; G_REC='*'; BAR_F='#'; BAR_E='-'
 fi
@@ -2014,6 +2015,7 @@ done
 # (RUNLOG is then empty), so this is a no-op there. Still NO trap on INT.
 on_exit() {
   cleanup_scratch
+  [ "${IS_TTY:-0}" = "1" ] && [ -n "${LIVE_STOP:-}" ] && stty intr '^C' echo < /dev/tty 2>/dev/null   # a death mid-seal must not leave the key off
   [ -f "${RUNLOG:-/nonexistent}" ] || return 0
   case "$RUNLOG" in
     *_$$.log)
@@ -2621,6 +2623,7 @@ build_vod_name() {
   fi
   _chan=$(name_handle)
   _title=$(clean_field "$M_TITLE")
+  [ -n "${VOD_TAIL:-}" ] && _title="${_title:+$_title }(${VOD_TAIL})"   # a tail cut of a replay says so in its name
   _date=""; [ -n "$M_UPDATE" ] && _date=$(ymd_to_mdy "$M_UPDATE")
 
   if [ -n "$_title" ] || [ -n "$_chan" ]; then
@@ -2653,6 +2656,148 @@ build_vod_name() {
 
   # nothing usable -> safe, unique fallback
   printf '%s' "$(uniquify "SLIPMAT - $(date '+%-m.%-d.%y - %-I.%M%p')")"
+}
+
+# ---- the livestream start ask (10.5.26 eve) ----------------------------------
+# A live YouTube URL with no window word on the command line asks ONE question:
+# where should the capture start? Chips 1-8 = 5 min … 2 h back, 0 = from the
+# start (YouTube keeps 120 h), c = custom, Enter = now. No-questions modes
+# (BEST / AUTO) run a timer that lands on Enter; PICKER / STUDIO wait. The two
+# chip rows are measured against the window and never wrap (long labels, then
+# short ones, then tighter gaps). Non-tty runs and z-auto batches never see it.
+chip() {   # a keycap: reverse-video purple, min width 5, centered (hello.sh's chip, ported)
+  _ck="$1"; _cw=5; [ ${#_ck} -gt 5 ] && _cw=${#_ck}; _cl=$(( (_cw - ${#_ck}) / 2 )); _cr=$(( _cw - ${#_ck} - _cl ))
+  if [ "$IS_TTY" = "1" ]; then printf '%s %*s%s%*s %s' "$C_KEY" "$_cl" '' "$_ck" "$_cr" '' "$C_RESET"
+  else printf '[%s]' "$_ck"; fi
+}
+vis_len() { _vl=$(printf '%s' "$1" | sed $'s/\033\\[[0-9;]*m//g'); printf '%s' "${#_vl}"; }
+# two aligned chip rows: $1 = gap, $2/$3 = "key:label|key:label|…" for row 1 / row 2
+live_rows() {
+  _gap="$1"; _ra="$2"; _rb="$3"; LIVE_R1=""; LIVE_R2=""
+  while [ -n "$_ra" ] || [ -n "$_rb" ]; do
+    _ca="${_ra%%|*}"; [ "$_ca" = "$_ra" ] && _ra="" || _ra="${_ra#*|}"
+    _cb="${_rb%%|*}"; [ "$_cb" = "$_rb" ] && _rb="" || _rb="${_rb#*|}"
+    _ka="${_ca%%:*}"; _la="${_ca#*:}"; _kb="${_cb%%:*}"; _lb="${_cb#*:}"
+    _w=${#_la}; [ ${#_lb} -gt "$_w" ] && _w=${#_lb}
+    LIVE_R1="${LIVE_R1}$(chip "$_ka") $(printf '%-*s' "$_w" "$_la")$(printf '%*s' "$_gap" '')"
+    LIVE_R2="${LIVE_R2}$(chip "$_kb") $(printf '%-*s' "$_w" "$_lb")$(printf '%*s' "$_gap" '')"
+  done
+}
+# "25m" · "3h" · "1:30" · "90" (minutes) · "start" → seconds into LIVE_BACK / LIVE_FROM_START; 1 = didn't parse
+parse_live_window() {
+  _pw=$(lc "$1"); _pw="${_pw// /}"; LIVE_BACK=0; LIVE_FROM_START=0
+  case "$_pw" in
+    ''|now|0) return 0 ;;
+    start|fromstart|from-start|beginning) LIVE_FROM_START=1; return 0 ;;
+    *:*) _ph="${_pw%%:*}"; _pm="${_pw#*:}"
+         case "$_ph$_pm" in *[!0-9]*|'') return 1 ;; esac
+         LIVE_BACK=$(( ${_ph:-0} * 3600 + ${_pm:-0} * 60 )) ;;
+    *h) _pn="${_pw%h}"; case "$_pn" in ''|*[!0-9]*) return 1 ;; esac; LIVE_BACK=$((_pn * 3600)) ;;
+    *m) _pn="${_pw%m}"; case "$_pn" in ''|*[!0-9]*) return 1 ;; esac; LIVE_BACK=$((_pn * 60)) ;;
+    *)  case "$_pw" in *[!0-9]*) return 1 ;; esac; LIVE_BACK=$((_pw * 60)) ;;
+  esac
+  [ "$LIVE_BACK" -ge 432000 ] && { LIVE_BACK=0; LIVE_FROM_START=1; }   # past YouTube's 120 h = from the start
+  return 0
+}
+live_window_words() {   # LIVE_BACK / LIVE_FROM_START → LIVE_WIN ("last 2h" · "last 90m" · "from the start" · "")
+  LIVE_WIN=""
+  if [ "$LIVE_BACK" -gt 0 ]; then
+    if [ $((LIVE_BACK % 3600)) -eq 0 ]; then LIVE_WIN="last $((LIVE_BACK / 3600))h"; else LIVE_WIN="last $((LIVE_BACK / 60))m"; fi
+  elif [ "$LIVE_FROM_START" = "1" ]; then LIVE_WIN="from the start"; fi
+}
+tty_flush() {   # drop keys typed into the terminal but never entered (after a timer lands)
+  stty -icanon min 0 time 0 < /dev/tty 2>/dev/null && dd bs=256 count=1 < /dev/tty > /dev/null 2>&1
+  stty icanon < /dev/tty 2>/dev/null
+}
+# live-rewind.py disarms the terminal's Ctrl-C (and echo) on the first press; the
+# engine re-arms it here, once the capture is sealed and measured — never earlier,
+# or a third press lands on the receipt (proven 10.5.26 eve). Idempotent.
+live_rearm() {
+  [ "$IS_TTY" = "1" ] || return 0
+  [ -n "${LIVE_STOP:-}" ] && [ -f "$LIVE_STOP" ] || return 0
+  tty_flush; stty intr '^C' echo < /dev/tty 2>/dev/null
+  rm -f "$LIVE_STOP" 2>/dev/null
+}
+ask_live_start() {
+  _q="where should the capture start?"
+  _cols=$(stty size < /dev/tty 2>/dev/null | awk '{print $2}'); [ "${_cols:-0}" -gt 0 ] 2>/dev/null || _cols=${COLUMNS:-80}
+  _lA="1:5 min ago|2:10 min ago|3:15 min ago|4:30 min ago|5:45 min ago"; _lB="6:1 hr ago|7:90 min ago|8:2 hrs ago|0:from start|c:custom"
+  _sA="1:5m|2:10m|3:15m|4:30m|5:45m";                                     _sB="6:1h|7:90m|8:2h|0:start|c:custom"
+  _fit=0   # long labels fit the 104-col BEST window at gap 2 and the 132-col STUDIO window at gap 4
+  for _try in "4 L" "3 L" "2 L" "1 L" "4 S" "3 S" "2 S" "1 S"; do
+    set -- $_try
+    if [ "$2" = "L" ]; then live_rows "$1" "$_lA" "$_lB"; else live_rows "$1" "$_sA" "$_sB"; fi
+    _w1=$(vis_len "$LIVE_R1"); _w2=$(vis_len "$LIVE_R2"); [ "$_w2" -gt "$_w1" ] && _w1=$_w2
+    [ $((_w1 + 3)) -le "$_cols" ] && { _fit=1; break; }
+  done
+  say ""
+  frame_rail "${C_Q}this is a livestream — ${_q}${C_RESET}"
+  say ""
+  if [ "$_fit" = "1" ]; then
+    frame_rail "$LIVE_R1"; say ""; frame_rail "$LIVE_R2"; say ""
+  else   # a very narrow window: one chip per line, still never wraps
+    for _c in "1:5 min ago" "2:10 min ago" "3:15 min ago" "4:30 min ago" "5:45 min ago" "6:1 hr ago" "7:90 min ago" "8:2 hrs ago" "0:from start" "c:custom"; do
+      frame_rail "$(chip "${_c%%:*}") ${_c#*:}"
+    done
+    say ""
+  fi
+  # BEST / AUTO: a timer lands on Enter (= now); PICKER / STUDIO wait for the answer
+  _secs=0; [ "$RES" != "ask" ] && [ "$MODE" != "studio" ] && _secs="${SLIPMAT_LIVE_ASK_SECS:-8}"
+  case "$_secs" in ''|*[!0-9]*) _secs=8 ;; esac
+  _ans=""; _got=0
+  if [ "$_secs" -gt 0 ]; then
+    _i=$_secs
+    while [ "$_i" -gt 0 ]; do
+      printf '\r\033[K%s%s now   %snow in %ss%s   %s%s%s ' "$(rail)" "$(chip Enter)" "$C_ACC" "$_i" "$C_RESET" "$C_CYAN" "$G_ARR" "$C_RESET" > /dev/tty
+      if read -t 1 -r _ans < /dev/tty; then _got=1; break; fi
+      _i=$((_i-1))
+    done
+    [ "$_got" = "1" ] || { tty_flush; printf '\r\033[K%s%s now   %snow — the timer landed%s\n' "$(rail)" "$(chip Enter)" "$C_ACC" "$C_RESET" > /dev/tty; }
+  else
+    printf '%s%s now   %s%s%s ' "$(rail)" "$(chip Enter)" "$C_CYAN" "$G_ARR" "$C_RESET" > /dev/tty
+    read -r _ans < /dev/tty && _got=1
+  fi
+  _ans=$(printf '%s' "$_ans" | tr -d '\r'); _why="$_ans"
+  LIVE_BACK=0; LIVE_FROM_START=0
+  case "$_ans" in
+    '') _why="Enter" ;;
+    1) LIVE_BACK=300 ;;  2) LIVE_BACK=600 ;;  3) LIVE_BACK=900 ;;  4) LIVE_BACK=1800 ;; 5) LIVE_BACK=2700 ;;
+    6) LIVE_BACK=3600 ;; 7) LIVE_BACK=5400 ;; 8) LIVE_BACK=7200 ;; 0) LIVE_FROM_START=1 ;;
+    c|C)
+      printf '%s%show far back?%s   type 25m, 3h or 1:30 — or start   %s%s%s ' "$(rail)" "$C_Q" "$C_RESET" "$C_CYAN" "$G_ARR" "$C_RESET" > /dev/tty
+      read -r _cus < /dev/tty || _cus=""; _cus=$(printf '%s' "$_cus" | tr -d '\r'); _why="c $_cus"
+      parse_live_window "$_cus" || { warn "didn't get \"$_cus\" — starting now"; LIVE_BACK=0; LIVE_FROM_START=0; } ;;
+    *) parse_live_window "$_ans" || { warn "didn't get \"$_ans\" — starting now"; LIVE_BACK=0; LIVE_FROM_START=0; } ;;
+  esac
+  live_window_words
+  logln "  ? $_q → ${_why} (${LIVE_WIN:-now})"
+}
+
+# A rewind capture lands as two per-stream files that yt-dlp merges at the end.
+# If that merge never ran (an abort mid-seal), seal them here: the video half +
+# the audio half (even a .part — fragment files read fine) → ONE mp4 at the real
+# name, the halves removed by exact path. A lone video half is kept, said plainly.
+seal_live_orphans() {
+  _sv=""; _sa=""
+  for _sf in "$OUTDIR/${NAME}".f[0-9]*.*; do
+    [ -s "$_sf" ] || continue
+    case "$_sf" in *.ytdl) continue ;; esac
+    _st=$("$FFPROBE" -v error -show_entries stream=codec_type -of csv=p=0 "$_sf" 2>/dev/null | tr -d ',' | sort -u | tr '\n' ' ')
+    case "$_st" in *video*) [ -z "$_sv" ] && _sv="$_sf" ;; *audio*) [ -z "$_sa" ] && _sa="$_sf" ;; esac
+  done
+  [ -n "$_sv" ] || return 1
+  if [ -n "$_sa" ]; then
+    "$FFMPEG" -hide_banner -loglevel error -y -i "$_sv" -i "$_sa" -map 0:v:0 -map 1:a:0 -c copy -shortest -movflags +faststart "$OUT" </dev/null 2>>"$LIVE_ERRLOG" \
+      || { rm -f "$OUT" 2>/dev/null; return 1; }
+    warn "the seal was cut short — sealed the video and audio halves into one mp4 myself"
+    rm -f "$_sv" "$_sa" "$_sa.ytdl" "${_sa%.part}.ytdl" 2>/dev/null
+  else
+    "$FFMPEG" -hide_banner -loglevel error -y -i "$_sv" -c copy -movflags +faststart "$OUT" </dev/null 2>>"$LIVE_ERRLOG" \
+      || { rm -f "$OUT" 2>/dev/null; return 1; }
+    warn "the seal was cut short and only the VIDEO half landed — this capture has no audio"
+    rm -f "$_sv" 2>/dev/null
+  fi
+  PRODUCED="$OUT"
 }
 
 build_live_name() {
@@ -2750,17 +2895,26 @@ if [ "$IS_LIVE" = "1" ]; then
   # ---- rewind (10.5.26): from-start / last-N is a YouTube DVR feature. yt-dlp
   # reaches it with --live-from-start; tools/live-rewind.py narrows the window.
   # Any other site: say so once and record from now, exactly as before.
+  # The python behind yt-dlp runs BOTH live paths through tools/live-rewind.py
+  # (10.5.26 eve): yt-dlp in-process, plus a SIGINT handler that answers the
+  # FIRST Ctrl-C (a "stopping" flag the REC line reads) and disarms the terminal's
+  # interrupt key until the capture is sealed — a second press can no longer kill
+  # yt-dlp mid-merge or ffmpeg mid-trailer. Without that python: the bare binary.
   LIVE_REWIND=0; LIVE_PY=""
+  LIVE_PY=$(sed -n '1s/^#![ ]*//p' "$YTDLP" 2>/dev/null)          # yt-dlp's own interpreter
+  case "$LIVE_PY" in *python*) [ -x "$LIVE_PY" ] || LIVE_PY="" ;; *) LIVE_PY="" ;; esac
+  [ -z "$LIVE_PY" ] && [ -n "$PYTHON" ] && "$PYTHON" -c 'import yt_dlp' >/dev/null 2>&1 && LIVE_PY="$PYTHON"
+  [ -f "$APPDIR/tools/live-rewind.py" ] || LIVE_PY=""
+  case "$URL" in *youtube.com/*|*youtu.be/*) LIVE_YT=1 ;; *) LIVE_YT=0 ;; esac
+  # no window word on the command line → the ask (YouTube · a terminal · not a batch)
+  if [ -z "$LIVE_WIN" ] && [ "$LIVE_YT" = "1" ] && [ -n "$LIVE_PY" ] && [ "$IS_TTY" = "1" ] && [ -t 0 ] \
+     && [ "${SLIPMAT_Z_AUTO:-0}" != "1" ] && [ "${SLIPMAT_LIVE_ASK:-1}" != "0" ]; then
+    ask_live_start
+  fi
   if [ -n "$LIVE_WIN" ]; then
-    case "$URL" in
-      *youtube.com/*|*youtu.be/*)
-        LIVE_PY=$(sed -n '1s/^#![ ]*//p' "$YTDLP" 2>/dev/null)          # yt-dlp's own interpreter
-        case "$LIVE_PY" in *python*) [ -x "$LIVE_PY" ] || LIVE_PY="" ;; *) LIVE_PY="" ;; esac
-        [ -z "$LIVE_PY" ] && [ -n "$PYTHON" ] && "$PYTHON" -c 'import yt_dlp' >/dev/null 2>&1 && LIVE_PY="$PYTHON"
-        if [ -n "$LIVE_PY" ] && [ -f "$APPDIR/tools/live-rewind.py" ]; then LIVE_REWIND=1
-        else warn "rewind needs the python behind yt-dlp (not found) — recording from now instead"; LIVE_WIN=""; fi ;;
-      *) warn "rewind ($LIVE_WIN) only works on YouTube livestreams — this one is recorded from now" ; LIVE_WIN="" ;;
-    esac
+    if [ "$LIVE_YT" != "1" ]; then warn "rewind ($LIVE_WIN) only works on YouTube livestreams — this one is recorded from now"; LIVE_WIN=""
+    elif [ -z "$LIVE_PY" ]; then warn "rewind needs the python behind yt-dlp (not found) — recording from now instead"; LIVE_WIN=""
+    else LIVE_REWIND=1; fi
   fi
   step LIVE "recording direct to mp4 (live_status=$M_LIVE${LIVE_WIN:+ · $LIVE_WIN})"
   # PICKER/STUDIO on live: offer the CAPTURE resolution (user request 7.7.26 — the
@@ -2809,6 +2963,8 @@ if [ "$IS_LIVE" = "1" ]; then
   # writes to /dev/tty; as a background job it ignores SIGINT natively, and if it
   # ever died the capture would be unaffected. Zero risk to 12-hour recordings.
   LIVE_RPID=""
+  LIVE_STOP="$WORKDIR/live.stop"   # touched by live-rewind.py on the first Ctrl-C; the REC line turns into "stopping"
+  rm -f "$LIVE_STOP" 2>/dev/null
   LIVE_QL="${SELNOTE:-best}"; case "$LIVE_QL" in custom*) LIVE_QL="custom" ;; esac
   LIVE_QL="$LIVE_QL${LIVE_WIN:+ · $LIVE_WIN}"
   if [ "$IS_TTY" = "1" ]; then
@@ -2847,6 +3003,11 @@ if [ "$IS_LIVE" = "1" ]; then
         # V4.1: time · size lead, then the stream, then the start clock; the
         # Ctrl-C reminder shows for the first ~10s of the capture only
         _rem=""; [ $((SECONDS - _S0)) -le 10 ] && _rem=" · Ctrl-C stops & finalizes"
+        if [ -f "$LIVE_STOP" ]; then   # the first Ctrl-C landed: say so, once a second, until the seal is done
+          printf '\r\033[K  %s%s stopping%s %s · sealing the capture into one mp4 — Ctrl-C is off until it is done (closing the window abandons it)' \
+            "$C_GRN" "$G_OK" "$C_RESET" "$_mid" > /dev/tty
+          sleep 1; continue
+        fi
         printf '\r\033[K  %s%s REC%s %s · %s · since %s%s%s%s' \
           "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$LIVE_QL" "$_clk" "$C_DIM" "$_rem" "$C_RESET" > /dev/tty
         sleep 2
@@ -2865,17 +3026,26 @@ if [ "$IS_LIVE" = "1" ]; then
   # Escape every % (yt-dlp reads %% as literal %); VOD paths use $WORKSTEM, safe.
   NAME_TMPL=$(printf '%s' "$NAME" | sed 's/%/%%/g')
   live_capture_now() {   # the proven capture, bit-for-bit: foreground, unpiped
-    "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
-      -f "$LIVE_F" \
-      --downloader-args "ffmpeg_i:-loglevel error" \
-      --postprocessor-args "ffmpeg:-movflags +faststart" \
-      -o "$OUTDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+    if [ -n "$LIVE_PY" ]; then   # same yt-dlp, in-process, + the first-Ctrl-C handler (SLIPMAT_LIVE_BACK=0 = no rewind)
+      SLIPMAT_LIVE_BACK=0 SLIPMAT_LIVE_STOP="$LIVE_STOP" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
+        $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
+        -f "$LIVE_F" \
+        --downloader-args "ffmpeg_i:-loglevel error" \
+        --postprocessor-args "ffmpeg:-movflags +faststart" \
+        -o "$OUTDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+    else
+      "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
+        -f "$LIVE_F" \
+        --downloader-args "ffmpeg_i:-loglevel error" \
+        --postprocessor-args "ffmpeg:-movflags +faststart" \
+        -o "$OUTDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+    fi
   }
   if [ "$LIVE_REWIND" = "1" ]; then
     # same process shape as above (foreground, unpiped, Ctrl-C lands in yt-dlp);
     # the wrapper imports yt-dlp in-process and only moves its 120 h rewind cap.
     # Exit 86 = this yt-dlp moved the hook → the plain capture runs instead.
-    SLIPMAT_LIVE_BACK="$LIVE_BACK" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
+    SLIPMAT_LIVE_BACK="$LIVE_BACK" SLIPMAT_LIVE_STOP="$LIVE_STOP" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
       $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings --live-from-start \
       -f "$LIVE_F" \
       --postprocessor-args "ffmpeg:-movflags +faststart" \
@@ -2888,6 +3058,7 @@ if [ "$IS_LIVE" = "1" ]; then
     live_capture_now
   fi
   LIVE_EL=$((SECONDS - LIVE_T0))
+  [ -f "$LIVE_STOP" ] && logln "  stopped by Ctrl-C at $(fmt_dur "$LIVE_EL") (wall clock); later presses were disarmed"
   rm -f "$OUT.claim" 2>/dev/null   # the capture (or its absence) speaks for itself now
   # stop the status line the instant capture ends (finalize happens inside yt-dlp)
   if [ -n "$LIVE_RPID" ]; then
@@ -2897,13 +3068,19 @@ if [ "$IS_LIVE" = "1" ]; then
   # pick the REAL capture — never yt-dlp's intermediates (8.11, caught in the
   # wild: a 5.5h capture's receipt named the leftover NAME.temp.mp4 because it
   # was newest; the finished .mp4 sat right beside it).
-  PRODUCED=$(ls -t "$OUTDIR/${NAME}".* 2>/dev/null | grep -vE '\.temp\.[^.]+$|\.part$|\.ytdl$' | head -1)
+  # … and never a per-stream intermediate (NAME.f136.mp4 — 10.5.26 eve: a second
+  # Ctrl-C had cut the seal short and the receipt named the silent video half)
+  PRODUCED=$(ls -t "$OUTDIR/${NAME}".* 2>/dev/null | grep -vE '\.temp\.[^.]+$|\.part$|\.ytdl$|\.f[0-9]+\.[^.]+$' | head -1)
+  { [ -n "$PRODUCED" ] && [ -s "$PRODUCED" ]; } || seal_live_orphans
   { [ -n "$PRODUCED" ] && [ -s "$PRODUCED" ]; } || { surface_log "$LIVE_ERRLOG"; die "live capture produced no file (URL may have ended/failed)."; }
   # V4.6 (9.21): the VIDEO's duration is king — the wall-clock window
   # number (padded by connect/buffer lag) confused and no longer prints; the run
-  # log keeps it for telemetry.
-  LIVE_DUR=$("$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$PRODUCED" 2>/dev/null | cut -d. -f1)
+  # log keeps it for telemetry. Duration minus start_time: a rewound capture's
+  # timestamps begin where the stream's do, hours in (10.5.26 eve: "43:08:09").
+  LIVE_DUR=$("$FFPROBE" -v error -show_entries format=duration,start_time -of default=nw=1 "$PRODUCED" 2>/dev/null \
+    | awk -F= '/^duration=/{d=$2} /^start_time=/{s=$2} END{ if (s=="N/A"||s=="") s=0; if (d=="N/A"||d=="") d=0; v=d-s; if (v<0) v=d; printf "%d", v }')
   [ "${LIVE_DUR:-0}" -gt 0 ] 2>/dev/null || LIVE_DUR=$(( LIVE_EL > 0 ? LIVE_EL : 1 ))
+  live_rearm   # the file is sealed and measured: Ctrl-C works again (keys typed meanwhile are dropped)
   ok "captured $(fmt_dur "$LIVE_DUR") of video"
   logln "  capture window ran $(fmt_dur $(( LIVE_EL > 0 ? LIVE_EL : 1 ))) (wall clock)"
   # a stale finalize temp beside a HEALTHY capture is dead bytes — sweep it
@@ -2948,6 +3125,26 @@ if [ "$IS_LIVE" = "1" ]; then
     finish_log "$NAME"
     cleanup_scratch; exit 0
   fi
+fi
+
+# ---- a window word on a video that is not live (10.5.26 eve) -----------------
+# A stream that already ended is a replay now. `last-2h` cuts the last 2 h of it
+# (yt-dlp --download-sections; a negative start counts from the end; keyframe-
+# aligned, so the cut may begin a few seconds early); `from-start` takes it whole.
+# Said once; the file name carries the cut ("(last 2h)") so it never passes for
+# the whole replay.
+SECT_OPT=""; SECT_VAL=""; VOD_TAIL=""
+if [ -n "$LIVE_WIN" ]; then
+  _rd=${M_DUR%%.*}; case "$_rd" in ''|*[!0-9]*) _rd=0 ;; esac
+  if [ "$LIVE_BACK" -gt 0 ] && [ "$_rd" -gt "$LIVE_BACK" ]; then
+    SECT_OPT="--download-sections"; SECT_VAL="*-${LIVE_BACK}-inf"; VOD_TAIL="$LIVE_WIN"
+    say "  this stream already ended — taking the $LIVE_WIN of the $(fmt_dur "$_rd") replay"
+  elif [ "$LIVE_BACK" -gt 0 ] && [ "$_rd" -gt 0 ]; then
+    say "  this stream already ended — the whole $(fmt_dur "$_rd") replay is shorter than $LIVE_WIN, taking it all"
+  else
+    say "  this stream already ended — taking the whole replay"
+  fi
+  LIVE_WIN=""   # the receipt's "recorded · last 2h" belongs to live captures; VOD_TAIL names the cut
 fi
 
 # ---- [2] choose what to download (format-aware) -----------------------------
@@ -3199,11 +3396,11 @@ if [ "$FAST" = "1" ]; then
     : > "$YTERR"
     if [ "$TRY_INFO" = "1" ]; then
       "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --load-info-json "$INFO" -f "$DLSEL" --merge-output-format mp4 \
-        --fragment-retries 10 --retries 10 --skip-unavailable-fragments \
+        --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
         $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" 2>>"$YTERR"
     else
       "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "$DLSEL" --merge-output-format mp4 \
-        --fragment-retries 10 --retries 10 --skip-unavailable-fragments \
+        --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
         $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR"
     fi
     return $?
@@ -3231,7 +3428,7 @@ if [ "$FAST" = "1" ]; then
     rm -f "$DLF"
     : > "$YTERR"
     "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "${_alt:+$_alt/}$AVCHAIN" --merge-output-format mp4 \
-      --fragment-retries 10 --retries 10 --skip-unavailable-fragments \
+      --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
       $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR" \
       || { by_hand && dl_canceled; die "audio re-fetch failed$(yterr_said)"; }
     DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
@@ -3377,7 +3574,7 @@ else
     : > "$YTERR"       # stderr → a file (not a pipe): errors reach the log + receipt; the bar (stdout) is untouched
     "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "$1" \
       --hls-use-mpegts --merge-output-format mkv \
-      --fragment-retries 10 --retries 10 --skip-unavailable-fragments \
+      --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
       $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR"
     return $?
   }
