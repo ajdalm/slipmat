@@ -26,7 +26,9 @@ per check. The checks are rules that once broke in the field:
 
 - every script parses (`bash -n`)
 - `--concurrent-fragments` / `--retry-sleep` stay out of the download code
-- the engine recognizes yt-dlp's "Interrupted by user" (Ctrl-C = step down a rung, not a CDN error)
+- the engine recognizes yt-dlp's "Interrupted by user" (a hand interrupt, not a CDN error)
+- the download keys: `tools/keys.py` compiles, `by_hand` reads the `key.down` flag (↓ = step down, a bare Ctrl-C = cancel), the "while it downloads" rail prints
+- the live keys: the `x` thread in `live-rewind.py` + `keys.py`, the exit-time terminal restore, the "while it records" rail
 - your `SLIPMAT_EMBED_HOSTS` are never named in a run log whose source is elsewhere (sweeps your own logs written since the engine last changed; read-only)
 - BEST on vp9 produces hevc, prints no size heads-up, and every probed value is comma-free
 - the stutter detector flags the broken-PTS clip and the CFR fix produces hevc
@@ -177,4 +179,36 @@ HOME=$H slipmat video '<a 3 h replay of an ended stream>' 720 auto last-5m
 `slipmat smoke` checks offline that the installed yt-dlp still carries the
 rewind hook, that the wrapper still handles SIGINT, that receipts never pick a
 per-stream half, and that the ask stays out of z-auto batches.
+
+## The keys (10.5.26 night): x stops a capture, ↓ steps a download down
+
+Every key a user may press is printed before it can be pressed (a rail block
+under the stage header) and means ONE thing. `tools/keys.py` reads the
+terminal in cbreak mode with echo off and restores it on every exit path.
+
+- Live capture: `x` → the REC line becomes "stop the capture? x again = stop ·
+  any other key = keep recording" (5 s); a second `x` takes the exact
+  first-Ctrl-C path in `live-rewind.py` (seal, keys disarmed until the receipt).
+  Ctrl-C stops at once. The log says `stopped by x` or `stopped by Ctrl-C`.
+- HLS download ladder: `↓` leaves `key.down` in the scratch and interrupts
+  yt-dlp the way Ctrl-C does; `by_hand` reads the flag → step down one rung
+  (said with the rung it lands on and what ↓ does next). At the floor
+  (`key.next` empty) the reader says "nothing lower" and does nothing. A bare
+  Ctrl-C → cancel, nothing kept, exit 130.
+
+Proofs (`KEY@secs:text` types keys into the pty; delays are CUMULATIVE):
+
+```
+# the ladder on Mux's public multi-rung HLS sample: ↓ ↓ ↓ then Ctrl-C
+HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/r.raw 120 -- \
+  'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' max best -- 'KEY@8:\x1b[B' 'KEY@3:\x1b[B' 'KEY@2.5:\x1b[B' CTRLC@1.5
+#   → "↓ at 1080p — stepping down to 720p (↓ again = 480p)" · "↓ at 720p — stepping down to 480p (the lowest rung)"
+#     · "nothing lower than this rung — it keeps going (Ctrl-C = cancel)" · "download canceled (Ctrl-C) — nothing kept." · exit 130
+# a live stream: x (question) · y (keep recording) · x x (stop) · Ctrl-C after (inert)
+HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/k.raw 150 -- '<live url>' max best -- \
+  'capture start' '\n' 'KEY@20:x' 'KEY@2:y' 'KEY@8:x' 'KEY@1:x' CTRLC@2
+#   → one h264/aac mp4, "captured 0:34 of video", log "stopped by x", exit 0; pgrep keys.py = nothing left
+```
+Real screens from 10.5.26: `NOTES/2026-10-05-asks-renders/keys-live-real.raw` and
+`keys-rung-real.raw` (`cat` them in a Terminal tab).
 

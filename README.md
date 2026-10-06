@@ -103,9 +103,10 @@ Livestreams need no door of their own. Copy a live YouTube URL, click any
 video door, and it asks where the capture should start: now, 5 minutes to
 2 hours back, from the start (YouTube keeps up to 120 hours), or a custom
 distance. AUTO(BEST) and AUTO(720p) start from now by themselves after 8
-seconds; PICKER and STUDIO wait. Ctrl-C stops and seals one mp4; after the
-first press the key is off until the file is done. Other sites record from
-now and say so. From the command line the window can be given up front and
+seconds; PICKER and STUDIO wait. While it records the keys are on the
+screen: `x` stops (it asks once, a second `x` seals one playable mp4), and
+Ctrl-C stops at once. After the stop every key is off until the file is
+done. Other sites record from now and say so. From the command line the window can be given up front and
 the question is skipped: `slipmat video <url> max best from-start`,
 `… last-2h`, `… last-90m` — and on a stream that already ended, `last-2h`
 takes the last 2 hours of the replay.
@@ -142,10 +143,11 @@ browser cookies, quality, naming style, your own embed-page hosts.
   often reports a broken stream as fine).
 - A re-encode concierge that samples *your* file at the target size before
   quoting numbers; estimates are typically within a few percent.
-- Live streams record straight to mp4; press Ctrl-C to stop, and the file
-  is finalized and playable.
-- A download that is taking too long steps down on Ctrl-C: 1080p → 720p →
-  480p, one rung per press, then cancel. Each step says what the next press does.
+- Live streams record straight to mp4; press `x` (asked once) or Ctrl-C to
+  stop, and the file is finalized and playable.
+- A download that is taking too long steps down on the ↓ key: 1080p → 720p →
+  480p, one rung per press, each step naming the next. Ctrl-C cancels, nothing
+  kept. The keys are printed above the progress bar, never hidden.
 - Embed rescue: when a page's video can't be reached the normal way,
   slipmat reads the page itself and finds the embedded video (og:video,
   JSON-LD, iframes, raw manifests, and several site-specific handlers).

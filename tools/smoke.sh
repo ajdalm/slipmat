@@ -56,9 +56,13 @@ if grep -n -- '--concurrent-fragments\|--retry-sleep' "$ENGINE" "$REPO/engine/sl
   fail "banned yt-dlp flags present (--concurrent-fragments / --retry-sleep draw 503 walls)"
 else pass "banned yt-dlp flags absent (--concurrent-fragments, --retry-sleep)"; fi
 
-# ---- 3. a hand Ctrl-C mid-download is the step-down key, never "CDN weather" --
-if grep -q 'Interrupted by user' "$ENGINE"; then pass "engine recognizes yt-dlp's 'Interrupted by user' (Ctrl-C = step down, not a CDN error)"
-else fail "engine does not recognize 'Interrupted by user' — a hand Ctrl-C would be reported as a CDN error"; fi
+# ---- 3. the keys while it downloads: ↓ = step down a rung, Ctrl-C = cancel (10.5.26 night)
+if grep -q 'Interrupted by user' "$ENGINE"; then pass "engine recognizes yt-dlp's 'Interrupted by user' (a hand interrupt, not a CDN error)"
+else fail "engine does not recognize 'Interrupted by user' — a hand interrupt would be reported as a CDN error"; fi
+if [ -f "$REPO/tools/keys.py" ] && python3 -m py_compile "$REPO/tools/keys.py" 2>"$S/keys.err" \
+   && grep -q 'KEY_DOWN_F" \] || dl_canceled' "$ENGINE" && grep -q 'tools/keys.py" ladder' "$ENGINE" && grep -q 'while it downloads' "$ENGINE"; then
+  pass "download keys: ↓ steps down a rung (key.down flag), a bare Ctrl-C cancels, the keys are shown before the bar"
+else fail "download keys drifted: tools/keys.py, the key.down read in by_hand, or the 'while it downloads' rail is missing" "$S/keys.err"; fi
 
 # ---- 3b. Instagram rips with the Firefox login first; cookieless only as a fallback; refusals start a cooldown
 if grep -q 'is_instagram' "$ENGINE" && grep -q 'ig_cooldown_set' "$ENGINE" && ! grep -q 'instagram.com/reel/\*.*COOKIES=""' "$ENGINE"; then
@@ -83,6 +87,10 @@ if grep -q 'f\[0-9\]+\\.\[^.\]+\$' "$ENGINE" && grep -q "stty intr '\^C'" "$ENGI
 else fail "live: PRODUCED filter / orphan sealer / stty re-arm drifted"; fi
 if grep -q '^ask_live_start()' "$ENGINE" && grep -q 'SLIPMAT_Z_AUTO:-0}" != "1" ] && \[ "${SLIPMAT_LIVE_ASK' "$ENGINE"; then pass "live: the start ask exists and stays out of z-auto batches"
 else fail "live: the start ask or its z-auto guard is missing"; fi
+if grep -q 'SLIPMAT_LIVE_ASK_FLAG' "$REPO/tools/live-rewind.py" && grep -q '_restore_mode' "$REPO/tools/live-rewind.py" \
+   && grep -q 'def live_thread' "$REPO/tools/keys.py" && grep -q 'while it records' "$ENGINE" && grep -q 'LIVE_ASK_TEXT=' "$ENGINE"; then
+  pass "live keys: x asks once then takes the first-Ctrl-C seal path; the terminal mode is restored at exit; the keys are shown"
+else fail "live keys drifted: the x thread (keys.py / live-rewind.py), its exit-time terminal restore, or the 'while it records' rail is missing"; fi
 
 # ---- 3d. every mode the Shortcut builder emits is one the launcher handles -------
 _lmiss=""

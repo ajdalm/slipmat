@@ -23,6 +23,12 @@
 #    KeyboardInterrupt exactly as before. The ENGINE re-arms the key once its
 #    receipt is written (standalone use re-arms at exit). Closing the window
 #    (SIGHUP) still abandons.
+#
+# 3. A stop KEY, shown on the REC line (10.5.26 night): x, asked once. tools/keys.py
+#    reads the terminal in a thread; the first x turns the REC line into a question
+#    (SLIPMAT_LIVE_ASK_FLAG + SLIPMAT_LIVE_ASK_TEXT), a second x within 5 s takes
+#    the exact first-Ctrl-C path above. Any other key keeps recording. Ctrl-C stays
+#    the immediate stop. The stop flag's CONTENT names which key stopped it.
 import atexit, os, signal, sys
 
 _fd = -1
@@ -32,6 +38,20 @@ except OSError:
     pass
 _saved = None
 _presses = 0
+_orig = None          # tty attrs from BEFORE the key thread's cbreak (restored at exit)
+
+
+class _Stop:          # the key thread's way in: the first-Ctrl-C path, by name
+    done = False
+    how = 'Ctrl-C'
+    def __call__(self):
+        import threading
+        self.how = 'x'
+        try:
+            signal.pthread_kill(threading.main_thread().ident, signal.SIGINT)
+        except Exception:
+            os.kill(os.getpid(), signal.SIGINT)
+_stop = _Stop()
 
 
 def _rearm():
@@ -73,13 +93,21 @@ def _on_sigint(signum, frame):
     global _presses
     _presses += 1
     if _presses == 1:
+        _stop.done = True
         _disarm()
         flag = os.environ.get('SLIPMAT_LIVE_STOP', '')
         if flag:
             try:
-                open(flag, 'w').close()
+                with open(flag, 'w') as fh:
+                    fh.write(_stop.how)     # the engine's log says which key stopped it
             except OSError:
                 pass
+            txt = os.environ.get('SLIPMAT_LIVE_STOP_TEXT', '')
+            if txt and _fd >= 0:          # said at once; the REC line repeats it until the seal is done
+                try:
+                    os.write(_fd, b'\r\033[K' + txt.encode('utf-8', 'replace'))
+                except OSError:
+                    pass
         elif _fd >= 0:
             try:
                 os.write(_fd, b'\r\033[K  stopping - sealing the capture; Ctrl-C is off until it is done\n')
@@ -108,11 +136,49 @@ if back > 0:
         sys.stderr.write(f'live-rewind: {e}\n')
         sys.exit(86)
 import yt_dlp
+# the stop key (a thread reading the terminal; the engine passes the texts it shows)
+_ask_flag = os.environ.get('SLIPMAT_LIVE_ASK_FLAG', '')
+if _ask_flag and _fd >= 0:
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import keys as _keys
+        _orig = _keys.live_thread(_stop, _ask_flag,
+                                  os.environ.get('SLIPMAT_LIVE_ASK_TEXT', ''),
+                                  os.environ.get('SLIPMAT_LIVE_STOP_TEXT', ''))
+    except Exception as e:
+        sys.stderr.write(f'live-rewind: no stop key ({e}); Ctrl-C still stops\n')
+        _orig = None
+
+
+def _restore_mode():
+    # put the terminal back the way it was before the key thread (cooked, echo) —
+    # but if a stop landed, keep the interrupt key OFF and echo OFF: the engine
+    # re-arms both after its receipt (a third press once killed the receipt)
+    if _fd < 0:
+        return
+    try:
+        import termios
+        if _orig is not None:
+            a = [x if not isinstance(x, list) else list(x) for x in _orig]
+            if _stop.done and os.environ.get('SLIPMAT_LIVE_STOP', ''):
+                try:
+                    off = os.fpathconf(_fd, 'PC_VDISABLE')
+                except (OSError, ValueError):
+                    off = 0xff
+                a[6][termios.VINTR] = bytes([off]) if isinstance(a[6][termios.VINTR], bytes) else off
+                a[3] &= ~termios.ECHO
+            termios.tcsetattr(_fd, termios.TCSANOW, a)
+        elif not os.environ.get('SLIPMAT_LIVE_STOP', ''):
+            _rearm()
+    except Exception:
+        pass
+
+
 try:
     rc = yt_dlp.main()
 except SystemExit as e:
     rc = e.code
 finally:
-    if not os.environ.get('SLIPMAT_LIVE_STOP', ''):
-        _rearm()
+    _stop.done = True
+    _restore_mode()
 sys.exit(rc)

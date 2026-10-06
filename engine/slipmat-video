@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.9"           # 10.5.26 eve — livestream: the start ask (no doors), first Ctrl-C is the stop, replay tail cut
+VERSION="4.10"          # 10.5.26 night — the keys, shown: x stops a live capture (asked once), ↓ steps a download down a rung; Ctrl-C = out, safely
                         # 10.5.26 — Instagram login-first + cooldown · the re-encode reason is said once
                         # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
@@ -398,10 +398,10 @@ cleanup_scratch() {
   # never outlive the run (a sampler orphaned by die() once kept
   # appending to the renamed run log until reboot). Idempotent; normal paths
   # already killed theirs explicitly.
-  for _hp in "${SPID:-}" "${LIVE_RPID:-}" "${PROBE_NPID:-}"; do
+  for _hp in "${SPID:-}" "${LIVE_RPID:-}" "${PROBE_NPID:-}" "${KEY_PID:-}"; do
     [ -n "$_hp" ] && kill "$_hp" 2>/dev/null
   done
-  SPID=""; LIVE_RPID=""; PROBE_NPID=""   # a stale PID re-killed at EXIT
+  SPID=""; LIVE_RPID=""; PROBE_NPID=""; KEY_PID=""   # a stale PID re-killed at EXIT
                                           # could, after PID-space wrap in a long
                                           # run, TERM an innocent sibling process
   # (Encodes/remuxes write to $WORKDIR and atomically mv into OUTPUTS on success
@@ -570,6 +570,7 @@ EOF
 by_hand() { grep -q 'Interrupted by user' "${YTERR:-/nonexistent}" 2>/dev/null; }
 dl_canceled() {
   [ -n "${SPID:-}" ] && { kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null; SPID=""; }
+  [ -n "${KEY_PID:-}" ] && { kill "$KEY_PID" 2>/dev/null; wait "$KEY_PID" 2>/dev/null; KEY_PID=""; }
   yterr_log
   printf '\n'
   warn "download canceled (Ctrl-C) — nothing kept."
@@ -1202,12 +1203,12 @@ if [ -t 1 ]; then
   C_RED=$'\033[31m'   # V4.5c: table rows that land BIGGER than the source (obvious no-go)
   C_Q=$'\033[1;38;5;141m'; C_ACC=$'\033[38;5;177m'; C_KEY=$'\033[1;7;35m'   # 10.5: question · accent · keycap chip (the chip-form spec)
   B_TL='╭'; B_TR='╮'; B_BL='╰'; B_BR='╯'; B_H='─'; B_V='│'; B_ML='├'; B_MR='┤'
-  G_OK='✓'; G_ARR='›'; G_RE='↻'; G_TO='→'; G_REC='●'; BAR_F='█'; BAR_E='░'
+  G_OK='✓'; G_ARR='›'; G_RE='↻'; G_TO='→'; G_REC='●'; G_DN='↓'; BAR_F='█'; BAR_E='░'
 else
   IS_TTY=0
   C_RESET=''; C_DIM=''; C_BOLD=''; C_CYAN=''; C_GRN=''; C_YEL=''; C_MAG=''; C_RED=''; C_Q=''; C_ACC=''; C_KEY=''
   B_TL='+'; B_TR='+'; B_BL='+'; B_BR='+'; B_H='-'; B_V='|'; B_ML='+'; B_MR='+'
-  G_OK='+'; G_ARR='>'; G_RE='*'; G_TO='->'; G_REC='*'; BAR_F='#'; BAR_E='-'
+  G_OK='+'; G_ARR='>'; G_RE='*'; G_TO='->'; G_REC='*'; G_DN='down'; BAR_F='#'; BAR_E='-'
 fi
 # V4.4 (8.17): STUDIO is the wide mode — its table needs the room; BEST/
 # PICKER boxes stay short ("shouldn't go much longer than the [2] downloading line").
@@ -2715,8 +2716,8 @@ tty_flush() {   # drop keys typed into the terminal but never entered (after a t
 live_rearm() {
   [ "$IS_TTY" = "1" ] || return 0
   [ -n "${LIVE_STOP:-}" ] && [ -f "$LIVE_STOP" ] || return 0
-  tty_flush; stty intr '^C' echo < /dev/tty 2>/dev/null
-  rm -f "$LIVE_STOP" 2>/dev/null
+  tty_flush; stty intr '^C' echo icanon < /dev/tty 2>/dev/null
+  rm -f "$LIVE_STOP" "${LIVE_ASK:-/nonexistent}" 2>/dev/null
 }
 ask_live_start() {
   _q="where should the capture start?"
@@ -2936,7 +2937,20 @@ if [ "$IS_LIVE" = "1" ]; then
       fi
     fi
   fi
-  note "press Ctrl-C to stop — yt-dlp finalizes a clean, playable file. No stutter-test on live."
+  # the keys while it records — shown, not hidden (10.5.26 night): x = stop, asked
+  # once; Ctrl-C = stop at once. Both take the same seal path (live-rewind.py).
+  LIVE_ASK=""; LIVE_ASK_TEXT=""; LIVE_STOP_TEXT="$G_OK stopping · sealing the capture into one mp4 — keys are off until it is done (closing the window abandons it)"
+  if [ "$IS_TTY" = "1" ] && [ -n "$LIVE_PY" ]; then
+    LIVE_ASK="$WORKDIR/live.ask"; rm -f "$LIVE_ASK" 2>/dev/null
+    LIVE_ASK_TEXT="${C_Q}stop the capture?${C_RESET} $(chip x) again = stop · any other key = keep recording"
+    say ""
+    frame_rail "${C_Q}while it records${C_RESET}"
+    frame_rail "$(chip x) stop — it asks once, then seals one playable mp4     $(chip Ctrl-C) stop at once"
+    say ""
+  else
+    note "press Ctrl-C to stop — yt-dlp finalizes a clean, playable file."
+  fi
+  note "no stutter-test on live: the seal is the whole finish."
   [ "$LIVE_REWIND" = "1" ] && note "rewinding: video and audio arrive as two streams and merge into one mp4 when you stop — the REC clock counts wall time, the file holds more"
   note "$OUT"
   say ""
@@ -3000,16 +3014,18 @@ if [ "$IS_LIVE" = "1" ]; then
         else
           _mid="connecting …"     # handshake phase: no bytes yet, say so plainly
         fi
-        # V4.1: time · size lead, then the stream, then the start clock; the
-        # Ctrl-C reminder shows for the first ~10s of the capture only
-        _rem=""; [ $((SECONDS - _S0)) -le 10 ] && _rem=" · Ctrl-C stops & finalizes"
-        if [ -f "$LIVE_STOP" ]; then   # the first Ctrl-C landed: say so, once a second, until the seal is done
-          printf '\r\033[K  %s%s stopping%s %s · sealing the capture into one mp4 — Ctrl-C is off until it is done (closing the window abandons it)' \
-            "$C_GRN" "$G_OK" "$C_RESET" "$_mid" > /dev/tty
+        # V4.1: time · size lead, then the stream, then the start clock; the stop
+        # key sits at the end the whole time (10.5.26 night: shown, not hidden)
+        if [ -f "$LIVE_STOP" ]; then   # the stop landed (x or Ctrl-C): say so, once a second, until the seal is done
+          printf '\r\033[K  %s%s%s' "$C_GRN" "$LIVE_STOP_TEXT" "$C_RESET" > /dev/tty
           sleep 1; continue
         fi
-        printf '\r\033[K  %s%s REC%s %s · %s · since %s%s%s%s' \
-          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$LIVE_QL" "$_clk" "$C_DIM" "$_rem" "$C_RESET" > /dev/tty
+        if [ -n "$LIVE_ASK" ] && [ -f "$LIVE_ASK" ]; then   # x was pressed once: the question stays up until answered (5 s)
+          printf '\r\033[K  %s' "$LIVE_ASK_TEXT" > /dev/tty
+          sleep 1; continue
+        fi
+        printf '\r\033[K  %s%s REC%s %s · %s · since %s%s' \
+          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$LIVE_QL" "$_clk" "${LIVE_ASK:+ · $(chip x) stop}" > /dev/tty
         sleep 2
       done
     ) &
@@ -3027,7 +3043,7 @@ if [ "$IS_LIVE" = "1" ]; then
   NAME_TMPL=$(printf '%s' "$NAME" | sed 's/%/%%/g')
   live_capture_now() {   # the proven capture, bit-for-bit: foreground, unpiped
     if [ -n "$LIVE_PY" ]; then   # same yt-dlp, in-process, + the first-Ctrl-C handler (SLIPMAT_LIVE_BACK=0 = no rewind)
-      SLIPMAT_LIVE_BACK=0 SLIPMAT_LIVE_STOP="$LIVE_STOP" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
+      SLIPMAT_LIVE_BACK=0 SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
         $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
         -f "$LIVE_F" \
         --downloader-args "ffmpeg_i:-loglevel error" \
@@ -3045,7 +3061,7 @@ if [ "$IS_LIVE" = "1" ]; then
     # same process shape as above (foreground, unpiped, Ctrl-C lands in yt-dlp);
     # the wrapper imports yt-dlp in-process and only moves its 120 h rewind cap.
     # Exit 86 = this yt-dlp moved the hook → the plain capture runs instead.
-    SLIPMAT_LIVE_BACK="$LIVE_BACK" SLIPMAT_LIVE_STOP="$LIVE_STOP" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
+    SLIPMAT_LIVE_BACK="$LIVE_BACK" SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
       $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings --live-from-start \
       -f "$LIVE_F" \
       --postprocessor-args "ffmpeg:-movflags +faststart" \
@@ -3058,7 +3074,10 @@ if [ "$IS_LIVE" = "1" ]; then
     live_capture_now
   fi
   LIVE_EL=$((SECONDS - LIVE_T0))
-  [ -f "$LIVE_STOP" ] && logln "  stopped by Ctrl-C at $(fmt_dur "$LIVE_EL") (wall clock); later presses were disarmed"
+  if [ -f "$LIVE_STOP" ]; then
+    _how=$(head -c 12 "$LIVE_STOP" 2>/dev/null | tr -dc 'a-zA-Z-'); [ -n "$_how" ] || _how="Ctrl-C"
+    logln "  stopped by $_how at $(fmt_dur "$LIVE_EL") (wall clock); later presses were disarmed"
+  fi
   rm -f "$OUT.claim" 2>/dev/null   # the capture (or its absence) speaks for itself now
   # stop the status line the instant capture ends (finalize happens inside yt-dlp)
   if [ -n "$LIVE_RPID" ]; then
@@ -3663,25 +3682,49 @@ else
     SPID=$!
   fi
   CUR_SEL="$DLSEL"; DL_RETRIES=0; BEST_MKV=""; BEST_COV=0; RETRY_NOTE=""; SAME_RETRY=0; MANIFEST_SWAP=0
+  # ---- the keys while it downloads (10.5.26 night) ---------------------------
+  # ↓ = step down one rung (too slow? take the next one), shown with the rung it
+  # would land on; Ctrl-C = cancel, nothing kept. tools/keys.py reads the terminal
+  # as a background job: on ↓ it leaves key.down in the scratch and interrupts
+  # yt-dlp the way Ctrl-C does — by_hand below reads the flag to tell the two
+  # apart. key.next (written before every attempt) is the rung ↓ would take;
+  # empty = the floor, and the reader says so instead of interrupting.
+  KEY_PID=""; KEY_NEXT_F="$WORKDIR/key.next"; KEY_DOWN_F="$WORKDIR/key.down"; rm -f "$KEY_DOWN_F" 2>/dev/null
+  key_next_write() { if [ "$IS_HLS" = "1" ] && [ "$DL_RETRIES" -lt 2 ]; then next_rung_below "$_att_short" > "$KEY_NEXT_F" 2>/dev/null; else : > "$KEY_NEXT_F"; fi; }
+  if [ "$IS_TTY" = "1" ] && [ "$IS_HLS" = "1" ] && [ -n "$PYTHON" ] && [ -f "$APPDIR/tools/keys.py" ]; then
+    _kn=$(next_rung_below "$_att_short")
+    if [ -n "$_kn" ]; then
+      say ""
+      frame_rail "${C_Q}while it downloads${C_RESET}"
+      frame_rail "$(chip "$G_DN") too slow? step down to ${_kn}p     $(chip Ctrl-C) cancel — nothing kept"
+      say ""
+      "$PYTHON" "$APPDIR/tools/keys.py" ladder "$$" "$WORKDIR" >/dev/null 2>&1 &
+      KEY_PID=$!
+    fi
+  fi
   while :; do
+    key_next_write
     run_download "$CUR_SEL"; YTRC=$?
     if [ "$YTRC" -ne 0 ]; then
       # BY HAND first: a Ctrl-C on a slow top rung is the user's step-down key
       # (the same ladder, one rung at once, said as their decision) — not CDN
       # weather to resume, not a blank page to swap. Nothing below = a cancel.
       if by_hand; then
+        # the ↓ key leaves key.down; a bare Ctrl-C leaves nothing = cancel
+        [ -f "$KEY_DOWN_F" ] || dl_canceled   # (logs yt-dlp's line itself)
+        rm -f "$KEY_DOWN_F" 2>/dev/null
         _next=""
         [ "$IS_HLS" = "1" ] && [ "$DL_RETRIES" -lt 2 ] && _next=$(next_rung_below "$_att_short")
-        [ -n "$_next" ] || dl_canceled   # (logs yt-dlp's line itself)
+        [ -n "$_next" ] || dl_canceled   # (the reader guards the floor; this is the belt)
         yterr_log
         _from="${_att_short:+${_att_short}p}"; _from="${_from:-the top stream}"
-        _again="another Ctrl-C = cancel"
-        if [ "$DL_RETRIES" -lt 1 ]; then _below=$(next_rung_below "$_next"); [ -n "$_below" ] && _again="another Ctrl-C = ${_below}p"; fi
+        _again="the lowest rung"
+        if [ "$DL_RETRIES" -lt 1 ]; then _below=$(next_rung_below "$_next"); [ -n "$_below" ] && _again="$G_DN again = ${_below}p"; fi
         printf '\n'
-        warn "Ctrl-C at ${_from} — stepping down to ${_next}p (${_again}) …"
+        warn "$G_DN at ${_from} — stepping down to ${_next}p (${_again}) …"
         rm -f "$WORKDIR/${WORKSTEM}".* 2>/dev/null   # the stopped attempt's .part/.ytdl must not confuse the next format
         CUR_SEL=$(sel_for_rung "$_next"); _att_short="$_next"
-        DL_RETRIES=$((DL_RETRIES+1)); SAME_RETRY=0; RETRY_NOTE="stepped down to ${_next}p by hand (Ctrl-C at ${_from})"
+        DL_RETRIES=$((DL_RETRIES+1)); SAME_RETRY=0; RETRY_NOTE="stepped down to ${_next}p by hand ($G_DN at ${_from})"
         continue
       fi
       # SAME-RUNG RESUME first (8.10.26): NMX-class 503 walls are transient CDN
@@ -3790,6 +3833,7 @@ print(u or "")' < "$INFO" 2>/dev/null)
     break
   done
   [ -n "$SPID" ] && { kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null; }
+  [ -n "$KEY_PID" ] && { kill "$KEY_PID" 2>/dev/null; wait "$KEY_PID" 2>/dev/null; KEY_PID=""; }   # it restores the terminal on its way out
   [ -n "$BEST_MKV" ] && [ "$BEST_MKV" != "$MKV" ] && rm -f "$BEST_MKV" 2>/dev/null
   DL_EL=$((SECONDS - DL_T0))
   # ---- audio-verify (memory: tiktok-h265-is-video-only) ------------------------
