@@ -92,6 +92,19 @@ unattended (`./slipmat hello` offers it after the six):
 osascript "REPO/shortcuts/launch.applescript" "REPO" crop
 ```
 
+Optional livestream doors — a YouTube live from its beginning, or from 2 h / 1 h
+back (other sites record from now and say so; `./slipmat hello` offers these too):
+```
+osascript "REPO/shortcuts/launch.applescript" "REPO" live-start
+```
+```
+osascript "REPO/shortcuts/launch.applescript" "REPO" live-2h
+```
+```
+osascript "REPO/shortcuts/launch.applescript" "REPO" live-1h
+```
+Name them `[SLIPMAT VIDEO] LIVESTREAM - FROM START`, `… - LAST 2HRS`, `… - LAST 1HR`.
+
 All six delegate to one on-disk launcher (`shortcuts/launch.applescript`),
 so a `git pull` updates every Shortcut's behavior without touching the
 Shortcuts app again. If a Shortcut ever behaves differently from running

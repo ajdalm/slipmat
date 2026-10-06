@@ -11,6 +11,9 @@
 --   audio   best audio -> AAC-320 .m4a (square art, booth-safe)
 --   spotify a Spotify playlist, album or track URL -> the same AAC-320 .m4a
 --   crop    unattended zoom-crop batch of the Finder SELECTION (or a copied path)
+--   live-start  a YouTube livestream from its beginning (best quality, no questions)
+--   live-2h     the same, from 2 hours back        (other sites: from now, says so)
+--   live-1h     the same, from 1 hour back
 --
 -- Clipboard rule: read TEXT first and let it win whenever it
 -- looks like a URL — AppleScript happily coerces URL *text* to a file
@@ -96,6 +99,12 @@ on run argv
 		set cmd to quoted form of slip & " video " & quoted form of theURL & " best"
 	else if mode is "720" then
 		set cmd to quoted form of slip & " video " & quoted form of theURL & " 720 auto"
+	else if mode is "live-start" then
+		set cmd to quoted form of slip & " video " & quoted form of theURL & " max best from-start"
+	else if mode is "live-2h" then
+		set cmd to quoted form of slip & " video " & quoted form of theURL & " max best last-2h"
+	else if mode is "live-1h" then
+		set cmd to quoted form of slip & " video " & quoted form of theURL & " max best last-1h"
 	else if mode is "picker" then
 		set cmd to quoted form of slip & " video " & quoted form of theURL & " auto"
 	else if mode is "studio" then

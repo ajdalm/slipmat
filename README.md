@@ -99,6 +99,13 @@ An optional sixth, `[SLIPMAT VIDEO] AUTO CROP(PiP)`, takes files selected in
 Finder (screen recordings with a small video box in a static frame) and crops
 each one to the moving picture, unattended. `hello` offers it after the six.
 
+Also optional, for livestreams: `[SLIPMAT VIDEO] LIVESTREAM - FROM START`,
+`… - LAST 2HRS` and `… - LAST 1HR` record a YouTube live from that far back
+(YouTube keeps up to 120 hours; Ctrl-C stops and finalizes one mp4). On other
+sites they record from now and say so. From the command line the same words
+follow the mode: `slipmat video <url> max best from-start`, `… last-2h`,
+`… last-90m`.
+
 The same tools, from the command line:
 
 ```

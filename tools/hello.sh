@@ -401,6 +401,24 @@ if [ -z "$a" ] || [ "$a" = "y" ] || [ "$a" = "Y" ]; then
         printf '   couldn'\''t sign it — shortcuts/SETUP.md shows the one-line manual way (mode: crop)\n'
       fi
     fi
+    # optional too: livestream doors — a YouTube live from its start, or the last 2 h / 1 h
+    echo
+    printf ' Livestreams: %s[SLIPMAT VIDEO] LIVESTREAM - FROM START%s, %sLAST 2HRS%s and %sLAST 1HR%s record a\n' "$PB" "$RS" "$PB" "$RS" "$PB" "$RS"
+    printf ' YouTube live from that far back (YouTube keeps up to 120 hours). Ctrl-C stops and\n'
+    printf ' finalizes. On other sites they record from now and say so.\n'
+    ask "add" "the livestream doors?"
+    opt "Enter" "skip" "I don'\''t record livestreams"
+    opt "y" "add" "three more in the menu"
+    printf '  %s[Enter = skip]%s ' "$DM" "$RS"; IFS= read -r a || a=""
+    if [ "$a" = "y" ] || [ "$a" = "Y" ]; then
+      echo
+      if /bin/bash "$REPO/shortcuts/make-shortcuts.sh" -l "$SCDIR" >/dev/null; then
+        for name in "[SLIPMAT VIDEO] LIVESTREAM - LAST 1HR" "[SLIPMAT VIDEO] LIVESTREAM - LAST 2HRS" "[SLIPMAT VIDEO] LIVESTREAM - FROM START"; do pop_one "$name"; done
+        [ "${SLIPMAT_HELLO_NO_OPEN:-0}" = "1" ] || open -b "${__CFBundleIdentifier:-com.apple.Terminal}" 2>/dev/null
+      else
+        printf '   couldn'\''t sign them — shortcuts/SETUP.md shows the one-line manual way (modes: live-start, live-2h, live-1h)\n'
+      fi
+    fi
     stale="$(shortcuts list 2>/dev/null | grep -Fx "$OLD_NAMES")"
     if [ -n "$stale" ]; then
       echo

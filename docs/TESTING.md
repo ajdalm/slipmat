@@ -146,3 +146,19 @@ the reel's first one: pick a non-first item from
 convert its shortcode to the numeric id, rip it — expect `[<that shortcode>]`,
 `IG@<user>`, and an audio stream. (Fake HOME: symlink
 `~/Library/Application Support/Firefox` into it, or cookies stand down.)
+
+## Livestream rewind (network; a hand test, not in smoke)
+
+The doors `LIVESTREAM - FROM START / LAST 2HRS / LAST 1HR` use yt-dlp's
+`--live-from-start` with `tools/live-rewind.py` narrowing the window. Proof
+recipe (10.5.26, CBS News 24/7 `wFv1SJ43g5s`): a 2-minute rewind, stopped
+after 40 s, must land ONE merged h264/aac mp4 about 155 s long —
+
+```
+HOME=<throwaway> slipmat video 'https://www.youtube.com/watch?v=<live id>' max best last-2m
+# Ctrl-C after ~40 s (from a script: reset SIGINT to default before exec, see above)
+ffprobe -v error -show_entries format=duration -of csv=p=0 "<the file>"   # ≈ 155
+```
+`slipmat smoke` checks offline that the installed yt-dlp still carries the
+rewind hook (the wrapper exits 86 otherwise and the engine records from now).
+

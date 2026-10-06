@@ -45,7 +45,8 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.7.2"         # 10.5.26 — Instagram login-first + cooldown · the re-encode reason is said once
+VERSION="4.8"           # 10.5.26 — livestream rewind: from-start / last-Nh on YouTube (tools/live-rewind.py)
+                        # 10.5.26 — Instagram login-first + cooldown · the re-encode reason is said once
                         # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
                         # re-probe · live receipt = video duration · TS probe short-circuit ·
@@ -335,6 +336,28 @@ if [ -z "${3:-}" ]; then
     studio) MODE="studio"; RES="ask" ;;
   esac
 fi
+# ---- livestream rewind window (10.5.26): extra words after MODE --------------
+# `from-start` records a livestream from its first fragment; `last-2h`, `last-1h`,
+# `last-90m` from that far back. YouTube only: yt-dlp's --live-from-start, with
+# tools/live-rewind.py setting the window (YouTube keeps up to 120 h). Elsewhere
+# the capture runs from now and says so. Env: SLIPMAT_LIVE_FROM_START=1 /
+# SLIPMAT_LIVE_BACK=<seconds>. Ignored on a video that is not live.
+LIVE_FROM_START="${SLIPMAT_LIVE_FROM_START:-0}"; LIVE_BACK="${SLIPMAT_LIVE_BACK:-0}"
+for _a in "${@:4}"; do
+  case "$_a" in
+    from-start|from_start|fromstart) LIVE_FROM_START=1 ;;
+    last-*|back-*|last=*|back=*)
+      _w="${_a#*[-=]}"; _n="${_w%[hms]}"; _u="${_w#"$_n"}"
+      case "$_n" in ''|*[!0-9]*) printf 'slipmat: unknown live window "%s" — try last-2h, last-90m or from-start\n' "$_a" >&2; exit 2 ;; esac
+      case "$_u" in h) LIVE_BACK=$((_n*3600)) ;; m) LIVE_BACK=$((_n*60)) ;; *) LIVE_BACK=$_n ;; esac ;;
+    *) printf 'slipmat: unknown option "%s" (after <url> <res> <mode>: from-start · last-2h · last-1h · last-30m)\n' "$_a" >&2; exit 2 ;;
+  esac
+done
+case "$LIVE_BACK" in ''|*[!0-9]*) LIVE_BACK=0 ;; esac
+LIVE_WIN=""   # the rewind window in words, said once per screen
+if [ "$LIVE_BACK" -gt 0 ]; then
+  if [ $((LIVE_BACK % 3600)) -eq 0 ]; then LIVE_WIN="last $((LIVE_BACK / 3600))h"; else LIVE_WIN="last $((LIVE_BACK / 60))m"; fi
+elif [ "$LIVE_FROM_START" = "1" ]; then LIVE_WIN="from the start"; fi
 
 # ---- tiny helpers -----------------------------------------------------------
 # ---- run log: every run self-documents to ~/.slipmat/logs/<day>/<time NAME>.log
@@ -2013,7 +2036,7 @@ if mkdir -p "$LOGDAY" 2>/dev/null; then
   RUNLOG="$LOGDAY/$(date +%H%M%S)_$$.log"
   logln "SLIPMAT $(date '+%Y-%m-%d %H:%M:%S')"
   logln "url:  $URL"
-  logln "args: mode=$MODE res=$RES"
+  logln "args: mode=$MODE res=$RES${LIVE_WIN:+ live=$LIVE_WIN}"
   logln ""
 fi
 
@@ -2724,12 +2747,29 @@ if [ "$IS_LIVE" = "1" ]; then
   NAME=$(build_live_name)
   OUT="$OUTDIR/${NAME}.mp4"
   say ""
-  step LIVE "recording direct to mp4 (live_status=$M_LIVE)"
+  # ---- rewind (10.5.26): from-start / last-N is a YouTube DVR feature. yt-dlp
+  # reaches it with --live-from-start; tools/live-rewind.py narrows the window.
+  # Any other site: say so once and record from now, exactly as before.
+  LIVE_REWIND=0; LIVE_PY=""
+  if [ -n "$LIVE_WIN" ]; then
+    case "$URL" in
+      *youtube.com/*|*youtu.be/*)
+        LIVE_PY=$(sed -n '1s/^#![ ]*//p' "$YTDLP" 2>/dev/null)          # yt-dlp's own interpreter
+        case "$LIVE_PY" in *python*) [ -x "$LIVE_PY" ] || LIVE_PY="" ;; *) LIVE_PY="" ;; esac
+        [ -z "$LIVE_PY" ] && [ -n "$PYTHON" ] && "$PYTHON" -c 'import yt_dlp' >/dev/null 2>&1 && LIVE_PY="$PYTHON"
+        if [ -n "$LIVE_PY" ] && [ -f "$APPDIR/tools/live-rewind.py" ]; then LIVE_REWIND=1
+        else warn "rewind needs the python behind yt-dlp (not found) — recording from now instead"; LIVE_WIN=""; fi ;;
+      *) warn "rewind ($LIVE_WIN) only works on YouTube livestreams — this one is recorded from now" ; LIVE_WIN="" ;;
+    esac
+  fi
+  step LIVE "recording direct to mp4 (live_status=$M_LIVE${LIVE_WIN:+ · $LIVE_WIN})"
   # PICKER/STUDIO on live: offer the CAPTURE resolution (user request 7.7.26 — the
   # old hard fork gave no choice). Still zero post-processing: live is captured
   # as-is, never re-encoded, never stutter-tested (memory: live-is-hard-fork —
   # only the "no menu" part of that stance is relaxed, deliberately).
-  LIVE_F="bv*[ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[ext=mp4]/best"
+  # A numeric RES (the 720 door) caps the capture stream too (10.5.26).
+  _lc=""; case "$RES" in max|ask|"") ;; *) _lc="[height<=$RES]" ;; esac
+  LIVE_F="bv*[ext=mp4][vcodec^=avc1]${_lc}+ba[ext=m4a]/b[ext=mp4]${_lc}/best${_lc}/best"
   if [ "$RES" = "ask" ] && [ -n "$PYTHON" ] && [ -s "$INFO" ]; then
     note "pick the capture stream — sizes are unknowable on live; fps/res are real"
     present_formats
@@ -2743,6 +2783,7 @@ if [ "$IS_LIVE" = "1" ]; then
     fi
   fi
   note "press Ctrl-C to stop — yt-dlp finalizes a clean, playable file. No stutter-test on live."
+  [ "$LIVE_REWIND" = "1" ] && note "rewinding: video and audio arrive as two streams and merge into one mp4 when you stop — the REC clock counts wall time, the file holds more"
   note "$OUT"
   say ""
   # LIVE is the one path where YT-DLP (not ffmpeg -y) writes the final file, and a
@@ -2769,6 +2810,7 @@ if [ "$IS_LIVE" = "1" ]; then
   # ever died the capture would be unaffected. Zero risk to 12-hour recordings.
   LIVE_RPID=""
   LIVE_QL="${SELNOTE:-best}"; case "$LIVE_QL" in custom*) LIVE_QL="custom" ;; esac
+  LIVE_QL="$LIVE_QL${LIVE_WIN:+ · $LIVE_WIN}"
   if [ "$IS_TTY" = "1" ]; then
     (
       # PURE-BASH tick (one stat fork per 2s): a 12-hour recording must not burn
@@ -2822,11 +2864,29 @@ if [ "$IS_LIVE" = "1" ]; then
   # TEMPLATE — a title containing "%(" would abort or expand template keys.
   # Escape every % (yt-dlp reads %% as literal %); VOD paths use $WORKSTEM, safe.
   NAME_TMPL=$(printf '%s' "$NAME" | sed 's/%/%%/g')
-  "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
-    -f "$LIVE_F" \
-    --downloader-args "ffmpeg_i:-loglevel error" \
-    --postprocessor-args "ffmpeg:-movflags +faststart" \
-    -o "$OUTDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+  live_capture_now() {   # the proven capture, bit-for-bit: foreground, unpiped
+    "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
+      -f "$LIVE_F" \
+      --downloader-args "ffmpeg_i:-loglevel error" \
+      --postprocessor-args "ffmpeg:-movflags +faststart" \
+      -o "$OUTDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+  }
+  if [ "$LIVE_REWIND" = "1" ]; then
+    # same process shape as above (foreground, unpiped, Ctrl-C lands in yt-dlp);
+    # the wrapper imports yt-dlp in-process and only moves its 120 h rewind cap.
+    # Exit 86 = this yt-dlp moved the hook → the plain capture runs instead.
+    SLIPMAT_LIVE_BACK="$LIVE_BACK" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
+      $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings --live-from-start \
+      -f "$LIVE_F" \
+      --postprocessor-args "ffmpeg:-movflags +faststart" \
+      -o "$OUTDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+    if [ "$?" = "86" ]; then
+      warn "this yt-dlp build moved the rewind hook (see the run log) — recording from now instead"
+      LIVE_WIN=""; live_capture_now
+    fi
+  else
+    live_capture_now
+  fi
   LIVE_EL=$((SECONDS - LIVE_T0))
   rm -f "$OUT.claim" 2>/dev/null   # the capture (or its absence) speaks for itself now
   # stop the status line the instant capture ends (finalize happens inside yt-dlp)
@@ -2867,7 +2927,7 @@ if [ "$IS_LIVE" = "1" ]; then
       say ""
       box_top "DONE (LIVE)"
       box_file file "$(basename "$PRODUCED")"
-      box_line "time    $(fmt_dur "$LIVE_DUR") recorded"
+      box_line "time    $(fmt_dur "$LIVE_DUR") recorded${LIVE_WIN:+ · $LIVE_WIN}"
       box_file path "$(dirname "$PRODUCED")/"
       box_bot
       logln "  $PRODUCED"
@@ -2880,7 +2940,7 @@ if [ "$IS_LIVE" = "1" ]; then
     box_top "DONE (LIVE)"
     box_file file "$(basename "$PRODUCED")"
     box_line "size    $(fmt_bytes "$(stat -f %z "$PRODUCED" 2>/dev/null || echo 0)")"
-    box_line "time    $(fmt_dur "$LIVE_DUR") recorded"
+    box_line "time    $(fmt_dur "$LIVE_DUR") recorded${LIVE_WIN:+ · $LIVE_WIN}"
     box_file path "$(dirname "$PRODUCED")/"
     box_bot
     logln "  $PRODUCED"

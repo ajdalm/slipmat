@@ -65,6 +65,24 @@ if grep -q 'is_instagram' "$ENGINE" && grep -q 'ig_cooldown_set' "$ENGINE" && ! 
   pass "Instagram: login first, one cookieless fallback, cooldown after a refusal"
 else fail "Instagram rule drifted (cookieless by default, or no cooldown)"; fi
 
+# ---- 3c. livestream rewind: the hook inside the installed yt-dlp is still there
+# tools/live-rewind.py moves yt-dlp's 120 h rewind cap to the asked window; it finds
+# the constant by value and exits 86 when a yt-dlp update moved it (the engine then
+# records from now and says so). Offline: --version through the patched wrapper.
+_lpy=$(sed -n '1s/^#![ ]*//p' "$YTDLP" 2>/dev/null); case "$_lpy" in *python*) [ -x "$_lpy" ] || _lpy="" ;; *) _lpy="" ;; esac
+[ -z "$_lpy" ] && command -v python3 >/dev/null 2>&1 && python3 -c 'import yt_dlp' >/dev/null 2>&1 && _lpy="$(command -v python3)"
+if [ -z "$_lpy" ]; then skip "live rewind hook — no python with yt_dlp found beside $YTDLP"
+elif SLIPMAT_LIVE_BACK=60 "$_lpy" "$REPO/tools/live-rewind.py" --version >/dev/null 2>"$S/rewind.err"; then pass "live rewind hook present in yt-dlp $("$YTDLP" --version 2>/dev/null) (from-start / last-Nh doors work)"
+else fail "live rewind hook missing — this yt-dlp moved it; the livestream doors record from now ($(head -1 "$S/rewind.err"))" "$S/rewind.err"; fi
+
+# ---- 3d. every mode the Shortcut builder emits is one the launcher handles -------
+_lmiss=""
+for _m in $(sed -n 's/^ *make_one "[^"]*" *\([a-z0-9-]*\) .*/\1/p' "$REPO/shortcuts/make-shortcuts.sh"); do
+  grep -q "mode is \"$_m\"" "$REPO/shortcuts/launch.applescript" || _lmiss="$_lmiss $_m"
+done
+if [ -z "$_lmiss" ] && osacompile -o "$S/launch.scpt" "$REPO/shortcuts/launch.applescript" 2>/dev/null; then pass "launcher compiles and handles every builder mode"
+else fail "launcher drift: modes not handled or script does not compile:$_lmiss"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:

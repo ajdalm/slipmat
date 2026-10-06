@@ -12,12 +12,14 @@
 # this repo's absolute path baked in at generation time (edit-once rule: all
 # behavior lives in the launcher, on disk).
 #
-# Usage: make-shortcuts.sh [-c] [output-dir]     (default ~/.slipmat/shortcuts)
-#   -c   also build the optional sixth, [SLIPMAT VIDEO] AUTO CROP(PiP)
+# Usage: make-shortcuts.sh [-c] [-l] [output-dir]     (default ~/.slipmat/shortcuts)
+#   -c   also build the optional [SLIPMAT VIDEO] AUTO CROP(PiP)
+#   -l   also build the three livestream doors (FROM START · LAST 2HRS · LAST 1HR)
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
-CROP=0; [ "${1:-}" = "-c" ] && { CROP=1; shift; }
+CROP=0; LIVE=0
+while [ $# -gt 0 ]; do case "$1" in -c) CROP=1; shift ;; -l) LIVE=1; shift ;; -cl|-lc) CROP=1; LIVE=1; shift ;; *) break ;; esac; done
 OUT="${1:-$HOME/.slipmat/shortcuts}"
 mkdir -p "$OUT"
 # files this builder made under names since retired (exact names only)
@@ -84,6 +86,11 @@ make_one "[SLIPMAT VIDEO] STUDIO"         studio  4274264319 || fail=1   # yello
 make_one "[SLIPMAT WEBAUDIO]"             audio   1440408063 || fail=1   # light blue
 make_one "[SLIPMAT SPOTIFY]"              spotify 4292093695 || fail=1   # green
 [ "$CROP" = "1" ] && { make_one "[SLIPMAT VIDEO] AUTO CROP(PiP)" crop 4274264319 || fail=1; }   # yellow, optional
+if [ "$LIVE" = "1" ]; then   # the livestream doors (optional; YouTube rewinds, other sites record from now)
+  make_one "[SLIPMAT VIDEO] LIVESTREAM - FROM START" live-start 4274264319 || fail=1
+  make_one "[SLIPMAT VIDEO] LIVESTREAM - LAST 2HRS"  live-2h    4274264319 || fail=1
+  make_one "[SLIPMAT VIDEO] LIVESTREAM - LAST 1HR"   live-1h    4274264319 || fail=1
+fi
 
 if [ "$fail" = "1" ]; then
   cat <<EOF
