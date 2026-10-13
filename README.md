@@ -1,0 +1,159 @@
+# slipmat
+
+**Copy a link. Click. Get a file that just works on your gear.**
+
+⌘C & hit the menu bar. A URL, or a file in Finder — same move.
+
+- **Video** never stutters in QuickTime. Every download is verified after
+  it lands; a defective stream gets fixed automatically.
+- **Audio** downloads become clean .m4a files: AAC-320 through Apple's
+  encoder, square album artwork, and the original source quality stamped in
+  the **Composer** field (rekordbox can show it as a column, and stores
+  rarely fill it, so Album and Comments stay yours). No options to pick —
+  every file plays everywhere.
+- **Spotify** playlists, albums and tracks get the same treatment, straight
+  from Spotify's 320k stream.
+
+Every download prints a receipt, and every run keeps a log in `~/.slipmat/logs` —
+toss a fail log at an AI agent and slipmat becomes self-diagnosing.
+
+## Install
+
+A Mac running macOS 12 (Monterey) or later, with [Homebrew](https://brew.sh).
+Re-encoding (fixing a stuttering stream, STUDIO's shrink/crop) uses Apple
+Silicon's hardware HEVC encoder in constant-quality mode. Intel Macs don't
+have that mode, so there slipmat re-encodes with software x264 at constant
+quality instead — same look, slower encodes, H.264 files.
+
+```
+brew install ffmpeg yt-dlp uv
+git clone https://github.com/ajdalm/slipmat.git
+cd slipmat
+./slipmat hello
+```
+
+(`uv` is only for Spotify — skip it if you'll never use Spotify.)
+
+The Homebrew version of yt-dlp handles nearly every site. A few stubborn
+sites only respond to real web browsers — for those, the pip version of
+yt-dlp can impersonate one:
+
+```
+pip3 install -U "yt-dlp[default,curl-cffi]"
+```
+
+You can skip that until a site actually refuses you. If you do install it,
+run `./slipmat doctor` afterwards — it will tell you whether slipmat can
+see it. If Homebrew's yt-dlp is installed as well, slipmat keeps using that
+one; point it at the pip copy with a `YTDLP=/path/to/yt-dlp` line in
+`~/.slipmat/config` (`which -a yt-dlp` lists both paths).
+
+`./slipmat hello` is a short guided setup. It asks where downloads should
+go (pressing Enter accepts the defaults; audio can be sent straight into
+your Music library), checks that everything is installed, offers the
+Spotify login, and then adds the six slipmat Shortcuts to your menu bar:
+macOS pops up an "Add Shortcut" window for each one — press Enter, and the
+next one pops up by itself. That's the whole install. If you'd rather set
+the Shortcuts up by hand, see `shortcuts/SETUP.md`.
+
+Tip: slipmat uses your **Firefox** cookies. If you're logged in to a site
+in Firefox, slipmat can download things that need your account — members-only
+videos, age-restricted content, premium streams. To use a different browser
+(or no cookies), set `COOKIE_BROWSER` / `USE_COOKIES` in `~/.slipmat/config`.
+
+**Spotify** needs a Spotify Premium account and `uv` (it builds the
+Spotify engine's own Python the first time it's needed). `slipmat hello` offers to
+log you in to Spotify during setup (or later: `./slipmat spotify --login`);
+the login opens in your browser once and is remembered after that.
+Stopping mid-playlist is safe — finished tracks are remembered and skipped
+next time. The Spotify engine is [mr-rippah](https://github.com/cvdub/mr-rippah)
+by cvdub, with upgrades: if Spotify quietly serves a lower tier than 320k,
+the track fails loudly instead of landing as a weaker file; rate-limit
+pacing and stall recovery; album links; and Music.app delivery.
+
+`python3` is used for stream selection and artwork (with Pillow installed,
+artwork letterbox-trimming is sharper; without it, ffmpeg crops). The zoom-crop
+feature needs a python with `numpy` + `scipy`, and embed rescue uses that same
+python's `curl_cffi`; set `SLIPMAT_PYTHON` in `~/.slipmat/config` if it isn't
+the python3 on your PATH. Run `./slipmat doctor` — it checks everything and
+prints the exact command for anything missing. It also says whether a YouTube
+token helper (the bgutil-ytdlp-pot-provider plugin, port 4416) is running;
+that's optional, and only heavy YouTube use benefits from it.
+
+## Use
+
+You *can* trigger slipmat from the command line — but that's not the design.
+slipmat lives in your menu bar: **copy a link anywhere, and two clicks later
+your content is heading your way.** Click the Shortcuts icon (two stacked,
+tilted squares, top right of your screen) and pick:
+
+| menu bar | it does |
+|---|---|
+| [SLIPMAT VIDEO] AUTO(BEST) | the best quality your machine can actually play, ripped bulletproof — zero questions asked |
+| [SLIPMAT VIDEO] PICKER | see the source's REAL resolutions (1080p, 720p, …), pick one, the rest is automatic |
+| [SLIPMAT VIDEO] STUDIO | the picker plus a re-encode concierge — shrink or optimize (sizes/ETAs probed from YOUR file, not guessed), or crop away the dead screen around a small video box. Works without a URL too: ⌘C any bloated file in Finder, click STUDIO |
+| [SLIPMAT WEBAUDIO] | Rips YouTube, SoundCloud, etc. → a clean .m4a with real artwork. AAC-320 — the highest AAC rate CDJ hardware accepts, so files are deck-compatible as delivered |
+| [SLIPMAT SPOTIFY] | Rips a Spotify playlist, album or track URL → the same deck-ready .m4a files |
+
+An optional sixth, `[SLIPMAT VIDEO] AUTO CROP(PiP)`, takes files selected in
+Finder (screen recordings with a small video box in a static frame) and crops
+each one to the moving picture, unattended. `hello` offers it after the six.
+
+Livestreams need no door of their own. Copy a live YouTube URL, click any
+video door, and it asks where the capture should start: now, 5 minutes to
+2 hours back, from the start (YouTube keeps up to 120 hours), or a custom
+distance. AUTO(BEST) and AUTO(720p) start from now by themselves after 8
+seconds; PICKER and STUDIO wait. While it records the key is on the
+screen: `x` stops (it asks once; a second `x` seals one playable mp4).
+After the stop every key is off until the file is done. Other sites record
+from now and say so. From the command line the window can be given up front and
+the question is skipped: `slipmat video <url> max best from-start`,
+`… last-2h`, `… last-90m` — and on a stream that already ended, `last-2h`
+takes the last 2 hours of the replay.
+
+The same tools, from the command line:
+
+```
+./slipmat hello                      # (re)run setup any time
+./slipmat video <url>  best          # best playable quality, no questions
+./slipmat video <url>                # no mode = max quality, no menu
+./slipmat video <url>  auto          # pick the stream from a menu
+./slipmat video <url>  studio        # menu + re-encode concierge
+./slipmat video <file> studio        # local file → the same concierge
+./slipmat audio <url>                # AAC-320 m4a, square art, source stamp
+./slipmat spotify <url>              # a Spotify playlist, album or track URL
+./slipmat spotify --login            # log in to Spotify now (browser, once)
+./slipmat spotify -c                 # forget the saved Spotify login
+./slipmat z-batch -c 50 <folder>     # unattended zoom-crop/re-encode a folder
+./slipmat smoke                      # offline self-test, ~10 s (run before a commit)
+./slipmat doctor                     # toolchain check, last green smoke
+```
+
+Downloads land in `~/Downloads/SLIPMAT` (or wherever you told `hello`); a
+re-encode of a local file lands beside that file. Run logs go to
+`~/.slipmat/logs/<day>/`. `~/.slipmat/config` holds every dial: folders,
+browser cookies, quality, naming style, your own embed-page hosts.
+
+## What's under the hood
+
+- Careful stream selection: slipmat lists the streams a source actually
+  serves and picks by QuickTime compatibility — then verifies the downloaded
+  file itself instead of trusting the site's metadata.
+- A stutter detector that checks real frame timestamps (container metadata
+  often reports a broken stream as fine).
+- A re-encode concierge that samples *your* file at the target size before
+  quoting numbers; estimates are typically within a few percent.
+- One key language, printed before a key can be pressed. `x` stops whatever
+  is running — it asks once, and `x` again stops: a download or a re-encode
+  is canceled with nothing kept, a live capture is sealed into one playable
+  mp4. A download that is taking too long steps down on the ↓ key: 1080p →
+  720p → 480p, one rung per press, each step naming the next. After a stop
+  every further key is swallowed until the receipt is written, so banging
+  the key is safe. Ctrl-C is not a slipmat key: it is the terminal's own
+  emergency exit, and it still works.
+- Embed rescue: when a page's video can't be reached the normal way,
+  slipmat reads the page itself and finds the embedded video (og:video,
+  JSON-LD, iframes, raw manifests, and several site-specific handlers).
+- Auto-crop: finds the actual video inside a screen recording — the
+  picture-in-picture box — and crops to exactly that, one file or a whole
+  folder unattended.

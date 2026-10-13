@@ -1,0 +1,59 @@
+# slipmat config — copy to ~/.slipmat/config and edit. Plain shell, sourced
+# over the engine defaults; set only what you want to change.
+
+# Where finished rips land (video + audio share it). `slipmat hello` sets this:
+#OUTDIR="$HOME/Downloads/SLIPMAT"
+
+# Give audio rips their own folder; or deliver them straight into Music.app's
+# "Automatically Add" folder (files arrive fully converted + tagged, atomically):
+#AUDIO_OUTDIR="$HOME/Downloads/SLIPMAT AUDIO"
+#AUDIO_AUTO_ADD="$HOME/Music/Music/Media.localized/Automatically Add to Music.localized"
+
+# Also write the source rate into Album ("160kbps", "⚠️ 96kbps") for web audio
+# rips — for libraries organized by that convention. Composer always has it:
+#AUDIO_STAMP_ALBUM=1
+
+# Spotify rips (slipmat spotify / [SLIPMAT SPOTIFY]) follow the audio
+# settings above. Extras, all off by default:
+#SPOTIFY_TO_MUSIC=1          # Spotify rips go to Music even if other audio doesn't
+#SPOTIFY_SPOT_TAG=1          # append " [SPOT]" to album names
+#SPOTIFY_GHOSTS=1            # list tracks Spotify no longer plays (~/.slipmat/spotify-ghosts.txt, or give a path)
+#SPOTIFY_LEDGER="$HOME/.slipmat/spotify-ledger.txt"   # finished-track list (resume + no double rips)
+
+# Browser whose cookies yt-dlp reads (firefox/chrome/safari). USE_COOKIES=0
+# turns cookies off entirely:
+#COOKIE_BROWSER=firefox
+#USE_COOKIES=1
+
+# Sites you KNOW embed locked Vimeo players (space-separated page URLs) — the
+# engine auto-tries each as a Referer before asking you:
+#SLIPMAT_EMBED_HOSTS="https://example-site.com/"
+
+# A python3 with numpy+scipy (zoom-crop) and curl_cffi (embed rescue).
+# Default: the python3 on your PATH:
+#SLIPMAT_PYTHON="/opt/homebrew/bin/python3"
+
+# Which yt-dlp to run. Default: /opt/homebrew/bin/yt-dlp, else the first on
+# PATH. Set this if you installed the pip variant next to Homebrew's:
+#YTDLP="$HOME/Library/Python/3.12/bin/yt-dlp"
+
+# Scratch folder for downloads in progress (each run gets its own subfolder):
+#WORKROOT="$HOME/.slipmat/work"
+
+# Quality dials (videotoolbox -q:v — HIGHER = better = bigger;
+# q40 everyday, q30 small, q50 high):
+#Q_AUTO=40
+
+# Filename style for video rips: standard | dated-first | tight
+#NAMING_STYLE="standard"
+
+# An executable that maps a source title to your own naming convention (gets
+# the title as $1, prints the new name or nothing to keep the template):
+#   ~/.slipmat/title-hook
+
+# An executable that adds your own machine-specific checks to `slipmat doctor`
+# (runs after the built-in ones; print one line per check):
+#   ~/.slipmat/doctor-hook
+
+# Newsmax naming menu — pipe-separated rows; names you type are learned:
+#NMX_SHOWS="SHOW ONE|SHOW TWO"
