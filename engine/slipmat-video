@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.12"          # 10.12.26 — asks in chip form: one line per question, keycap chips glued to outcomes; the NMX quiz counts back from the feed date
+VERSION="4.13"          # 10.13.26 — an ended stream (post_live) downloads as a normal file, never a capture, 8 pieces at a time (YouTube only); the receipt says whether you got it all
                         # 10.5.26 — Instagram login-first + cooldown · the re-encode reason is said once
                         # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
@@ -1253,7 +1253,7 @@ if [ -t 1 ]; then
   C_RESET=$'\033[0m'; C_DIM=$'\033[2m'; C_BOLD=$'\033[1m'
   C_CYAN=$'\033[36m'; C_GRN=$'\033[32m'; C_YEL=$'\033[33m'; C_MAG=$'\033[35m'   # V4.4: purple = concierge insight (↳ notes · suggested)
   C_RED=$'\033[31m'   # V4.5c: table rows that land BIGGER than the source (obvious no-go)
-  C_Q=$'\033[1;38;5;135m'; C_ACC=$'\033[38;5;177m'; C_KEY=$'\033[1;7;35m'   # 10.5: question · accent · keycap chip (the chip-form spec); 10.12: 141 → 135, "a smidge darker"
+  C_Q=$'\033[1;38;5;99m'; C_ACC=$'\033[38;5;177m'; C_KEY=$'\033[1;7;35m'   # 10.5: question · accent · keycap chip (the chip-form spec); 10.12: 141 → 135 → 99 (his pick, window P)
   B_TL='╭'; B_TR='╮'; B_BL='╰'; B_BR='╯'; B_H='─'; B_V='│'; B_ML='├'; B_MR='┤'
   G_OK='✓'; G_ARR='›'; G_RE='↻'; G_TO='→'; G_REC='●'; G_DN='↓'; BAR_F='█'; BAR_E='░'
 else
@@ -2919,7 +2919,7 @@ source_box() {
   # V4.5d: an unknown channel says the SITE, not a bare `?` (Radio-Canada + TMZ runs)
   if [ -z "$_who" ]; then _who=$(printf '%s' "${RESCUE_PAGE_URL:-${URL:-}}" | sed -E 's#^[a-z]+://##; s#/.*$##; s#^www\.##'); fi   # V4.5h: after a rescue the PAGE is the identity, not the CDN host
   _when=""; [ -n "$M_UPDATE" ] && _when=$(ymd_to_mdy "$M_UPDATE")
-  _lv=""; case "$M_LIVE" in is_live|is_upcoming|post_live) _lv=" · $M_LIVE" ;; esac
+  _lv=""; case "$M_LIVE" in is_live) _lv=" · LIVE now" ;; is_upcoming) _lv=" · not started yet" ;; post_live) _lv=" · ended · replay ready" ;; was_live) _lv=" · was live" ;; esac
   box_line "$(abridge "${_who:-?}${_when:+ · $_when}${_durs:+ · Duration $_durs}${_lv}" "$BOXW")"
   [ -n "${1:-}" ] && box_line "$(abridge "$1" "$BOXW")"
   box_bot
@@ -2946,10 +2946,54 @@ elif [ -z "${SLIPMAT_LOCAL_MKV:-}" ]; then
   term_title "SLIPMAT · $(abridge "$URL" 60)"
 fi
 
+
+# 10.13 ("how do I know I got it all?"): the receipt compares the file to the source's known
+# length. Printed on every ended-stream replay (post_live / was_live), and on any URL rip that
+# landed short. expected = the whole duration, or the window when a last-N cut was asked.
+got_line() {   # $1 = the finished file → prints a receipt line or nothing
+  _gd=${M_DUR%%.*}; case "$_gd" in ''|*[!0-9]*) _gd=0 ;; esac
+  [ "$_gd" -ge 60 ] 2>/dev/null && [ -z "$LOCAL_SRC" ] || return 0
+  _gx=$_gd; [ -n "${SECT_VAL:-}" ] && [ "$LIVE_BACK" -gt 0 ] && [ "$LIVE_BACK" -lt "$_gd" ] && _gx=$LIVE_BACK
+  _gg=$("$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$1" 2>/dev/null | awk '{ if ($1+0>0) printf "%.0f", $1+0 }')
+  [ -n "$_gg" ] || return 0
+  _gp=$(( _gg * 100 / _gx )); [ "$_gp" -gt 100 ] && _gp=100
+  _gmiss=$(( _gx - _gg )); [ "$_gmiss" -lt 0 ] && _gmiss=0
+  _gsk=0; [ -s "${YTERR:-}" ] && _gsk=$(grep -c -i 'skipping fragment\|fragment not found' "$YTERR" 2>/dev/null); case "$_gsk" in ''|*[!0-9]*) _gsk=0 ;; esac
+  _gfr=""; if [ "${YT_PIECES:-0}" = "1" ]; then replay_holes "$1"; _gfr=" · ${HOLE_PCT}% of frames"; [ "$HOLE_PCT" -lt 98 ] && _gmiss=$(( _gmiss > 16 ? _gmiss : 16 )); fi
+  if [ "$_gmiss" -le 15 ] && [ "$_gsk" -eq 0 ]; then
+    case "$M_LIVE" in post_live|was_live) box_line "got     $(fmt_dur "$_gg") of $(fmt_dur "$_gx") — complete${_gfr}" ;; esac
+    logln "  got: $(fmt_dur "$_gg") of $(fmt_dur "$_gx") (${_gp}%)"
+  else
+    box_line "${C_YEL}got     $(fmt_dur "$_gg") of $(fmt_dur "$_gx") — $(fmt_dur "$_gmiss") missing$([ "$_gsk" -gt 0 ] && printf ' · %s pieces skipped by the site' "$_gsk")${C_RESET}"
+    logln "  ! got: $(fmt_dur "$_gg") of $(fmt_dur "$_gx") (${_gp}%) — $(fmt_dur "$_gmiss") missing, $_gsk pieces skipped"
+  fi
+}
+
 # ---- [2] LIVE FORK ----------------------------------------------------------
 # Live ONLY if strongly signaled. Ambiguous -> VOD (memory: live-is-hard-fork).
-IS_LIVE=0
-case "$M_LIVE" in is_live|is_upcoming|post_live) IS_LIVE=1 ;; esac
+IS_LIVE=0; POST_LIVE_VOD=0
+case "$M_LIVE" in
+  is_live|is_upcoming) IS_LIVE=1 ;;
+  post_live)
+    # 10.13: the stream ENDED and YouTube is still turning it into a video page ("post_live",
+    # minutes to many hours). The replay is already on the shelf: every fragment listed, the
+    # duration known — a finite, normal download, NOT a capture (the old live path "recorded"
+    # a finished show against a wall clock and a stop cut the seal short). Limbo proper = a
+    # post_live dump with no video streams: nothing to fetch yet, say so and stop.
+    _pld=${M_DUR%%.*}; case "$_pld" in ''|*[!0-9]*) _pld=0 ;; esac
+    if [ -s "${INFO:-}" ] && [ -n "$PYTHON" ] && [ "$("$PYTHON" -c "$VR_PY" hasvideo < "$INFO" 2>/dev/null)" = "1" ] && [ "$_pld" -gt 0 ]; then
+      POST_LIVE_VOD=1
+      say "  this stream has ended — YouTube is still finishing its video page, but the whole $(fmt_dur "$_pld") replay is already there: downloading it as a normal file, no live capture"
+      # a last-N cut rides ffmpeg over the manifest, and the unfinished page's fragment list refuses it
+      # (proven 10.13: ffmpeg exit 183) — until YouTube finishes the page the replay comes whole
+      if [ -n "$LIVE_WIN" ]; then
+        say "  ($LIVE_WIN isn't possible until YouTube finishes the page — taking the whole replay; trim it in STUDIO or QuickTime)"
+        LIVE_WIN=""; LIVE_BACK=0; LIVE_FROM_START=0
+      fi
+    else
+      die "this stream has ended and YouTube has not published the replay yet (it shows the page as 'post_live' with no video streams) — nothing to download right now. This usually clears within minutes to a few hours; try the link again later."
+    fi ;;
+esac
 
 if [ "$IS_LIVE" = "1" ]; then
   NAME=$(build_live_name)
@@ -3221,13 +3265,14 @@ fi
 SECT_OPT=""; SECT_VAL=""; VOD_TAIL=""
 if [ -n "$LIVE_WIN" ]; then
   _rd=${M_DUR%%.*}; case "$_rd" in ''|*[!0-9]*) _rd=0 ;; esac
+  _ended="this stream already ended"; [ "${POST_LIVE_VOD:-0}" = "1" ] && _ended="this stream has ended (YouTube is still finishing its video page; the replay is complete)"
   if [ "$LIVE_BACK" -gt 0 ] && [ "$_rd" -gt "$LIVE_BACK" ]; then
     SECT_OPT="--download-sections"; SECT_VAL="*-${LIVE_BACK}-inf"; VOD_TAIL="$LIVE_WIN"
-    say "  this stream already ended — taking the $LIVE_WIN of the $(fmt_dur "$_rd") replay"
+    say "  ${_ended} — taking the $LIVE_WIN of the $(fmt_dur "$_rd") replay"
   elif [ "$LIVE_BACK" -gt 0 ] && [ "$_rd" -gt 0 ]; then
-    say "  this stream already ended — the whole $(fmt_dur "$_rd") replay is shorter than $LIVE_WIN, taking it all"
+    say "  ${_ended} — the whole $(fmt_dur "$_rd") replay is shorter than $LIVE_WIN, taking it all"
   else
-    say "  this stream already ended — taking the whole replay"
+    say "  ${_ended} — taking the whole $( [ "$_rd" -gt 0 ] && fmt_dur "$_rd" || printf 'replay')"
   fi
   LIVE_WIN=""   # the receipt's "recorded · last 2h" belongs to live captures; VOD_TAIL names the cut
 fi
@@ -3331,9 +3376,57 @@ fi
 # QuickTime-playable stream (TikTok/Instagram/YouTube avc1) is downloaded straight
 # to mp4 — NEVER re-encoded. vp9/av1 (NEEDRE=1) still go to the re-encode path
 # because QuickTime can't play them, HLS or not.
+
+# 10.13: the one downside parallel pieces showed (16 at a time, proven): yt-dlp's own threads can
+# race on a piece's temp file ("No such file or directory: …part-FragNNN") and the download dies.
+# When that signature is in the attempt's stderr and pieces are on, halve them (8 → 4 → 2 → one at a
+# time) and let the caller retry — yt-dlp resumes from its .ytdl state, nothing is re-fetched.
+pieces_fewer() {   # halve the pieces (8 → 4 → 2 → one at a time) and wipe the attempt: a resume from yt-dlp's state after a race lands a file FULL OF HOLES (proven 10.13: 204,246 of 363,988 frames, duration intact) — never resume, restart clean
+  _pn="${DLPAR#-N }"; case "$_pn" in ''|*[!0-9]*) _pn=0 ;; esac
+  _pn=$((_pn / 2))
+  if [ "$_pn" -ge 2 ]; then DLPAR="-N $_pn"; else DLPAR=""; fi
+  rm -f "$WORKDIR/${WORKSTEM}".* 2>/dev/null
+  logln "  pieces: now ${DLPAR:-one at a time} (clean restart)"
+}
+pieces_backoff() {   # returns 0 = retry now with fewer pieces · 1 = not that failure (or already at one)
+  [ -n "${DLPAR:-}" ] && [ -s "${YTERR:-}" ] || return 1
+  grep -q 'part-Frag' "$YTERR" 2>/dev/null && grep -q 'No such file or directory' "$YTERR" 2>/dev/null || return 1
+  pieces_fewer
+  warn "a piece's temp file vanished mid-fetch (a downloader race) — starting the fetch over with ${DLPAR:+${DLPAR#-N } pieces at a time}${DLPAR:-one piece at a time} …"
+  return 0
+}
+# A fragmented replay is verified by FRAME COUNT, not duration: a file with holes keeps its length
+# (timestamps span the show) while frames are missing. Expected = duration × the NOMINAL rate (r_frame_rate — avg_frame_rate is frames/duration and hides holes); under 98% = holes.
+replay_holes() {   # $1 = file → 0 = holes (HOLE_PCT set) · 1 = whole
+  HOLE_PCT=100
+  _hv=$("$FFPROBE" -v error -select_streams v:0 -count_packets -show_entries stream=r_frame_rate,duration,nb_read_packets -of default=nw=1 "$1" 2>/dev/null)
+  _hp=$(printf '%s\n' "$_hv" | awk -F= '/^nb_read_packets=/{p=$2} /^r_frame_rate=/{split($2,r,"/"); if (r[2]+0>0) f=r[1]/r[2]; else f=r[1]+0} /^duration=/{d=$2+0} END{ e=d*f; if (e>0 && p+0>0) printf "%d", p*100/e; else print 100 }')
+  case "$_hp" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$_hp" -gt 100 ] && _hp=100
+  HOLE_PCT=$_hp
+  [ "$_hp" -lt 98 ]
+}
 IS_HLS=0; case "$SPROTO" in *m3u8*|*hls*|*HLS*) IS_HLS=1 ;; esac
 # an opaque .m3u8 URL whose dump failed still routes (and lower-res-retries) as HLS
 case "$(lc "$URL")" in *m3u8*) IS_HLS=1 ;; esac
+# 10.13 (his ruling): a YouTube replay the site is still finishing comes as ~2400 small pieces
+# per track, one connection at a time at ~1 MB/s. There — and ONLY there — fetch several pieces at
+# once (SLIPMAT_YT_PIECES, default 8; 0 = off). Everywhere else the parallel-pieces ban stands:
+# the Newsmax CDN answered parallel grabs with 503 walls (the --concurrent-fragments ruling).
+DLPAR=""; YT_PIECES=0
+case "$(lc "$URL")" in *youtube.com/*|*youtu.be/*)
+  case "$SPROTO" in *dash_segments*) YT_PIECES=1 ;; esac
+  [ "${POST_LIVE_VOD:-0}" = "1" ] && YT_PIECES=1 ;;
+esac
+if [ "$YT_PIECES" = "1" ]; then
+  _npar="${SLIPMAT_YT_PIECES:-8}"; case "$_npar" in ''|*[!0-9]*) _npar=8 ;; esac
+  [ "$_npar" -gt 1 ] && DLPAR="-N $_npar"
+  _npc=0; [ -s "${INFO:-}" ] && [ -n "$PYTHON" ] && _npc=$("$PYTHON" -c 'import json,sys
+d=json.load(sys.stdin); print(max((len(f.get("fragments") or []) for f in d.get("formats",[])), default=0))' < "$INFO" 2>/dev/null)
+  case "$_npc" in ''|*[!0-9]*) _npc=0 ;; esac
+  if [ "$_npc" -gt 0 ]; then note "YouTube hands this replay over in $_npc pieces per track$([ -n "$DLPAR" ] && printf ' — fetching %s at a time' "$_npar")"
+  else note "YouTube hands this replay over in small pieces$([ -n "$DLPAR" ] && printf ' — fetching %s at a time' "$_npar")"; fi
+fi
 FAST=0
 # STUDIO is excluded on purpose: the user chose it to control the re-encode (shrink
 # a clean file, change quality), so it always goes through the pipeline & prompts.
@@ -3487,11 +3580,11 @@ if [ "$FAST" = "1" ]; then
     : > "$YTERR"
     if [ "$TRY_INFO" = "1" ]; then
       "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --load-info-json "$INFO" -f "$DLSEL" --merge-output-format mp4 \
-        --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
+        $DLPAR --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
         $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" 2>>"$YTERR"
     else
       "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "$DLSEL" --merge-output-format mp4 \
-        --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
+        $DLPAR --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
         $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR"
     fi
     return $?
@@ -3499,6 +3592,7 @@ if [ "$FAST" = "1" ]; then
   keys_start download ""
   fast_dl; YTRC=$?
   [ "$YTRC" -ne 0 ] && by_hand && dl_canceled
+  while [ "$YTRC" -ne 0 ] && pieces_backoff; do fast_dl; YTRC=$?; [ "$YTRC" -ne 0 ] && by_hand && dl_canceled; done
   if [ "$YTRC" -ne 0 ] && [ "$TRY_INFO" = "1" ]; then
     yterr_log
     note "cached source info didn't resolve — re-reading fresh …"
@@ -3507,6 +3601,24 @@ if [ "$FAST" = "1" ]; then
   [ "$YTRC" -eq 0 ] || die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)${VIMEO_LOCKED:+This Vimeo is EMBED-LOCKED and no known host unlocked it — run PICKER and paste the page it is embedded on. }${VIMEO_LOCKED:-${NET_DIE_HINT:-The link may be expired, private, or need a login.}}"
   DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
   [ -n "$DLF" ] || die "download produced no file."
+  # ---- pieces replay: the frame-count gate (10.13) — a silent piece loss leaves holes the duration hides
+  _htry=0
+  while [ "${YT_PIECES:-0}" = "1" ] && replay_holes "$DLF" && [ "$_htry" -lt 3 ]; do
+    _htry=$((_htry+1))
+    warn "only ${HOLE_PCT}% of the frames landed — the file has holes (pieces lost in the fetch); starting over ${DLPAR:+with ${DLPAR#-N } pieces at a time}${DLPAR:-one piece at a time} …"
+    logln "  holes: ${HOLE_PCT}% of frames (try $_htry)"
+    pieces_fewer
+    fast_dl; YTRC=$?
+    [ "$YTRC" -ne 0 ] && by_hand && dl_canceled
+    while [ "$YTRC" -ne 0 ] && pieces_backoff; do fast_dl; YTRC=$?; [ "$YTRC" -ne 0 ] && by_hand && dl_canceled; done
+    [ "$YTRC" -eq 0 ] || die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)${NET_DIE_HINT:-The link may be expired, private, or need a login.}"
+    DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
+    [ -n "$DLF" ] || die "download produced no file."
+  done
+  if [ "${YT_PIECES:-0}" = "1" ] && replay_holes "$DLF"; then
+    die "the replay keeps landing with holes (${HOLE_PCT}% of its frames) — YouTube's pieces are not all there yet; try the link again in a while."
+  fi
+  [ "${YT_PIECES:-0}" = "1" ] && ok "every frame landed (${HOLE_PCT}% of $(fmt_dur "${M_DUR%%.*}") · frame-counted)"
   # ---- audio-verify (memory: tiktok-h265-is-video-only) ------------------------
   # TikTok's h265 renditions CLAIM aac yet can land VIDEO-ONLY (per-video: one
   # tested TikTok's 1080 h265 had real audio, another's was silent). ffprobe the
@@ -3520,7 +3632,7 @@ if [ "$FAST" = "1" ]; then
     rm -f "$DLF"
     : > "$YTERR"
     "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "${_alt:+$_alt/}$AVCHAIN" --merge-output-format mp4 \
-      --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
+      $DLPAR --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
       $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR" \
       || { by_hand && dl_canceled; die "audio re-fetch failed$(yterr_said)"; }
     DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
@@ -3587,6 +3699,7 @@ if [ "$FAST" = "1" ]; then
       # download speed at the download; "direct copy" is silenced
       box_line "size    $(fmt_bytes "$(stat -f %z "$OUT" 2>/dev/null || echo 0)")"
       box_line "time    $(fmt_dur $(( SECONDS - T_RUN0 > 0 ? SECONDS - T_RUN0 : 1 )))"
+      got_line "$OUT"
       [ -n "${AVFIX_NOTE:-}" ] && box_line "note    $AVFIX_NOTE"
       [ -n "${SLIPMAT_ALSO_KEPT:-}" ] && box_line "kept    $SLIPMAT_ALSO_KEPT"   # V4.5: the STUDIO file this re-rip came from
       box_file path "$(dirname "$OUT")/"
@@ -3667,7 +3780,7 @@ else
     : > "$YTERR"       # stderr → a file (not a pipe): errors reach the log + receipt; the bar (stdout) is untouched
     "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "$1" \
       --hls-use-mpegts --merge-output-format mkv \
-      --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
+      $DLPAR --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
       $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR"
     return $?
   }
@@ -3792,6 +3905,7 @@ else
       # weather — the identical command 30s later pulled at 21MB/s. If a partial
       # is already in hand, retry the SAME rung ONCE; yt-dlp resumes the .part
       # (nothing re-downloaded). Only then walk the ladder down.
+      if pieces_backoff; then continue; fi   # the downloader's own race: fewer pieces, same rung, resumed
       if [ "$SAME_RETRY" = "0" ] && [ "$IS_HLS" = "1" ]; then
         _pp=$(ls -S "$WORKDIR/${WORKSTEM}".*part 2>/dev/null | head -1)
         _ppz=$(stat -f %z "$_pp" 2>/dev/null); _ppz=${_ppz:-0}
@@ -4569,6 +4683,7 @@ if [ "$MODE" = "studio" ]; then
     else _dhead="the converting re-encode is required"; _dclass="'$VCODEC' can't play in QuickTime · ${_pq}"; _dwhy="q40 is the everyday default; q30 for a smaller file"; fi
   else
     _dhead="$_ecohead"; _dclass="$_ecoclass"; _dwhy="$_ecowhy"
+    if [ "${YT_PIECES:-0}" = "1" ] && [ "${LEAN:-0}" = "1" ] && [ "$_tsug" = "0" ]; then _dhead="the whole replay is already on disk"; _dwhy="a re-rip would fetch every piece again; a re-encode only grows a lean file"; fi
   fi
   # V4.4b (8.17 late): a BOLD `ORIGINAL SIZE:` line sits above the table
   # (size · rate · geometry); the `suggested:` sentence is ONE purple line and moves
@@ -4593,7 +4708,7 @@ if [ "$MODE" = "studio" ]; then
   if [ "$_forced" = "0" ]; then
     # V4.5c: on a LEAN rip the concierge's action is "re-rip a lower rung",
     # so Enter = p (back to PICKER) — the marker moves to the `p)` row; keep stays `0`/`k`.
-    _tsug_p=0; [ "$_tsug" = "0" ] && [ "$PICK_OK" = "1" ] && [ "${LEAN:-0}" = "1" ] && _tsug_p=1
+    _tsug_p=0; [ "$_tsug" = "0" ] && [ "$PICK_OK" = "1" ] && [ "${LEAN:-0}" = "1" ] && [ "${YT_PIECES:-0}" != "1" ] && _tsug_p=1   # 10.13: on a pieces replay a re-rip costs the whole fetch again — keep leads
     _s0=""; [ "$_tsug" = "0" ] && [ "$_tsug_p" = "0" ] && _s0="  ${C_GRN}← suggested${C_RESET} · ${C_BOLD}[Enter]${C_RESET}"   # V4.5: the default row wears the word
     frame_rail "${C_BOLD}$(printf ' %-3s %-11s %-14s %-8s %s  %-14s %-5s' "0)" "keep" "$(fmt_mb "$SRC_MB")" "-" "$B_V" "-" "")${C_RESET}${_s0}"
   fi
@@ -5253,6 +5368,7 @@ if [ -z "$_tl" ]; then
   _tl="$(fmt_dur $(( SECONDS - T_RUN0 > 0 ? SECONDS - T_RUN0 : 1 )))"
 fi
 box_line2 "time    $_tl" "$_tr"
+got_line "$OUT"
 # the checker: heard from only when it fixed or found something
 [ "$VERDICT" = "DEFECT" ] && box_line "fixed   ${DEFECT}% stutter → ${FINALDEF}% (CFR re-encode)"
 if awk -v p="$FINALDEF" 'BEGIN{ exit !(p+0 > 0) }' 2>/dev/null && [ "$VERDICT" != "DEFECT" ]; then box_line "check   ${FINALDEF}% bad PTS in the output — open it in QuickTime and look"; fi

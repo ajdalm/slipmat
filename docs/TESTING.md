@@ -224,6 +224,53 @@ HOME=$H slipmat video '<a 3 h replay of an ended stream>' 720 auto last-5m
 rewind hook, that the wrapper still handles SIGINT, that receipts never pick a
 per-stream half, and that the ask stays out of z-auto batches.
 
+## Ended streams still being finished by YouTube (post_live, 10.13.26)
+
+After a live stream ends, YouTube shows the page as `post_live` for minutes to many
+hours: the replay is complete (every fragment listed, duration known) but the normal
+video page is not built yet. slipmat downloads it as a normal file — the SOURCE box
+says `ended · replay ready`, one line explains it, no capture question, no REC clock.
+A window word (`last-1h`, `from-start`) is set aside with a line: the cut rides ffmpeg
+over the manifest and the unfinished page refuses it (exit 183); the replay comes whole.
+A `post_live` page with NO video streams is limbo proper: the engine stops with a plain
+"not published yet, try later". Once YouTube finishes (`was_live`), everything is a
+normal video again, cuts included.
+
+Speed: such a replay is ~2,400 pieces per track and YouTube serves one connection at
+about 1 MB/s, so a 3-hour 720p took 26 minutes one piece at a time. On YouTube fragmented
+replays — and only there — the engine fetches 8 pieces at once (`DLPAR="-N 8"`, config
+`SLIPMAT_YT_PIECES`, 0 = off); the screen says `YouTube hands this replay over in 2429
+pieces per track — fetching 8 at a time`. The parallel-pieces ban stands everywhere else
+(the Newsmax CDN answers parallel grabs with 503s); smoke asserts `-N` appears only inside
+that gate. Measured 10.13 on 720p pieces: 1 at a time 1.3 pieces/s · 4 at a time 3.5/s.
+`x x` mid-download under parallel pieces cancels clean (exit 130, nothing kept).
+Sixteen at a time measured 18.5 pieces/s but a full run died on yt-dlp's own thread race
+(`No such file or directory: …part-FragNNN`), so 8 is the ceiling; it showed once at 8
+too. When it shows, `pieces_backoff` halves the pieces (8 → 4 → 2 → one) and STARTS THE
+FETCH OVER: a resume from yt-dlp's state after that race landed a file with every
+timestamp but only 56% of its frames (204,246 of 363,988) — holes a duration check
+cannot see. So every pieces replay is frame-counted before it is handed over
+(`replay_holes`: packets vs duration × `r_frame_rate` — not `avg_frame_rate`, which is
+frames/duration and hides holes); under 98% → clean re-fetch with fewer pieces, three
+tries, then an honest die. The receipt's got-line adds `· 99% of frames` on these.
+Full 240p (3:22) at 8: 496M in 1:28, complete, 99% of frames.
+
+Fixture pair for the gate (10.13, scratch): the clean 240p (363,988 packets) reads
+whole 99%; the holey resume reads 56%.
+
+STUDIO on such a replay suggests `keep` (Enter), not "back to PICKER": a re-rip would
+fetch every piece again.
+
+The receipt answers "did I get it all?": on every replay (post_live / was_live) a `got`
+line compares the file to the source length (`got 3:22:21 of 3:22:23 — complete`); more
+than 15 s missing, or any piece the site skipped, prints the shortfall in yellow
+(`got 2:38:10 of 3:22:23 — 44:13 missing · 3 pieces skipped by the site`) on any URL rip.
+
+```bash
+# live proof (needs a post_live video; the rally of 10.12.26 was one for ~8 h): the smallest rung, whole
+HOME=/tmp/fakehome python3 tools/ptydrive.py /tmp/p.raw 1500 -- '<url>' auto -- '\[Enter = 1\]' 'c\n' 'type a video ID' '160+140\n'
+```
+
 ## The keys (10.6.26): one key language — x stops, ↓ steps down, Ctrl-C is the exit
 
 Every key a user may press is printed before it can be pressed (a rail block

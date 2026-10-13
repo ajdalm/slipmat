@@ -99,7 +99,10 @@ An optional sixth, `[SLIPMAT VIDEO] AUTO CROP(PiP)`, takes files selected in
 Finder (screen recordings with a small video box in a static frame) and crops
 each one to the moving picture, unattended. `hello` offers it after the six.
 
-Livestreams need no door of their own. Copy a live YouTube URL, click any
+A stream that has already ended downloads as a normal file, even while YouTube
+is still finishing its video page: it arrives as thousands of small pieces, so
+slipmat fetches eight at a time there, and the receipt says whether the whole
+replay landed. Livestreams need no door of their own. Copy a live YouTube URL, click any
 video door, and it asks where the capture should start: now, 5 minutes to
 2 hours back, from the start (YouTube keeps up to 120 hours), or a custom
 distance. AUTO(BEST) and AUTO(720p) start from now by themselves after 8

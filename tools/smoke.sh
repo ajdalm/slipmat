@@ -81,6 +81,30 @@ elif grep -q '^chip_line()' "$ENGINE" && grep -q 'chip_line "delete the original
   pass "asks are chip lines (no [y/N] left); the delete-original ask moves the file to the Trash; Enter on a flagged custom pick takes the Best MP4"
 else fail "the chip form drifted: chip_line, the delete-original Trash call, or the custom-pick ask changed"; fi
 
+# ---- 3a2. an ENDED stream still being finished by YouTube (post_live) is a normal download, never a capture (10.13.26)
+# A post_live dump lists every fragment with a known duration; the old routing "recorded" a finished show
+# against a wall clock and a stop cut the seal short. Offline: a tiny post_live dump through the engine's own selector.
+cat > "$S/postlive.json" <<'JEOF'
+{"id":"x","title":"t","live_status":"post_live","is_live":false,"was_live":true,"duration":12143,"formats":[
+ {"format_id":"140","ext":"m4a","protocol":"http_dash_segments","vcodec":"none","acodec":"mp4a.40.2","filesize":218574000,"url":"https://e/a"},
+ {"format_id":"298","ext":"mp4","protocol":"http_dash_segments","vcodec":"avc1.4D4020","acodec":"none","height":720,"width":1280,"fps":60,"filesize":4005679714,"url":"https://e/v"}]}
+JEOF
+_vrpy=$(sed -n "/^VR_PY='/,/^'$/p" "$ENGINE" | sed '1s/^VR_PY=.//; $d' | sed "s/'\\\\''/'/g")
+if grep -q '^  post_live)$' "$ENGINE" && grep -q '^got_line()' "$ENGINE" && grep -q 'got_line "$OUT"' "$ENGINE" \
+   && [ "$(python3 -c "$_vrpy" hasvideo < "$S/postlive.json" 2>/dev/null)" = "1" ] \
+   && python3 -c "$_vrpy" menu < "$S/postlive.json" 2>/dev/null | grep -q 'http_dash_segments'; then
+  pass "ended stream (post_live): routes as a normal download of the whole replay; the receipt's got-line compares the file to the source length"
+else fail "post_live routing drifted: the post_live case, got_line, or the selector on a post_live dash dump" ; fi
+
+# ---- 3a3. parallel pieces (-N) exist ONLY inside the YouTube-replay gate (10.13.26 ruling): everywhere else the ban stands
+_npar=$(grep -c -- '-N \$_npar\|-N "\$' "$ENGINE"); _nall=$(grep -c -- ' -N [0-9$]' "$ENGINE")
+if [ "$_npar" -ge 1 ] && [ "$_nall" -le 1 ] && grep -q '^DLPAR=""; YT_PIECES=0' "$ENGINE" && grep -q '\$DLPAR --fragment-retries' "$ENGINE" \
+   && grep -q '^pieces_backoff()' "$ENGINE" && grep -q 'while \[ "$YTRC" -ne 0 \] && pieces_backoff' "$ENGINE" && grep -q 'if pieces_backoff; then continue; fi' "$ENGINE" \
+   && grep -q '^replay_holes()' "$ENGINE" && grep -q 'r_frame_rate,duration,nb_read_packets' "$ENGINE" && grep -q 'replay_holes "$DLF"' "$ENGINE" \
+   && sed -n '/^pieces_fewer()/,/^}/p' "$ENGINE" | grep -q 'rm -f "$WORKDIR/${WORKSTEM}".\*'; then
+  pass "parallel pieces: -N only inside the YouTube replay gate; the race backoff restarts CLEAN (never resumes); every pieces replay is frame-counted (r_frame_rate) before it is handed over"
+else fail "parallel pieces drifted: -N appears outside the DLPAR gate ($_nall sites) or DLPAR is not applied to the download calls"; fi
+
 # ---- 3b. Instagram rips with the Firefox login first; cookieless only as a fallback; refusals start a cooldown
 if grep -q 'is_instagram' "$ENGINE" && grep -q 'ig_cooldown_set' "$ENGINE" && ! grep -q 'instagram.com/reel/\*.*COOKIES=""' "$ENGINE"; then
   pass "Instagram: login first, one cookieless fallback, cooldown after a refusal"
