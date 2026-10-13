@@ -95,6 +95,42 @@ tr '\r' '\n' < /tmp/run.raw | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tail -40
 
 Point it at a different engine with `SLIPMAT_ENGINE=/path/to/engine`.
 
+## The asks (10.12.26): one line per question, keys as chips
+
+Every question the engine asks is one line: the question, then each key as a
+keycap chip glued to what it does, the cursor at the end — `re-encode anyway?
+[Enter] keep lossless  [y] re-encode  ›`. Enter is always the safe way out.
+`chip_line` builds the line; `ask_yn` / `ask_line` still read and log the answer
+(the run log keeps the stripped line and the answer). The six asks and what they do:
+
+| screen | the line | Enter | the other key |
+|---|---|---|---|
+| STUDIO on a live stream, after the capture is sealed | `re-encode the capture?` | keep as is | `y` smaller HEVC |
+| STUDIO, the dial will not shrink the file | `re-encode anyway?` | keep lossless | `y` re-encode |
+| STUDIO, the encode came out no smaller | `keep the re-encode?` | no, keep only the original | `y` keep both |
+| STUDIO end, an original was kept | `delete the original?` | keep both | `y` delete it — to the Trash, never `rm` |
+| PICKER `c`, a stream id with a catch | `keep your pick?` | the Best MP4 (row 1, named) — the line counts down `auto-Enter in 5s … 1s` and silence does the same | `k` keep the custom pick (one key, no Enter) |
+| the NMX naming window | `Which show is this?` · `Air date?` | custom (a second Enter = the default name stands) · the feed date | `1 2 3` a show · `3 2 1` the days before the feed date |
+
+Smoke asserts no `[y/N]` prompt is left in the engine, the audio engine, z-batch
+or hello. Drive them with ptydrive; the proofs of 10.12.26 ran on a short public
+YouTube video (`jNQXAC9IVRw`):
+
+```bash
+# asks 2, 3, 4 — STUDIO, custom q95 (bigger than the source on purpose)
+HOME=/tmp/fakehome python3 tools/ptydrive.py /tmp/a.raw 240 -- '<url>' studio -- \
+  '\[Enter = 1\]' '\n' 'recipe \[Enter = ' 'c\n' 'custom ›' '95\n' \
+  're-encode anyway\?' 'y\n' 'keep the re-encode\?' 'y\n' 'delete the original\?' 'y\n'
+# ask 5 — PICKER (`auto` on the command line), c, a vp9 id; 'k' alone keeps, '\n' or nothing = Best MP4
+HOME=/tmp/fakehome python3 tools/ptydrive.py /tmp/b.raw 120 -- '<url>' auto -- \
+  '\[Enter = 1\]' 'c\n' 'type a video ID' '242\n' 'keep your pick\?' 'k'
+```
+
+The NMX window is a generated script; test it without a rip by extracting the
+heredoc (`sed -n '/cat > "$QDIR\/quiz.sh" <<QEOF/,/^QEOF$/p'`), running it with
+`QDIR OUTDIR WORKDIR NAME _qdef _qshows NMX_SHOWS_LEARNED` set, and driving
+`quiz.sh` in a pty.
+
 ## Quick spots after a change
 
 ```bash

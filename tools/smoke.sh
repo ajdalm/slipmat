@@ -73,6 +73,13 @@ if [ -f "$REPO/tools/keys.py" ] && python3 -m py_compile "$REPO/tools/keys.py" 2
 else fail "keys drifted: tools/keys.py (the x question), keys_start before download/encode, the key.down read in by_hand, or the key.x read at the encode is missing" "$S/keys.err"; fi
 if grep -q 'chip Ctrl-C\|chip "Ctrl-C"' "$ENGINE"; then fail "a rail prints Ctrl-C as a key — Ctrl-C is the emergency exit, never a printed key (his 10.5 ruling)"
 else pass "no rail prints Ctrl-C as a key (x is the stop everywhere; Ctrl-C stays the unprinted emergency exit)"; fi
+# ---- 3a. asks in chip form (10.12.26): one line per question, keycap chips glued to outcomes — no [y/N] prompt anywhere
+if grep -q '\[y/N\]\|\[Y/n\]' "$ENGINE" "$REPO/engine/slipmat-audio" "$REPO/tools/z-batch.sh" "$REPO/tools/hello.sh" 2>/dev/null; then
+  fail "a [y/N] prompt is back — every ask is a chip line (chip_line: question, [Enter] outcome, [key] outcome)"
+elif grep -q '^chip_line()' "$ENGINE" && grep -q 'chip_line "delete the original?" Enter "keep both" y "delete it"' "$ENGINE" \
+     && grep -q 'chip_line "keep your pick?" Enter "Best MP4' "$ENGINE" && grep -q 'Finder\\" to delete POSIX file \\"$ORIG_OUT' "$ENGINE"; then
+  pass "asks are chip lines (no [y/N] left); the delete-original ask moves the file to the Trash; Enter on a flagged custom pick takes the Best MP4"
+else fail "the chip form drifted: chip_line, the delete-original Trash call, or the custom-pick ask changed"; fi
 
 # ---- 3b. Instagram rips with the Firefox login first; cookieless only as a fallback; refusals start a cooldown
 if grep -q 'is_instagram' "$ENGINE" && grep -q 'ig_cooldown_set' "$ENGINE" && ! grep -q 'instagram.com/reel/\*.*COOKIES=""' "$ENGINE"; then

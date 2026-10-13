@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.11"          # 10.6.26 — one key language: x stops anything (asked once), ↓ steps a download down a rung; Ctrl-C = the emergency exit, never a printed key
+VERSION="4.12"          # 10.12.26 — asks in chip form: one line per question, keycap chips glued to outcomes; the NMX quiz counts back from the feed date
                         # 10.5.26 — Instagram login-first + cooldown · the re-encode reason is said once
                         # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
@@ -430,7 +430,7 @@ also_kept_ask() {
   [ -n "${SLIPMAT_ALSO_KEPT_PATH:-}" ] && [ -f "$SLIPMAT_ALSO_KEPT_PATH" ] && [ "${IS_TTY:-0}" = "1" ] || return 0
   _akl="${SLIPMAT_ALSO_KEPT_LBL:-STUDIO}"; _mine="$(geom_word "${OUTW:-0}" "${OUTH:-0}")"
   printf '\n  %sboth files are in the folder — keep the %s one too?%s  %s[Enter = keep both]   [d = delete the %s file, keep only this %s]%s  %s(60s → keep both)%s\n  › ' \
-    "$C_MAG$C_BOLD" "$_akl" "$C_RESET" "$C_BOLD" "$_akl" "${_mine:-rip}" "$C_RESET" "$C_DIM" "$C_RESET" > /dev/tty
+    "$C_Q" "$_akl" "$C_RESET" "$C_BOLD" "$_akl" "${_mine:-rip}" "$C_RESET" "$C_DIM" "$C_RESET" > /dev/tty
   _ak=""; IFS= read -r -s -n1 -t 60 _ak < /dev/tty 2>/dev/null || _ak=""
   case "$_ak" in d|D) _ak="$ESC" ;; esac   # `d` = delete (the advertised key)
   if [ "$_ak" = "$ESC" ]; then _ak2=""; IFS= read -r -s -n2 -t 1 _ak2 < /dev/tty 2>/dev/null; [ -n "$_ak2" ] && _ak="arrow"; fi
@@ -1230,6 +1230,21 @@ ask_line() {
   printf '%s' "$_ans"
 }
 
+# The chip form (10.12): every ask is ONE line — the question, then each key as a
+# keycap chip glued to what it does, the cursor at the end of the same line.
+#   chip_line "re-encode anyway?" Enter "keep lossless" y "re-encode"
+#   → │ re-encode anyway?   [Enter] keep lossless   [y] re-encode   ›
+# A pair whose key is "" prints its text as an accent note (the `in 5s` timer).
+# Feed the result to ask_yn / ask_line — they still read and log the answer.
+chip_line() {
+  _cq="${C_Q}$1${C_RESET}"; shift
+  while [ $# -ge 2 ]; do
+    if [ -z "$1" ]; then _cq="$_cq   ${C_ACC}$2${C_RESET}"; else _cq="$_cq   $(chip "$1") $2"; fi
+    shift 2
+  done
+  printf '%s%s   %s%s%s' "$(rail)" "$_cq" "$C_CYAN" "$G_ARR" "$C_RESET"
+}
+
 # ---- presentation: quiet dim LOG vs loud framed DECISIONS -------------------
 # ANSI colour AND box-drawing are gated on a tty ([ -t 1 ]); piped/cron output
 # stays plain ASCII. The log is dim/quiet; decisions are bright/framed.
@@ -1238,7 +1253,7 @@ if [ -t 1 ]; then
   C_RESET=$'\033[0m'; C_DIM=$'\033[2m'; C_BOLD=$'\033[1m'
   C_CYAN=$'\033[36m'; C_GRN=$'\033[32m'; C_YEL=$'\033[33m'; C_MAG=$'\033[35m'   # V4.4: purple = concierge insight (↳ notes · suggested)
   C_RED=$'\033[31m'   # V4.5c: table rows that land BIGGER than the source (obvious no-go)
-  C_Q=$'\033[1;38;5;141m'; C_ACC=$'\033[38;5;177m'; C_KEY=$'\033[1;7;35m'   # 10.5: question · accent · keycap chip (the chip-form spec)
+  C_Q=$'\033[1;38;5;135m'; C_ACC=$'\033[38;5;177m'; C_KEY=$'\033[1;7;35m'   # 10.5: question · accent · keycap chip (the chip-form spec); 10.12: 141 → 135, "a smidge darker"
   B_TL='╭'; B_TR='╮'; B_BL='╰'; B_BR='╯'; B_H='─'; B_V='│'; B_ML='├'; B_MR='┤'
   G_OK='✓'; G_ARR='›'; G_RE='↻'; G_TO='→'; G_REC='●'; G_DN='↓'; BAR_F='█'; BAR_E='░'
 else
@@ -1729,7 +1744,7 @@ present_formats() {
   # It prints on demand inside Custom, exactly when id-shopping matters: see below.)
   _menu=$("$PYTHON" -c "$VR_PY" menu < "$INFO" 2>/dev/null)
   say ""
-  box_top "PICK A STREAM?" "$C_MAG"   # V4.5: every ask opens with a bold-purple question
+  box_top "PICK A STREAM?" "$C_Q"   # V4.5: every ask opens with its question (10.12: the question color)
   # V4.3 say-it-once (8.17: "if it always applies for all options
   # should it be somewhere else, not a column of data"): when every row shares
   # one codec, the codec is named ONCE here and leaves the rows.
@@ -1752,6 +1767,7 @@ present_formats() {
     # V4.5: vertical is FLAGGED "(V)", a normal horizontal frame says nothing
     _ow=$(printf '%s' "$_dim" | awk '{print $2}'); case "$_ow" in portrait|square) _ow="(V)" ;; *) _ow="" ;; esac
     _SEL_ARR[$_i]="$_sel"; _NR_ARR[$_i]="$_nr"; _PROTO_ARR[$_i]="$_proto"; _NOTE_ARR[$_i]="${_p}p${_ow:+ $_ow} · ${_vc}"
+    [ "$_i" = "1" ] && _ROW1="${_p}p${_ow:+ $_ow} ${_vc} · ${_mb}"   # row 1 as shown — the custom-pick ask names it
     MENU_PS="$MENU_PS $_p"
     MENU_MBS="$MENU_MBS ${_p}:${_mb}"
     [ "$_nr" = "0" ] && [ -z "$_topqt" ] && _topqt=$_i
@@ -1843,11 +1859,20 @@ EOF3
           :   # fall through to best, message already printed
         elif [ -n "$_warn" ]; then
           frame_rail "${C_YEL}! ${_warn}${C_RESET}"
+          # 10.12 (his ruling): Enter — or silence, 5 s — takes row 1, the Best MP4; `k` keeps the custom pick.
           _kept=0
           if [ -t 0 ]; then
-            printf '%s' "$(rail)${C_BOLD}defaulting to #1 best MP4 in 5s${C_RESET} ${C_DIM}— press Enter to KEEP your custom pick${C_RESET} ${C_CYAN}${G_ARR}${C_RESET} " > /dev/tty
-            if read -t 5 -r _ov < /dev/tty; then _kept=1; fi
+            # the note counts down (10.12: "the 5 doesn't descend") and says what silence does; the words are still his to pick ("auto-Enter in 5s" = 2nd draft)
+            _ov=""; _cn=5
+            while [ "$_cn" -ge 1 ]; do
+              _cpl="$(chip_line "keep your pick?" Enter "Best MP4 ${_ROW1:-#1}" k "keep it" "" "auto-Enter in ${_cn}s")"
+              printf '\r\033[2K%s ' "$_cpl" > /dev/tty
+              if IFS= read -r -s -n1 -t 1 _ov < /dev/tty; then break; fi   # one key, no Enter needed: k keeps; Enter = row 1
+              _ov=""; _cn=$((_cn-1))
+            done
+            case "$_ov" in k|K) _kept=1; printf 'k' > /dev/tty ;; esac
             printf '\n' > /dev/tty
+            logln "  ? $(printf '%s' "$_cpl" | sed $'s/\033\\[[0-9;]*m//g') → ${_ov:-Enter}"
           fi
           if [ "$_kept" = "1" ]; then
             CUSTOM=1; SEL="$CUSTOMSPEC"; NEEDRE=0; SPROTO=""; SELNOTE="custom ($CUSTOMSPEC)"
@@ -2992,6 +3017,9 @@ if [ "$IS_LIVE" = "1" ]; then
   [ "$LIVE_REWIND" = "1" ] && note "rewinding: video and audio arrive as two streams and merge into one mp4 when you stop — the REC clock counts wall time, the file holds more"
   note "$OUT"
   say ""
+  # 10.12 (his ask): what is being recorded, bold, right above the REC clock — title · channel · date
+  LIVE_WHO="${_ptag:-}${ID_CHAN:+@$ID_CHAN}"
+  say "  ${C_BOLD}${ID_TITLE:-live}${LIVE_WHO:+ · $LIVE_WHO} · $(date +%-m.%-d.%y)${C_RESET}"
   # LIVE is the one path where YT-DLP (not ffmpeg -y) writes the final file, and a
   # pre-existing target makes yt-dlp skip as "already downloaded" — so the 0-byte
   # name-claim can't stay AT the target path. But simply deleting it reopened the
@@ -3003,7 +3031,7 @@ if [ "$IS_LIVE" = "1" ]; then
     mv "$OUT" "$OUT.claim" 2>/dev/null
     printf '%s\n' "$OUT.claim" >> "$WORKDIR/claims" 2>/dev/null
   fi
-  term_title "● REC · $(abridge "${ID_TITLE:-live}" 55)"
+  term_title "● REC · $(abridge "${ID_TITLE:-live}" 55)${LIVE_WHO:+ · $LIVE_WHO} · $(date +%-m.%-d.%y)"
   # ---- live-capture display (7.7.26) -----------------------------------------
   # The old capture spewed ffmpeg's URL-opening lines + frame-stats wall, scrolling
   # the title off screen. Now: yt-dlp runs --quiet and ffmpeg at -loglevel error
@@ -3151,7 +3179,7 @@ if [ "$IS_LIVE" = "1" ]; then
   # STUDIO-on-live: the file is now finite, so a re-encode is optional & offered.
   if [ "$MODE" = "studio" ]; then
     say ""
-    if [ "$(ask_yn "$(rail)Re-encode this finished capture to a smaller HEVC file? ${C_BOLD}[y/N]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" n)" = "y" ]; then
+    if [ "$(ask_yn "$(chip_line "re-encode the capture?" Enter "keep as is" y "smaller HEVC")" n)" = "y" ]; then
       note "routing the capture through an mkv so the re-encode reads from mkv …"
       "$FFMPEG" -hide_banner -loglevel error -y -i "$PRODUCED" -c copy "$MKV" </dev/null \
         || die "could not stage the capture for re-encode."
@@ -3379,28 +3407,34 @@ Q="$QDIR"; OUTD="$OUTDIR"; WD="$WORKDIR"; DEF="$NAME"; DEFDATE="$_qdef"
 SHOWS="$_qshows"; LEARN="$NMX_SHOWS_LEARNED"
 sane() { printf '%s' "\$1" | sed -e 's/:/：/g' -e 's/?/？/g' -e 's#/#⧸#g' -e 's/"/＂/g' -e 's/</＜/g' -e 's/>/＞/g' -e 's/|/｜/g' -e 's/\\*/＊/g'; }
 printf '\\033]0;NMX quiz · ${NMX_CLK:-now}\\007'
+# the chip form (10.12): keycap chips glued to outcomes, a blank line between rows, the question in its color
+if [ -t 1 ]; then R=\$'\\033[0m'; KC=\$'\\033[1;7;35m'; AC=\$'\\033[38;5;177m'; else R=""; KC=""; AC=""; fi
+chip() { k="\$1"; w=5; [ \${#k} -gt 5 ] && w=\${#k}; l=\$(( (w - \${#k}) / 2 )); r=\$(( w - \${#k} - l ))
+  if [ -n "\$KC" ]; then printf '%s %*s%s%*s %s' "\$KC" "\$l" '' "\$k" "\$r" '' "\$R"; else printf '[%*s%s%*s]' "\$l" '' "\$k" "\$r" ''; fi; }
+row() { printf '\n   %s %s\n' "\$(chip "\$1")" "\$2"; }
 echo "NMX naming quiz · rip started ${NMX_CLK:-now}${_qdur:+ · $_qdur show}"
 echo "-> default name: \$DEF.mp4"
 echo
-echo "Which show is this?"
-i=1; IFS='|'; for s in \$SHOWS; do echo "  \$i · \$s"; i=\$((i+1)); done; unset IFS
-echo "  \$i · custom      (just press Enter to keep the default name)"
-printf '> '; read -r a
-[ -z "\$a" ] && { echo "ok — default name stands. you can close this window."; rm -rf "\$Q" 2>/dev/null; exit 0; }
+printf '%sWhich show is this?%s\n' "\$AC" "\$R"
+i=1; IFS='|'; for s in \$SHOWS; do row "\$i" "\$s"; i=\$((i+1)); done; unset IFS
+printf '\n   %s custom  › ' "\$(chip Enter)"; read -r a
 SHOW=""; i=1; IFS='|'; for s in \$SHOWS; do [ "\$a" = "\$i" ] && SHOW="\$s"; i=\$((i+1)); done; unset IFS
 if [ -z "\$SHOW" ]; then
-  if [ "\$a" = "\$i" ]; then printf 'show name > '; read -r SHOW; else SHOW="\$a"; fi
+  if [ -z "\$a" ]; then printf '   show name  › '; read -r SHOW; else SHOW="\$a"; fi   # Enter = custom; a second Enter = the default name stands
 fi
-[ -z "\$SHOW" ] && { echo "no show given — default name stands."; rm -rf "\$Q" 2>/dev/null; exit 0; }
+[ -z "\$SHOW" ] && { echo "ok — default name stands. you can close this window."; rm -rf "\$Q" 2>/dev/null; exit 0; }
 SHOW=\$(sane "\$SHOW")   # the menu, the file name and the learned list all carry the cleaned form
 case "|\$SHOWS|" in *"|\$SHOW|"*) : ;; *) printf '%s\n' "\$SHOW" >> "\$LEARN" 2>/dev/null ;; esac   # learn new shows
-D1=\$(date -v-1d +%-m.%-d.%y); D2=\$(date -v-2d +%-m.%-d.%y); D3=\$(date -v-3d +%-m.%-d.%y)
-echo; echo "Air date?"
-echo "  1 · \$D1 (\$(date -v-1d +%A))"
-echo "  2 · \$D2 (\$(date -v-2d +%A))"
-echo "  3 · \$D3 (\$(date -v-3d +%A))"
-echo "  or type one       (Enter = \$DEFDATE, from the feed's date-stamp − 1 day)"
-printf '> '; read -r d
+# the date rows count back from the Enter date (the feed's date-stamp − 1 day), not from today
+DEFS=\$(date -j -f %m.%d.%y "\$DEFDATE" +%s 2>/dev/null) || DEFS=\$(date +%s)
+dback() { date -r \$(( DEFS - \$1 * 86400 )) +%-m.%-d.%y; }; wday() { date -r \$(( DEFS - \$1 * 86400 )) +%A; }
+D1=\$(dback 1); D2=\$(dback 2); D3=\$(dback 3)
+echo; printf '%sAir date?%s\n' "\$AC" "\$R"
+row 3 "\$D3  \$AC\$(wday 3)\$R"
+row 2 "\$D2  \$AC\$(wday 2)\$R"
+row 1 "\$D1  \$AC\$(wday 1)\$R"
+row Enter "\$DEFDATE  \$AC\$(wday 0)\$R"
+printf '\n   or type a date  › '; read -r d
 case "\$d" in 1) DATE="\$D1";; 2) DATE="\$D2";; 3) DATE="\$D3";; "") DATE="\$DEFDATE";; *) DATE=\$(printf '%s' "\$d" | tr '/' '.');; esac
 SHOW=\$(sane "\$SHOW"); DATE=\$(sane "\$DATE")   # answers become a FILENAME — no raw slashes/colons
 printf '%s\\n%s\\n' "\$SHOW" "\$DATE" > "\$Q/answers"
@@ -4235,7 +4269,7 @@ if [ "$MODE" = "studio" ]; then
     # WEARS the word Enter (never a `0` to cross-reference), the question word is
     # bold purple (it IS a question), the prompt names the meaning: `[Enter = keep]`.
     # `0`/`00`/`keep`/`k` still mean keep (muscle memory never runs an unasked encode).
-    wrap_rail "" "            " "Enter·${C_BOLD}keep $(geom_word "${WIDTH:-0}" "${HEIGHT:-0}")${C_RESET},${_NB} ${_dmenu}c·${C_BOLD}custom px${C_RESET},${_NB} z·${C_BOLD}zoom-crop${C_RESET}" "${C_MAG}${C_BOLD}downscale?${C_RESET}${_NB} "
+    wrap_rail "" "            " "Enter·${C_BOLD}keep $(geom_word "${WIDTH:-0}" "${HEIGHT:-0}")${C_RESET},${_NB} ${_dmenu}c·${C_BOLD}custom px${C_RESET},${_NB} z·${C_BOLD}zoom-crop${C_RESET}" "${C_Q}downscale?${C_RESET}${_NB} "
     [ -n "$_reshead" ] && wrap_rail "$C_MAG" "        " "${C_BOLD}${_reshead}${C_RESET}${C_MAG} — ${_reswhy}" "${C_MAG}advice: "
     [ "$PICK_OK" = "1" ] && [ -n "${_r720:-}" ] && [ "$VERDICT" != "DEFECT" ] && frame_rail "        ${C_MAG}${P_LINE}${C_RESET}"   # V4.5b: the key, right under the re-rip advice
     while :; do
@@ -4267,7 +4301,7 @@ if [ "$MODE" = "studio" ]; then
         elif [ "${DUR_S:-0}" -le 0 ] 2>/dev/null; then
           frame_rail "${C_DIM}zoom-crop needs a readable duration — keeping native${C_RESET}"
         else
-          wrap_rail "" "  " "Enter·standard (~30 frames, ~15s)${_NB} ${_NB}f·fast (~12)${_NB} ${_NB}t·thorough (~60, catches layout moves)" "${C_MAG}${C_BOLD}box hunt depth?${C_RESET}${_NB} "
+          wrap_rail "" "  " "Enter·standard (~30 frames, ~15s)${_NB} ${_NB}f·fast (~12)${_NB} ${_NB}t·thorough (~60, catches layout moves)" "${C_Q}box hunt depth?${C_RESET}${_NB} "
           _zd=$(ask_line "$(rail)depth ${C_BOLD}[Enter = standard]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" s)
           _zk=30; case "$_zd" in f|F) _zk=12 ;; t|T) _zk=60 ;; esac
           frame_rail "${C_DIM}hunting the moving-video box (${_zk} frames across the file) …${C_RESET}"
@@ -4299,7 +4333,7 @@ if [ "$MODE" = "studio" ]; then
                 fi
                 frame_rail "${C_GRN}${G_OK}${C_RESET} found a ${_zbw}x${_zbh} box at (${_zbx},${_zby}) in ${_zW}x${_zH} — ${_zcov}% of the frame, motion in ${_zmot}% of samples"
                 # V4.5: numbers start at 1 for the NON-default picks (the downscale convention)
-                frame_rail "${C_MAG}${C_BOLD}crop to it?${C_RESET}  Enter·crop to it   1·probe again — that box is too LARGE   2·probe again — too SMALL   0·skip the crop"
+                frame_rail "${C_Q}crop to it?${C_RESET}  Enter·crop to it   1·probe again — that box is too LARGE   2·probe again — too SMALL   0·skip the crop"
                 _zc=$(ask_line "$(rail)zoom-crop ${C_BOLD}[Enter = crop to it]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" "")   # V4.5: Enter = go (1/2 = re-probe now)
                 _zc=$(printf '%s' "$_zc" | tr -d ' \t')
                 case "$_zc" in
@@ -4496,7 +4530,7 @@ if [ "$MODE" = "studio" ]; then
     # flags; lq/mq/hq = q30/q40/q50 aliases (8.15). Enter = q40
     # (the verdict on the q40-vs-q50 pair: "hard to tell; 40 is the default").
     # q30 carries the soft-content caution from the eye test ("degraded … bump it up").
-    wrap_rail "" "  " "crop ${ZBOX} · source $(fmt_mb "$SRC_MB") — the crop is most of the win; how much more to compress?" "${C_MAG}${C_BOLD}quality?${C_RESET}${_NB} "
+    wrap_rail "" "  " "crop ${ZBOX} · source $(fmt_mb "$SRC_MB") — the crop is most of the win; how much more to compress?" "${C_Q}quality?${C_RESET}${_NB} "
     frame_rail "$(printf ' %s%-3s %-29s %-8s %s%s' "$C_DIM" "#" "recipe (quality flags)" "est" "≈time   notes" "$C_RESET")"   # ≈ is 3 bytes: hand-padded
     frame_rail "$(printf ' %s%-3s%s %-29s %-8s %-7s ' "$C_BOLD" "1)" "$C_RESET" "keep quality (q40 · mq)" "~$(fmt_mb "${_TEST_ARR[${_zi40:-1}]:-0}")" "${_zt40:-?}")near-lossless on webcast content  ${C_GRN}← suggested${C_RESET} · ${C_BOLD}[Enter]${C_RESET}"
     frame_rail "$(printf ' %s%-3s%s %-29s %-8s %-7s ' "$C_BOLD" "2)" "$C_RESET" "compress a little (q30 · lq)" "~$(fmt_mb "${_TEST_ARR[${_zi30:-1}]:-0}")" "${_zt30:-?}")small"
@@ -4553,9 +4587,9 @@ if [ "$MODE" = "studio" ]; then
   frame_rail ""
   # V4.4 geometry (`keep` + `q40(24fps)` buy the room): recipe col 11,
   # size cell 7 + % cell 7 (`(+104%)` fits), time 8 — the fast pair mirrors it.
-  frame_rail "${C_MAG}${C_BOLD}recipe?${C_RESET}"   # V4.5: every ask opens with its question, bold purple
-  frame_rail "$(printf ' %s%-3s %-11s %-23s %s  %-23s%s%s' "$C_DIM" "#" "recipe" "quality (Enter)" "$B_V" "fast (add f)" "sizes · times ${_prov}" "$C_RESET")"
-  frame_rail "$(printf ' %s%-3s %-11s %-14s %s %s  %-14s %s%s' "$C_DIM" "" "" "size (vs src)" "time    " "$B_V" "size (vs src)" "time" "$C_RESET")"
+  frame_rail "${C_Q}recipe?${C_RESET}"   # V4.5: every ask opens with its question (10.12: the question color)
+  frame_rail "$(printf ' %s%-3s %-11s %-23s %s  %-23s%s%s' "$C_BOLD" "#" "recipe" "quality (Enter)" "$B_V" "fast (add f)" "sizes · times ${_prov}" "$C_RESET")"   # 10.12: a table header is never dim
+  frame_rail "$(printf ' %-3s %-11s %-14s %s %s  %-14s %s' "" "" "size (vs src)" "time    " "$B_V" "size (vs src)" "time")"
   if [ "$_forced" = "0" ]; then
     # V4.5c: on a LEAN rip the concierge's action is "re-rip a lower rung",
     # so Enter = p (back to PICKER) — the marker moves to the `p)` row; keep stays `0`/`k`.
@@ -4591,10 +4625,11 @@ if [ "$MODE" = "studio" ]; then
     case "${_TNOTE_ARR[$_r]}" in *"eye floor"*) [ "$_rc" = "$C_BOLD" ] && _rc="$C_YEL" ;; esac
     # the q25 fps twin sits below the same 1080 eye floor as its base row (its ↳ note is the fps text)
     [ "${_TQ_ARR[$_r]}" = "25" ] && [ "$CLS" != "broadcast" ] && [ "${EST_SHORT:-0}" -gt 760 ] 2>/dev/null && [ "$_rc" = "$C_BOLD" ] && _rc="$C_YEL"
-    frame_rail "${_rc}$(printf ' %-3s %-11s %s%s%-8s %s  %s%s%-5s' "${_r})" "${_TLBL_ARR[$_r]}" "$_cell1" "$(_rep "$_pad1" ' ')" "$_et" "$B_V" "$_cell2" "$(_rep "$_pad2" ' ')" "$_fet")${C_RESET}${_sfl}"
-    if [ -n "${_TNOTE_ARR[$_r]}" ]; then   # V4.4: ↳ notes PURPLE (the suggested row's bold purple)
-      if [ "$_r" = "$_tsug" ]; then wrap_rail "${C_MAG}${C_BOLD}" "       " "↳ ${_TNOTE_ARR[$_r]}" "     "
-      else wrap_rail "$C_MAG" "       " "↳ ${_TNOTE_ARR[$_r]}" "     "; fi
+    # 10.12: rows lead — an approved row is normal weight with the recipe name bold (yellow/red rows keep their color)
+    if [ "$_rc" = "$C_BOLD" ]; then _rc=""; _rlbl="${C_BOLD}$(printf '%-11s' "${_TLBL_ARR[$_r]}")${C_RESET}"; else _rlbl="$(printf '%-11s' "${_TLBL_ARR[$_r]}")"; fi
+    frame_rail "${_rc}$(printf ' %-3s %s %s%s%-8s %s  %s%s%-5s' "${_r})" "$_rlbl" "$_cell1" "$(_rep "$_pad1" ' ')" "$_et" "$B_V" "$_cell2" "$(_rep "$_pad2" ' ')" "$_fet")${C_RESET}${_sfl}"
+    if [ -n "${_TNOTE_ARR[$_r]}" ]; then   # V4.4: ↳ notes purple (10.12: never bold — the row leads, the note follows)
+      wrap_rail "$C_MAG" "       " "↳ ${_TNOTE_ARR[$_r]}" "     "
     fi
     _r=$((_r+1))
   done
@@ -4674,7 +4709,12 @@ if [ "$MODE" = "studio" ]; then
     else
     # V4.0 compact cheat sheet: the reminder line names every token.
     # V4.4: the cheat sheet is a wrapped dim line, the prompt short (was a 178-col read -p)
-    wrap_rail "$C_DIM" "        " "custom — q value 1-100 (HIGHER = better + bigger; 30·40·50 or lq/mq/hq) · '24'/'half' fps · 'fast' · '4000k' bitrate (-b:v smears text; eye-proven halo) — e.g. '33 half fast'$([ "${PICK_OK:-0}" = "1" ] && printf " · 'p' = back to PICKER (re-rip a rung, no re-encode)")"
+    # 10.12: the cheat sheet is labeled parts on rail lines, normal weight (never dim — it is help)
+    frame_rail "${C_BOLD}custom${C_RESET}   q 1-100   higher = better + bigger (30 · 40 · 50, or lq / mq / hq)"
+    frame_rail "         fps       '24' or 'half'"
+    frame_rail "         speed     'fast'"
+    frame_rail "         bitrate   '4000k'  (-b:v smears text — eye-proven halo)"
+    frame_rail "         e.g.      '33 half fast'$([ "${PICK_OK:-0}" = "1" ] && printf "        p = back to PICKER (re-rip a rung, no re-encode)")"
     _cin=$(ask_line "$(rail)custom ${C_CYAN}${G_ARR}${C_RESET}" "$Q_MEDLOW")
     fi
     # token loop (V4.0): order-free — `33 half fast`, `lq 24`, `4000k fast`,
@@ -4842,7 +4882,7 @@ if [ "$MODE" = "studio" ]; then
       fi
       if [ "$_gfire" = "1" ]; then
         warn "q${Q} probably will NOT shrink this file — it lands ~$(fmt_mb "$_gmb") vs $(fmt_mb "$SRC_MB") now${_ceil:+ (break-even ≈ q$_ceil)}."
-        if [ "$(ask_yn "$(rail)re-encode anyway? ${C_BOLD}[y/N]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" n)" != "y" ]; then
+        if [ "$(ask_yn "$(chip_line "re-encode anyway?" Enter "keep lossless" y "re-encode")" n)" != "y" ]; then
           DO_REENCODE=0; KEEP_ORIGINAL=0
           SCALE="$_SC0"; HLABEL="$_HL0"; ZMODE=0; ZBOX=""   # a crop dies with the declined encode too
           frame_rail "${C_GRN}${G_OK}${C_RESET} keeping lossless instead (no re-encode)"
@@ -5108,8 +5148,8 @@ if [ "$DO_REENCODE" = "1" ]; then
   if [ "$VOL_RE" = "1" ] && [ -n "$ORIG_OUT" ] && [ -f "$ORIG_OUT" ] && [ -t 0 ]; then
     _g3o=$(stat -f %z "$OUT" 2>/dev/null); _g3s=$(stat -f %z "$ORIG_OUT" 2>/dev/null)
     if [ -n "$_g3o" ] && [ -n "$_g3s" ] && [ "$_g3o" -ge $(( _g3s * 95 / 100 )) ] 2>/dev/null; then
-      warn "the re-encode is NOT smaller than your original ($(du -h "$OUT" | awk '{print $1}') vs $(du -h "$ORIG_OUT" | awk '{print $1}')) — and it can't look better."
-      if [ "$(ask_yn "$(rail)keep the re-encode anyway? ${C_BOLD}[y/N]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" n)" != "y" ]; then
+      warn "the re-encode is NOT smaller than your original ($(du -h "$OUT" | awk '{print $1}') vs $(du -h "$ORIG_OUT" | awk '{print $1}')) — it can't look better."
+      if [ "$(ask_yn "$(chip_line "keep the re-encode?" Enter "no, keep only the original" y "keep both")" n)" != "y" ]; then
         rm -f "$OUT"
         _plain="$OUTDIR/${BASE_STEM}.mp4"
         if mv -f "$ORIG_OUT" "$_plain" 2>/dev/null; then OUT="$_plain"; NAME="$BASE_STEM"
@@ -5160,11 +5200,15 @@ if [ -n "$ORIG_OUT" ] && [ -f "$ORIG_OUT" ]; then
   # original is the same name without the recipe suffix, and the user knows it exists
   # because they are being asked about it.
   box_top "STUDIO"
-  if [ "$(ask_yn "$(rail)Delete the pristine original, keep only the encode? ${C_BOLD}[y/N]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" n)" = "y" ]; then
-    rm -f "$ORIG_OUT"; ORIG_OUT=""
-    frame_rail "${C_GRN}${G_OK}${C_RESET} deleted the original"
+  # 10.12: delete = Finder Trash (reversible, the same call the keep-both ask uses); a Trash failure keeps both and says so.
+  if [ "$(ask_yn "$(chip_line "delete the original?" Enter "keep both" y "delete it")" n)" = "y" ]; then
+    if osascript -e "tell application \"Finder\" to delete POSIX file \"$ORIG_OUT\"" >/dev/null 2>&1; then
+      frame_rail "${C_GRN}${G_OK}${C_RESET} the original is in the Trash"; ORIG_OUT=""
+    else
+      frame_rail "${C_YEL}couldn't move the original to the Trash — both kept${C_RESET}"
+    fi
   else
-    frame_rail "${C_DIM}both kept${C_RESET}"
+    frame_rail "${C_GRN}${G_OK}${C_RESET} both kept"
   fi
   box_bot
 fi

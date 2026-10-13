@@ -143,6 +143,9 @@ browser cookies, quality, naming style, your own embed-page hosts.
   often reports a broken stream as fine).
 - A re-encode concierge that samples *your* file at the target size before
   quoting numbers; estimates are typically within a few percent.
+- Every question is one line: the question, then each key and what it does,
+  with Enter always the safe choice — `delete the original?  [Enter] keep both
+  [y] delete it`. Deleting means the Trash, never a hard delete.
 - One key language, printed before a key can be pressed. `x` stops whatever
   is running — it asks once, and `x` again stops: a download or a re-encode
   is canceled with nothing kept, a live capture is sealed into one playable
