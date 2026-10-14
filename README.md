@@ -36,7 +36,11 @@ cd slipmat
 
 The Homebrew version of yt-dlp handles nearly every site. A few stubborn
 sites only respond to real web browsers — for those, the pip version of
-yt-dlp can impersonate one:
+yt-dlp can impersonate one (slipmat tries Chrome, then Firefox, then Safari,
+and switches again if the site balks at the download). A Newsmax show
+page or episode page works as is: slipmat reads the show's episode list and
+asks Newsmax's own service for the stream and the show's name, so no browser
+or stream sniffer is needed.
 
 ```
 pip3 install -U "yt-dlp[default,curl-cffi]"

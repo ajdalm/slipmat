@@ -36,6 +36,10 @@
 # thousands of small pieces; slipmat fetches 8 at a time there, and only there. 0 = one at a time.
 #SLIPMAT_YT_PIECES=8
 
+# A page that refuses the plain fetch is retried as a real browser, one fingerprint
+# at a time in this order (measured 10.13.26 on Rumble: chrome was the reliable one).
+#SLIPMAT_BROWSERS="chrome firefox safari"
+
 # Which yt-dlp to run. Default: /opt/homebrew/bin/yt-dlp, else the first on
 # PATH. Set this if you installed the pip variant next to Homebrew's:
 #YTDLP="$HOME/Library/Python/3.12/bin/yt-dlp"

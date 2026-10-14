@@ -105,6 +105,40 @@ if [ "$_npar" -ge 1 ] && [ "$_nall" -le 1 ] && grep -q '^DLPAR=""; YT_PIECES=0' 
   pass "parallel pieces: -N only inside the YouTube replay gate; the race backoff restarts CLEAN (never resumes); every pieces replay is frame-counted (r_frame_rate) before it is handed over"
 else fail "parallel pieces drifted: -N appears outside the DLPAR gate ($_nall sites) or DLPAR is not applied to the download calls"; fi
 
+# ---- 3a4. bot-walled pages walk the browser ladder (10.13.26, Rumble): chrome, then firefox, then safari; a page refused again at the download rotates to the next rung; a segment error never rotates
+if grep -q '^IMP_LADDER="${SLIPMAT_BROWSERS:-chrome firefox safari}"' "$ENGINE" && grep -q '^imp_probe()' "$ENGINE" && grep -q '^imp_rotate()' "$ENGINE" \
+   && ! grep -q -- '--impersonate firefox --no-warnings -J' "$ENGINE" \
+   && [ "$(grep -c '&& imp_rotate; do' "$ENGINE")" -ge 3 ] && grep -q 'if imp_rotate; then continue; fi' "$ENGINE"; then
+  eval "$(sed -n '/^imp_refused()/,/^}/p' "$ENGINE")"
+  printf 'ERROR: [RumbleEmbed] v7el6ju: Unable to download JSON metadata: HTTP Error 403: Forbidden\n' > "$S/imp.page"
+  printf 'ERROR: unable to download video data: HTTP Error 403: Forbidden\n' > "$S/imp.seg"
+  if YTERR="$S/imp.page" imp_refused && ! YTERR="$S/imp.seg" imp_refused; then
+    pass "bot-walled page: the browser ladder (chrome · firefox · safari) at the probe and again at the download; only a page-read 403 rotates"
+  else fail "imp_refused drifted: the page-read 403 must match and a segment 403 must not"; fi
+else fail "browser ladder drifted: IMP_LADDER/imp_probe/imp_rotate missing, a bare firefox probe is back, or the download loops no longer rotate"; fi
+
+# ---- 3a5. a sniffer's rendition playlist (10.13.26, Newsmax): the master beside it is tried first (item id, then playlist/master/index); a .m3u8 link is never a photo post
+eval "$(sed -n '/^hls_master_candidates()/,/^}/p' "$ENGINE")"
+_c1=$(hls_master_candidates 'https://nmxvod24.akamaized.net/hls/account=ab0NPfBJhS8g/item=j5BssrTT1S8E/version=202610090202_7/v2.0-j5BssrTT1S8E-hls-202610090202_7-audio_eng=128000.m3u8' | head -1)
+_c2=$(hls_master_candidates 'https://cdn.example/x/playlist.m3u8?k=1' | head -1)
+if [ "$_c1" = 'https://nmxvod24.akamaized.net/hls/account=ab0NPfBJhS8g/item=j5BssrTT1S8E/version=202610090202_7/j5BssrTT1S8E.m3u8' ] \
+   && [ "$_c2" = 'https://cdn.example/x/master.m3u8?k=1' ] && grep -q '^hls_master_hunt()' "$ENGINE" && grep -q '|| hls_master_hunt ' "$ENGINE" \
+   && grep -q 'audio-only half of the stream' "$ENGINE"; then
+  pass "rendition playlist: the master beside it is tried (item id first), a .m3u8 link is never a photo post, an audio-only half without a master is said so"
+else fail "rendition-playlist rule drifted (candidates: '$_c1' / '$_c2')"; fi
+
+# ---- 3a6. a Newsmax show page rips as is (10.13.26): the episode id → Newsmax's own service → the master playlist; the title names the show (a menu row) and the air date without the naming window
+eval "$(sed -n '/^lc()/p; /^nmx_page_id()/,/^}/p; /^nmx_title_date()/,/^}/p; /^nmx_show_match()/,/^}/p' "$ENGINE")"
+_rows='HIGBIE|SCHMITT|GREG KELLY|FINNERTY'
+if [ "$(nmx_page_id 'https://www.newsmaxtv.com/Shows/Carl-Higbie-Frontline/vid/1ad3b1e0-c375-11f1-945f-9197c3698885')" = "1ad3b1e0-c375-11f1-945f-9197c3698885" ] \
+   && [ -z "$(nmx_page_id 'https://rumble.com/v7grjhc-x.html')" ] \
+   && [ "$(nmx_title_date 'Carl Higbie Frontline (10/08/26)')" = "10.8.26" ] && [ -z "$(nmx_title_date 'no date')" ] \
+   && [ "$(nmx_show_match 'Greg Kelly Reports (10/08/26)' "$_rows")" = "GREG KELLY" ] && [ -z "$(nmx_show_match 'Wake Up America (10/08/26)' "$_rows")" ] \
+   && grep -q '^nmx_page_hunt()' "$ENGINE" && grep -q '^  nmx_page_hunt ' "$ENGINE" && grep -q '\[ "$NMX_NAMED" != "1" \]' "$ENGINE" && grep -q 'the page says:' "$ENGINE" \
+   && grep -q '^nmx_show_hunt()' "$ENGINE" && grep -q '^  nmx_show_hunt ' "$ENGINE" && grep -q 'WHICH EPISODE?' "$ENGINE" && grep -q 'the stream answers anyway' "$ENGINE" && ! grep -q 'behind the Newsmax+ login' "$ENGINE"; then
+  pass "Newsmax: a SHOW page lists its episodes (Enter = newest); an episode page → vodservice → master; the title names the show row + air date, the naming window stays shut when it can; a Newsmax+ badge never blocks"
+else fail "Newsmax show-page rule drifted (id/date/row matchers or the hooks)"; fi
+
 # ---- 3b. Instagram rips with the Firefox login first; cookieless only as a fallback; refusals start a cooldown
 if grep -q 'is_instagram' "$ENGINE" && grep -q 'ig_cooldown_set' "$ENGINE" && ! grep -q 'instagram.com/reel/\*.*COOKIES=""' "$ENGINE"; then
   pass "Instagram: login first, one cookieless fallback, cooldown after a refusal"

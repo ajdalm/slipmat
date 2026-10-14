@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.13"          # 10.13.26 — an ended stream (post_live) downloads as a normal file, never a capture, 8 pieces at a time (YouTube only); the receipt says whether you got it all
+VERSION="4.14"          # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
                         # 10.5.26 — Instagram login-first + cooldown · the re-encode reason is said once
                         # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
@@ -1940,7 +1940,7 @@ if [ "$URL" = "--doctor" ]; then
 fi
 
 # ---- preflight --------------------------------------------------------------
-[ -n "$URL" ] || die "no URL. usage: slipmat <URL|file> [480|720|1080|max|ask] [best|auto|studio] — or shorthand: slipmat <URL> best|auto|studio · self-check: slipmat --doctor"
+[ -n "$URL" ] || die "no URL. usage: slipmat <URL|file> [360|480|720|1080|max|ask] [best|auto|studio] — or shorthand: slipmat <URL> best|auto|studio · self-check: slipmat --doctor"
 # input sanity (8.10.26): a copied FILENAME/title used to run the whole
 # pipeline and die with a misleading "expired/private" — reject non-URLs instantly.
 # V3.7: a REAL local file (Cmd+C in Finder → the STUDIO launcher hands us its
@@ -1985,7 +1985,7 @@ if [ -n "$LOCAL_SRC" ]; then
     || die "no video stream readable in \"$(basename "$LOCAL_SRC")\" — is that a video file?"
 fi
 case "$MODE" in best|auto|studio) ;; *) die "unknown MODE '$MODE' (use best|auto|studio)" ;; esac
-case "$RES"  in 480|720|1080|max|ask) ;; *) die "unknown RES '$RES' (use 480|720|1080|max|ask — or a lone best|auto|studio as the 2nd arg)" ;; esac
+case "$RES"  in 360|480|720|1080|max|ask) ;; *) die "unknown RES '$RES' (use 360|480|720|1080|max|ask — or a lone best|auto|studio as the 2nd arg)" ;; esac
 # V4.3 (8.17): a LOCAL file's encode/crop lands BESIDE the original —
 # in the source's own folder ("the new version should match its directory").
 # Only when that folder is gone or unwritable (ejected drive, read-only volume)
@@ -2200,10 +2200,218 @@ imp_available() {  # curl-cffi usable by this yt-dlp? checked at most once
   fi
   [ "$_IMP_OK" = "yes" ]
 }
+# ---- a rendition playlist from a sniffer (10.13.26, Newsmax) -------------------
+# A network sniffer hands over whatever the player fetched last: often ONE rendition
+# of an HLS stream — the video-only `…-video=2359677.m3u8` or the audio-only
+# `…-audio_eng=128000.m3u8` — not the master that lists them all. A lone rendition
+# dumps as one format with no codec (the photo-post gate called it a text post), and
+# an audio-only one would rip silent. The master usually sits beside it under a
+# guessable name: Unified Streaming (Newsmax's packager) names it after the item id
+# (`…/item=X/version=V/X.m3u8`); others use playlist / master / index.m3u8. The
+# playlist is read once (small, public, cookie-free): a media playlist (no
+# #EXT-X-STREAM-INF) → try the siblings; the first master wins and is announced.
+hls_master_candidates() {   # $1 = a .m3u8 URL → sibling master candidates, one per line (pure; smoke-tested)
+  _d="${1%%\?*}"; _q=""; case "$1" in *\?*) _q="?${1#*\?}" ;; esac
+  _base="${_d##*/}"; _d="${_d%/*}"
+  _item=""; case "$_d" in */item=*) _item="${_d##*/item=}"; _item="${_item%%/*}" ;; esac
+  for _c in ${_item:+"$_item.m3u8"} playlist.m3u8 master.m3u8 index.m3u8; do
+    [ "$_c" = "$_base" ] && continue
+    printf '%s/%s%s\n' "$_d" "$_c" "$_q"
+  done
+}
+HLS_RENDITION=""   # non-empty = the link was one rendition and no master was found beside it (which kind)
+hls_master_hunt() {   # may rewrite $URL to the master playlist
+  case "$(lc "$URL")" in *.m3u8|*.m3u8\?*) : ;; *) return 0 ;; esac
+  _pl=$(curl -s -m 15 -L "$URL" 2>/dev/null | head -c 200000)
+  case "$_pl" in *"#EXTM3U"*) : ;; *) return 0 ;; esac          # unreadable here — the probe decides
+  case "$_pl" in *"#EXT-X-STREAM-INF"*) return 0 ;; esac        # already the master
+  _kind="one rendition"; case "$(lc "${URL##*/}")" in *audio*) _kind="the audio-only rendition" ;; *video*) _kind="the video-only rendition" ;; esac
+  for _c in $(hls_master_candidates "$URL"); do
+    _m=$(curl -s -m 15 -L "$_c" 2>/dev/null | head -c 200000)
+    case "$_m" in *"#EXT-X-STREAM-INF"*)
+      ok "that link is $_kind of the stream (what the sniffer caught) — using the master playlist beside it, which lists every quality"
+      logln "  master playlist: $URL -> $_c"
+      URL="$_c"; return 0 ;;
+    esac
+  done
+  HLS_RENDITION="$_kind"
+  note "that link is $_kind of the stream — no master playlist found beside it; ripping just this rendition"
+}
+# ---- a Newsmax show page (10.13.26): no sniffer needed ------------------------
+# An episode page (`newsmaxtv.com/Shows/<show>/vid/<uuid>`, `…/vod?ooid=<uuid>`)
+# carries no stream in its HTML — the player asks Newsmax's own service for it:
+# https://nmxmam.nmax.tv/vodservice/?id=<uuid> → [{title, source:[{src, locked}]}],
+# the title in the form "Show Name (MM/DD/YY)", src = the master playlist on the
+# VOD CDN. A plain fetch, no cookies, no fingerprint; the page itself is never
+# loaded (a browser sometimes cannot even open it — the link alone is enough).
+# The title then names the file when it matches a row of the naming menu
+# (NMX_SHOWS + the learned list): `HIGBIE 10.8.26 [NMX]`, the exact form the naming
+# window produces, so the window is not opened; otherwise the window opens with
+# the official title shown and the air date from the title as its Enter date.
+NMX_PAGE_TITLE=""; NMX_PAGE_DATE=""; NMX_PAGE_YMD=""; NMX_NAMED=0
+nmx_page_id() {   # $1 = URL → the episode id, or empty (pure; smoke-tested)
+  case "$(lc "$1")" in *newsmaxtv.com*|*newsmax.com*) : ;; *) return 0 ;; esac
+  printf '%s' "$1" | tr 'A-Z' 'a-z' | sed -n -E 's/.*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*/\1/p'
+}
+nmx_title_date() {   # "Show (10/08/26)" → 10.8.26, else empty (pure)
+  printf '%s' "$1" | sed -n -E 's/.*\(([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{2})\).*/\1 \2 \3/p' | awk '{printf "%d.%d.%s", $1, $2, $3}'
+}
+nmx_show_rows() {   # the naming menu: NMX_SHOWS + the learned list, pipe-separated, empties dropped
+  _r="$NMX_SHOWS"
+  if [ -s "$NMX_SHOWS_LEARNED" ]; then
+    _l=$(tr '\n' '|' < "$NMX_SHOWS_LEARNED" | sed 's/|*$//; s/^|*//')
+    [ -n "$_l" ] && { [ -n "$_r" ] && _r="${_r}|${_l}" || _r="$_l"; }
+  fi
+  printf '%s' "$_r" | tr '|' '\n' | sed '/^[[:space:]]*$/d' | tr '\n' '|' | sed 's/|$//'
+}
+nmx_show_match() {   # $1 = official title, $2 = "ROW|ROW" → the first row whose every word is in the title (pure)
+  _t=$(lc "$1")
+  printf '%s\n' "$2" | tr '|' '\n' | while IFS= read -r _row; do
+    [ -n "$_row" ] || continue
+    _all=1
+    for _w in $(lc "$_row"); do case "$_t" in *"$_w"*) : ;; *) _all=0 ;; esac; done
+    [ "$_all" = "1" ] && { printf '%s' "$_row"; break; }
+  done
+}
+# ---- a Newsmax SHOW page (10.13.26): the episode list, read here --------------
+# `newsmaxtv.com/Shows/<slug>` with no episode id → the page's own listing call
+# (`/api/v1/_24iService/GetPlaylist?category_ids=<id>`; the id is in the page; the
+# answer is JSON wrapped in an XML <string>) → the newest nine episodes. PICKER and
+# STUDIO ask which (a framed list, Enter = the newest); BEST, AUTO and unattended
+# runs take the newest and say so. The site's Newsmax+ badge (`N+`) rides the row
+# as the site shows it. The pick becomes the episode page and nmx_page_hunt takes
+# it from there — the browser is never needed, grey page or not.
+NMX_EPISODE=""
+nmx_show_hunt() {   # may rewrite $URL to an episode page
+  case "$(lc "$URL")" in *newsmaxtv.com/shows/*) : ;; *) return 0 ;; esac
+  [ -z "$(nmx_page_id "$URL")" ] || return 0
+  [ -n "$PYTHON" ] || return 0
+  _cat=$(curl -s -m 20 "$URL" 2>/dev/null | head -c 400000 | grep -o 'category_ids=[A-Za-z0-9]*' | head -1 | sed 's/category_ids=//')
+  if [ -z "$_cat" ]; then note "no episode list found on this show page — give an episode link instead"; return 0; fi
+  _ls=$(curl -s -m 20 "https://www.newsmaxtv.com/api/v1/_24iService/GetPlaylist?category_ids=$_cat" 2>/dev/null | head -c 2000000 | "$PYTHON" -c '
+import json,sys,re,html
+raw=sys.stdin.read()
+m=re.search(r"<string[^>]*>(.*)</string>", raw, re.S)
+body=html.unescape(m.group(1)) if m else raw
+try:
+    d=json.loads(body)
+    if isinstance(d,str): d=json.loads(d)
+except Exception: raise SystemExit
+items=d.get("items",[]) if isinstance(d,dict) else d
+items=[i for i in items if i.get("id") and not i.get("isHidden")]
+items.sort(key=lambda i: i.get("createdAt") or 0, reverse=True)
+for i in items[:9]:
+    print("%s\t%s\t%s" % (i["id"], (i.get("label") or i.get("seriesName") or "").replace("\t"," ").replace("\n"," "), i.get("assetLabel") or ""))' 2>/dev/null)
+  if [ -z "$_ls" ]; then note "the show's episode list did not answer — give an episode link instead"; return 0; fi
+  _n=$(printf '%s\n' "$_ls" | grep -c .)
+  _pick=1
+  if [ "$RES" = "ask" ] && [ -t 0 ]; then
+    say ""
+    box_top "WHICH EPISODE?" "$C_Q"
+    _i=0
+    while IFS="$(printf '\t')" read -r _eid _elabel _ebadge; do
+      [ -n "$_eid" ] || continue
+      _i=$((_i+1)); _newest=""; [ "$_i" -eq 1 ] && _newest="        newest · [Enter]"
+      frame_rail "$(printf '%s%s%s)  %-44s%s%s' "$C_BOLD" "$_i" "$C_RESET" "$_elabel" "${_ebadge:+ · $_ebadge}" "$_newest")"
+    done <<EOF
+$_ls
+EOF
+    _c=$(ask_line "$(rail)${C_DIM}number${C_RESET}  ${C_BOLD}[Enter = 1]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" 1)
+    box_bot
+    case "$_c" in ''|*[!0-9]*) _c=1 ;; esac
+    [ "$_c" -ge 1 ] && [ "$_c" -le "$_n" ] 2>/dev/null && _pick=$_c
+  fi
+  _row=$(printf '%s\n' "$_ls" | sed -n "${_pick}p")
+  _eid=$(printf '%s' "$_row" | cut -f1); _elabel=$(printf '%s' "$_row" | cut -f2)
+  [ -n "$_eid" ] || return 0
+  NMX_EPISODE="$_elabel"
+  if [ "$_pick" -eq 1 ]; then ok "newest episode: $_elabel"; else ok "episode: $_elabel"; fi
+  logln "  newsmax show: $URL -> episode $_eid"
+  URL="${URL%%\?*}"; URL="${URL%/}/vid/$_eid"
+}
+nmx_page_hunt() {   # may rewrite $URL to the master playlist; fills NMX_PAGE_TITLE / NMX_PAGE_DATE
+  _id=$(nmx_page_id "$URL"); [ -n "$_id" ] || return 0
+  [ -n "$PYTHON" ] || return 0
+  _js=$(curl -s -m 20 "https://nmxmam.nmax.tv/vodservice/?id=$_id" 2>/dev/null | head -c 100000)
+  _ans=$(printf '%s' "$_js" | "$PYTHON" -c '
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: raise SystemExit
+if not d: raise SystemExit
+m=d[0] if isinstance(d,list) else d
+src=(m.get("source") or [{}])[0]
+print((m.get("title") or "").replace("\n"," ")); print(src.get("src") or ""); print("1" if src.get("locked") else "0")' 2>/dev/null)
+  _t=$(printf '%s\n' "$_ans" | sed -n 1p); _src=$(printf '%s\n' "$_ans" | sed -n 2p); _lk=$(printf '%s\n' "$_ans" | sed -n 3p)
+  if [ -z "$_src" ]; then
+    case "$_js" in "[]"*) die "Newsmax's own service lists no stream for this page — the episode may not be posted yet; try the link again later." ;; esac
+    note "Newsmax's service did not answer for this page — reading the page itself …"
+    return 0
+  fi
+  # the newest episodes carry the site's Newsmax+ badge (locked:true) for their first days —
+  # the stream itself answers to anyone (proven 10.13: master, rendition and segments all 200)
+  [ "$_lk" = "1" ] && note "the site shows this episode as Newsmax+ — the stream answers anyway"
+  NMX_PAGE_TITLE=$(printf '%s' "$_t" | tr '\n\r\t' '   ')   # shown, never a filename — the real slashes stay
+  NMX_PAGE_DATE=$(nmx_title_date "$_t")
+  NMX_PAGE_YMD=$(printf '%s' "$_t" | sed -n -E 's/.*\(([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{2})\).*/20\3 \1 \2/p' | awk '{printf "%s%02d%02d", $1, $2, $3}')
+  if [ -n "$NMX_EPISODE" ]; then logln "  + the show page names its stream — ${NMX_PAGE_TITLE:-untitled}"
+  else ok "the show page names its stream — ${NMX_PAGE_TITLE:-untitled}"; fi
+  logln "  newsmax page: $URL -> $_src"
+  URL="$_src"
+}
 # a FAILED `yt-dlp -J` still writes a literal `null` to stdout, so a bare -s test
 # calls garbage a win and the referer ladder below never runs. Real dumps are JSON
 # objects — first byte `{` is the cheap, reliable tell.
 info_json_ok() { [ -s "$1" ] && [ "$(head -c 1 "$1" 2>/dev/null)" = "{" ]; }
+# ---- the browser ladder (10.13.26, Rumble behind a Cloudflare challenge) -----
+# One fingerprint is not enough: the challenge is intermittent PER FINGERPRINT.
+# Measured 10.13 on Rumble's embed endpoint, 21 probes: chrome passed 7 of 7,
+# firefox 5 of 8 (and 0 of 5 in the day's real logs), safari 0 of 3; the Firefox
+# cookies made no difference. So the escalation walks a ladder — chrome, then
+# firefox, then safari — one probe each, and the rung that unlocks the page rides
+# every later call ($IMPARGS). The download re-reads the page with the same
+# fingerprint and can be refused again seconds later (same weather): imp_rotate
+# moves to the next untried rung when an attempt's stderr carries the PAGE-read
+# 403 (a segment error reads differently) and the caller restarts the attempt.
+# At most three fingerprints per run; rescues that proved a rung keep it.
+# SLIPMAT_BROWSERS in the config reorders the ladder (measure first — see TESTING.md).
+IMP_LADDER="${SLIPMAT_BROWSERS:-chrome firefox safari}"
+IMP_TARGET=""; IMP_TRIED=""
+imp_set() { IMP_TARGET="$1"; IMPARGS="--impersonate $1"; }
+imp_probe() {   # walk the ladder on $URL → $INFO; 0 = unlocked (IMPARGS set). $1 = quiet (log only)
+  imp_available || return 1
+  [ "${1:-}" = "quiet" ] || note "site refused the probe — retrying as a real browser …"
+  for _t in $IMP_LADDER; do
+    if "$YTDLP" $COOKIES $PLARGS $REFARGS --impersonate "$_t" --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" \
+        && info_json_ok "$INFO"; then
+      imp_set "$_t"
+      if [ "${1:-}" = "quiet" ]; then logln "  + unlocked via browser impersonation ($_t)"; else ok "unlocked via browser impersonation ($_t)"; fi
+      return 0
+    fi
+    IMP_TRIED="$IMP_TRIED $_t"; logln "  impersonation: $_t refused"
+  done
+  [ "${1:-}" = "quiet" ] || note "no browser fingerprint unlocked it (${IMP_LADDER// /, })"
+  return 1
+}
+imp_refused() {   # the last attempt's stderr = the PAGE read was refused (403 at extraction; segment errors read differently)
+  [ -s "${YTERR:-}" ] || return 1
+  tr '\r' '\n' < "$YTERR" | grep -E '^ERROR:' | grep -E 'Unable to download (webpage|JSON metadata)|Cloudflare anti-bot' | grep -q 'HTTP Error 403'
+}
+imp_rotate() {    # 0 = moved to the next untried rung (the caller runs the attempt again) · 1 = not that failure, or the ladder is spent
+  imp_refused && imp_available || return 1
+  _nx=""
+  for _t in $IMP_LADDER; do
+    [ "$_t" = "${IMP_TARGET:-}" ] && continue
+    case " $IMP_TRIED " in *" $_t "*) continue ;; esac
+    _nx=$_t; break
+  done
+  [ -n "$_nx" ] || return 1
+  yterr_log
+  [ -n "$IMP_TARGET" ] && IMP_TRIED="$IMP_TRIED $IMP_TARGET"
+  _was="${IMP_TARGET:-the plain fetch}"
+  imp_set "$_nx"
+  warn "the site refused the page again at the download ($_was) — retrying as $_nx …"
+  return 0
+}
 # V4.5d (9.10.26, a Radio-Canada article: generic-extractor 403 even impersonated):
 # a news-ARTICLE URL often has no dedicated extractor — yt-dlp falls to its generic
 # webpage scraper and the site's bot wall (Akamai here) refuses it. But the pinned
@@ -2451,6 +2659,9 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
     PROBE_NPID=$!
   fi
   vimeo_unlock   # no-op unless a vimeo URL (player or bare); may fill $INFO, set $REFARGS, rewrite $URL
+  nmx_show_hunt     # no-op unless a Newsmax SHOW page (no episode id); picks an episode → its page URL
+  nmx_page_hunt     # no-op unless a Newsmax episode page; rewrites $URL to its master playlist (title + date kept)
+  [ -n "$NMX_PAGE_TITLE" ] || hls_master_hunt   # no-op unless a .m3u8 link that is one rendition; may rewrite $URL to the master beside it
   # V4.6: Truth Social has no yt-dlp extractor — probing it just burned ~2s failing
   # before every rescue. Recognize the domain up front; embed_hunt gets the first turn.
   TS_FAST=0; case "$URL" in *truthsocial.com/*) TS_FAST=1; : > "$INFO" ;; esac
@@ -2477,14 +2688,7 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
     fi
   fi
   # bot-block escalation: plain probe failed -> one retry as a real browser
-  if [ "$TS_FAST" != "1" ] && ! info_json_ok "$INFO" && imp_available; then
-    note "site refused the probe — retrying as a real browser …"
-    if "$YTDLP" $COOKIES $PLARGS $REFARGS --impersonate firefox --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" \
-        && info_json_ok "$INFO"; then
-      IMPARGS="--impersonate firefox"
-      ok "unlocked via browser impersonation"
-    fi
-  fi
+  if [ "$TS_FAST" != "1" ] && ! info_json_ok "$INFO"; then imp_probe; fi
   # V4.5d: still nothing readable on a webpage URL → read the page ourselves and
   # hunt the embedded video (see embed_hunt). A hit rewrites $URL; dedicated
   # extractors then probe normally. A miss falls through unchanged.
@@ -2516,13 +2720,10 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
         # the page's own CDN, referer-gated the same way).
         [ -z "$REFARGS" ] && REFARGS="--referer $URL"
         RESCUE_PAGE_URL="$URL"   # V4.5f: the page keeps naming duty (platform tag · /@handle/) after the rewrite
-        case "$_embl" in "C-SPAN"*|"manifest in page") imp_available && IMPARGS="--impersonate firefox" ;; esac
+        case "$_embl" in "C-SPAN"*|"manifest in page") imp_available && imp_set firefox ;; esac
         URL="$_embu"
         "$YTDLP" $COOKIES $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
-        if ! info_json_ok "$INFO" && imp_available; then
-          "$YTDLP" $COOKIES $PLARGS $REFARGS --impersonate firefox --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" \
-            && info_json_ok "$INFO" && IMPARGS="--impersonate firefox"
-        fi
+        if ! info_json_ok "$INFO"; then imp_probe quiet; fi
       fi
     fi
   fi
@@ -2562,10 +2763,7 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
         PL_RESCUE=1              # gates the blank-id kill below (plrescue targets only)
         URL="$_plu"
         "$YTDLP" $COOKIES $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
-        if ! info_json_ok "$INFO" && imp_available; then
-          "$YTDLP" $COOKIES $PLARGS $REFARGS --impersonate firefox --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" \
-            && info_json_ok "$INFO" && IMPARGS="--impersonate firefox"
-        fi
+        if ! info_json_ok "$INFO"; then imp_probe quiet; fi
       fi
     fi
   fi
@@ -2602,6 +2800,7 @@ EOF
   [ -n "${RESCUE_TITLE:-}" ] && M_TITLE="$RESCUE_TITLE"
   [ -n "${RESCUE_ID:-}" ] && M_ID="$RESCUE_ID"
   [ -n "${RESCUE_DATE:-}" ] && [ -z "$M_UPDATE" ] && M_UPDATE="$RESCUE_DATE"   # V4.5f: a bare CDN mp4 has no date — the page's taken_at does
+  [ -n "${NMX_PAGE_YMD:-}" ] && M_UPDATE="$NMX_PAGE_YMD"   # 10.13.26: the Newsmax page's air date, not the feed's packaging date
   # V4.5m: on Truth Social the bare-CDN dump "date" is the file's Last-Modified (UTC) —
   # junk; the status JSON's created_at (localized in the hunt) ALWAYS wins.
   case "$(lc "${RESCUE_PAGE_URL:-}")" in *truthsocial.com*) [ -n "${RESCUE_DATE:-}" ] && M_UPDATE="$RESCUE_DATE" ;; esac
@@ -2646,8 +2845,14 @@ EOF
      && [ "$("$PYTHON" -c "$VR_PY" hasvideo < "$INFO" 2>/dev/null)" = "0" ]; then
     # (a RESCUED target is exempt — embed_hunt only emits video_versions/manifests, and a
     # bare CDN mp4's dump carries no vcodec to judge by; V4.5f, the first Threads rip)
+    # (a .m3u8 link is a stream, never a photo post: a lone rendition dumps with no codec
+    # — 10.13.26, a sniffer's Newsmax link; an audio-only one without a master is said so)
     case "$M_LIVE" in is_live|is_upcoming|post_live) : ;; *)
-      die "no video at this link — it looks like a photo/text post (title: \"$(printf '%.60s' "${M_TITLE:-?}")\")." ;;
+      case "$(lc "$URL")" in
+        *.m3u8|*.m3u8\?*)
+          case "$HLS_RENDITION" in *audio*) die "this link is the audio-only half of the stream and no master playlist was found beside it — in the sniffer, copy the first .m3u8 the player loads (the one that lists the qualities)." ;; esac ;;
+        *) die "no video at this link — it looks like a photo/text post (title: \"$(printf '%.60s' "${M_TITLE:-?}")\")." ;;
+      esac ;;
     esac
   fi
 fi
@@ -2890,9 +3095,11 @@ ID_CHAN=$(name_handle)
 if is_newsmax; then
   # the m3u8 stem "title" (wyIN5pHT5q-W) is noise — show a human identity, and
   # stamp the START CLOCK so 3 parallel NMX rips are tellable apart (8.10.26).
-  _nd=$(nmx_date_from_url "$URL")
+  _nd="${NMX_PAGE_DATE:-$(nmx_date_from_url "$URL")}"
   NMX_CLK=$(date +%-I:%M%p)
-  ID_TITLE="Newsmax broadcast${_nd:+ · $_nd} · started $NMX_CLK"; ID_CHAN="NMX"
+  if [ -n "$NMX_PAGE_TITLE" ]; then ID_TITLE="$NMX_PAGE_TITLE · started $NMX_CLK"
+  else ID_TITLE="Newsmax broadcast${_nd:+ · $_nd} · started $NMX_CLK"; fi
+  ID_CHAN="NMX"
 fi
 # source_box [stream-line] — the identity box (V4.1: `Duration 1:54` labeled;
 # on the no-questions path the box is printed a beat later, once the chosen
@@ -3287,7 +3494,7 @@ fi
 # (it can be incomplete: YouTube client gating, Instagram rotation) — see the
 # QTCHAIN selector-first logic below.
 TARGET="max"
-case "$RES" in 480|720|1080) TARGET="$RES" ;; ask) TARGET="ask" ;; esac
+case "$RES" in 360|480|720|1080) TARGET="$RES" ;; ask) TARGET="ask" ;; esac
 
 SEL=""; NEEDRE=0; SELNOTE=""; SPROTO=""; CUSTOM=0; CUSTOMSPEC=""; DOWNG=0; FRESH_EXTRACT=0
 if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ] && [ "${VOD_SRC_IS_LIVE_CAPTURE:-0}" != "1" ] \
@@ -3457,12 +3664,23 @@ else
   [ -z "$_stag" ] && case "${M_CHANNEL}${M_UPLOADER}" in *"The White House"*) _stag="WH" ;; esac
   [ -n "$_stag" ] && [ -x "$HOME/.slipmat/title-hook" ] \
     && _smart=$(clean_field "$("$HOME/.slipmat/title-hook" "$(clean_field "$M_TITLE")" 2>/dev/null)")
+  _nrow=""
+  if [ -z "$_smart" ] && is_newsmax && [ -n "$NMX_PAGE_TITLE" ]; then _nrow=$(nmx_show_match "$NMX_PAGE_TITLE" "$(nmx_show_rows)"); fi
   if [ -n "$_smart" ]; then
     _sdate=""; [ -n "$M_UPDATE" ] && _sdate=$(ymd_to_mdy "$M_UPDATE"); [ -z "$_sdate" ] && _sdate=$(date +%-m.%-d.%y)
     NAME=$(uniquify "$(abridge "$_smart" 215) [${_stag}] - ${_sdate}")
     [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
     ok "smart name: ${C_MAG}${C_BOLD}${NAME}${C_RESET}  (official: $(abridge "$(clean_field "$M_TITLE")" 70))"
     logln "  smart title: official \"$(clean_field "$M_TITLE")\""
+  elif [ -n "$_nrow" ]; then
+    # the Newsmax show page named the show (a menu row) and the air date: the naming
+    # window's own form, written without opening the window (10.13.26)
+    _ndate="${NMX_PAGE_DATE:-$(nmx_date_from_url "$URL")}"; [ -z "$_ndate" ] && _ndate=$(date +%-m.%-d.%y)
+    NAME=$(uniquify "$_nrow $_ndate [NMX]")
+    [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
+    NMX_NAMED=1
+    ok "smart name: ${C_MAG}${C_BOLD}${NAME}${C_RESET}  (the page says: $(abridge "$NMX_PAGE_TITLE" 70))"
+    logln "  smart title: official \"$NMX_PAGE_TITLE\""
   else
     NAME=$(build_vod_name)
   fi
@@ -3478,26 +3696,21 @@ fi
 # rip's START CLOCK + target filename so 3 parallel NMX rips stay tellable apart.
 QDIR=""
 if is_newsmax && [ "$IS_TTY" = "1" ] && [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ] \
-   && [ "${VOD_SRC_IS_LIVE_CAPTURE:-0}" != "1" ]; then
+   && [ "${VOD_SRC_IS_LIVE_CAPTURE:-0}" != "1" ] && [ "$NMX_NAMED" != "1" ]; then
   QDIR="$WORKROOT/nmxquiz_${WORKSTEM}"
   if mkdir -p "$QDIR" 2>/dev/null; then
-    _qdef=$(nmx_date_from_url "$URL"); [ -z "$_qdef" ] && _qdef=$(date +%-m.%-d.%y)
+    _qdef="${NMX_PAGE_DATE:-$(nmx_date_from_url "$URL")}"; [ -z "$_qdef" ] && _qdef=$(date +%-m.%-d.%y)
     _qdur=$(fmt_dur "${M_DUR:-0}")
-    # learned shows (8.11): custom names typed before become menu rows
-    _qshows="$NMX_SHOWS"
-    if [ -s "$NMX_SHOWS_LEARNED" ]; then
-      _ql=$(tr '\n' '|' < "$NMX_SHOWS_LEARNED" | sed 's/|*$//; s/^|*//')
-      [ -n "$_ql" ] && { [ -n "$_qshows" ] && _qshows="${_qshows}|${_ql}" || _qshows="$_ql"; }
-    fi
-    # drop empty rows (a doubled or leading "|") and escape for the generated script's
-    # double-quoted assignment, so a name holding " $ or ` cannot break it
-    _qshows=$(printf '%s' "$_qshows" | tr '|' '\n' | sed '/^[[:space:]]*$/d' | tr '\n' '|' | sed 's/|$//')
-    _qshows=$(printf '%s' "$_qshows" | sed 's/[\\"$`]/\\&/g')
+    # learned shows (8.11): custom names typed before become menu rows (nmx_show_rows
+    # drops empty rows); escaped for the generated script's double-quoted assignment,
+    # so a name holding " $ or ` cannot break it
+    _qshows=$(nmx_show_rows | sed 's/[\\"$`]/\\&/g')
+    _qpage=$(printf '%s' "$NMX_PAGE_TITLE" | sed 's/[\\"$`]/\\&/g')
     cat > "$QDIR/quiz.sh" <<QEOF
 #!/bin/bash
 export LC_CTYPE=en_US.UTF-8
 Q="$QDIR"; OUTD="$OUTDIR"; WD="$WORKDIR"; DEF="$NAME"; DEFDATE="$_qdef"
-SHOWS="$_qshows"; LEARN="$NMX_SHOWS_LEARNED"
+SHOWS="$_qshows"; LEARN="$NMX_SHOWS_LEARNED"; PAGET="$_qpage"
 sane() { printf '%s' "\$1" | sed -e 's/:/：/g' -e 's/?/？/g' -e 's#/#⧸#g' -e 's/"/＂/g' -e 's/</＜/g' -e 's/>/＞/g' -e 's/|/｜/g' -e 's/\\*/＊/g'; }
 printf '\\033]0;NMX quiz · ${NMX_CLK:-now}\\007'
 # the chip form (10.12): keycap chips glued to outcomes, a blank line between rows, the question in its color
@@ -3507,6 +3720,7 @@ chip() { k="\$1"; w=5; [ \${#k} -gt 5 ] && w=\${#k}; l=\$(( (w - \${#k}) / 2 ));
 row() { printf '\n   %s %s\n' "\$(chip "\$1")" "\$2"; }
 echo "NMX naming quiz · rip started ${NMX_CLK:-now}${_qdur:+ · $_qdur show}"
 echo "-> default name: \$DEF.mp4"
+[ -n "\$PAGET" ] && echo "-> the page says: \$PAGET"
 echo
 printf '%sWhich show is this?%s\n' "\$AC" "\$R"
 i=1; IFS='|'; for s in \$SHOWS; do row "\$i" "\$s"; i=\$((i+1)); done; unset IFS
@@ -3593,6 +3807,7 @@ if [ "$FAST" = "1" ]; then
   fast_dl; YTRC=$?
   [ "$YTRC" -ne 0 ] && by_hand && dl_canceled
   while [ "$YTRC" -ne 0 ] && pieces_backoff; do fast_dl; YTRC=$?; [ "$YTRC" -ne 0 ] && by_hand && dl_canceled; done
+  while [ "$YTRC" -ne 0 ] && imp_rotate; do fast_dl; YTRC=$?; [ "$YTRC" -ne 0 ] && by_hand && dl_canceled; done
   if [ "$YTRC" -ne 0 ] && [ "$TRY_INFO" = "1" ]; then
     yterr_log
     note "cached source info didn't resolve — re-reading fresh …"
@@ -3611,6 +3826,7 @@ if [ "$FAST" = "1" ]; then
     fast_dl; YTRC=$?
     [ "$YTRC" -ne 0 ] && by_hand && dl_canceled
     while [ "$YTRC" -ne 0 ] && pieces_backoff; do fast_dl; YTRC=$?; [ "$YTRC" -ne 0 ] && by_hand && dl_canceled; done
+  while [ "$YTRC" -ne 0 ] && imp_rotate; do fast_dl; YTRC=$?; [ "$YTRC" -ne 0 ] && by_hand && dl_canceled; done
     [ "$YTRC" -eq 0 ] || die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)${NET_DIE_HINT:-The link may be expired, private, or need a login.}"
     DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
     [ -n "$DLF" ] || die "download produced no file."
@@ -3631,10 +3847,15 @@ if [ "$FAST" = "1" ]; then
     _alt=$("$PYTHON" -c "$VR_PY" audioalt "$(file_short_side "$DLF")" < "$INFO" 2>/dev/null)
     rm -f "$DLF"
     : > "$YTERR"
-    "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "${_alt:+$_alt/}$AVCHAIN" --merge-output-format mp4 \
-      $DLPAR --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
-      $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR" \
-      || { by_hand && dl_canceled; die "audio re-fetch failed$(yterr_said)"; }
+    audio_refetch() {
+      "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "${_alt:+$_alt/}$AVCHAIN" --merge-output-format mp4 \
+        $DLPAR --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
+        $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" "$URL" 2>>"$YTERR"
+    }
+    audio_refetch; YTRC=$?
+    [ "$YTRC" -ne 0 ] && by_hand && dl_canceled
+    while [ "$YTRC" -ne 0 ] && imp_rotate; do audio_refetch; YTRC=$?; [ "$YTRC" -ne 0 ] && by_hand && dl_canceled; done
+    [ "$YTRC" -eq 0 ] || die "audio re-fetch failed$(yterr_said)"
     DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
     [ -n "$DLF" ] || die "audio re-fetch produced no file."
     if [ "$(audio_streams "$DLF")" = "0" ]; then
@@ -3906,6 +4127,7 @@ else
       # is already in hand, retry the SAME rung ONCE; yt-dlp resumes the .part
       # (nothing re-downloaded). Only then walk the ladder down.
       if pieces_backoff; then continue; fi   # the downloader's own race: fewer pieces, same rung, resumed
+      if imp_rotate; then continue; fi       # the page refused the download's re-read: next browser fingerprint, same rung
       if [ "$SAME_RETRY" = "0" ] && [ "$IS_HLS" = "1" ]; then
         _pp=$(ls -S "$WORKDIR/${WORKSTEM}".*part 2>/dev/null | head -1)
         _ppz=$(stat -f %z "$_pp" 2>/dev/null); _ppz=${_ppz:-0}
@@ -3938,7 +4160,7 @@ print(u or "")' < "$INFO" 2>/dev/null)
           warn "the page went blank between the read and the download (their site does this) — going straight at its manifest …"
           logln "  manifest swap: $URL -> $_mf"
           [ -z "$REFARGS" ] && REFARGS="--referer $URL"   # V4.5e: the page vouches for its own manifest
-          imp_available && [ -z "$IMPARGS" ] && IMPARGS="--impersonate firefox"
+          imp_available && [ -z "$IMPARGS" ] && imp_set firefox
           URL="$_mf"
           RETRY_NOTE="page went blank mid-run — ripped via its manifest"
           continue

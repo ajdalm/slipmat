@@ -271,6 +271,111 @@ than 15 s missing, or any piece the site skipped, prints the shortfall in yellow
 HOME=/tmp/fakehome python3 tools/ptydrive.py /tmp/p.raw 1500 -- '<url>' auto -- '\[Enter = 1\]' 'c\n' 'type a video ID' '160+140\n'
 ```
 
+## A Newsmax show page (10.13.26): no sniffer needed
+
+An episode page — `newsmaxtv.com/Shows/<show>/vid/<uuid>` or
+`newsmaxtv.com/vod?ooid=<uuid>` — carries no stream in its HTML; the page's
+player asks Newsmax's own service, `nmxmam.nmax.tv/vodservice/?id=<uuid>`, which
+answers `[{title, source:[{src, locked}]}]`: the title as `Show Name (MM/DD/YY)`,
+the src = the master playlist on the VOD CDN. The engine (`nmx_page_hunt`, before
+the probe) does the same with a plain fetch — no cookies, no fingerprint, and the
+page itself is never loaded (Chrome sometimes cannot open it at all:
+`ERR_HTTP2_PROTOCOL_ERROR`; the link in the address bar is enough).
+
+- `✓ the show page names its stream — Carl Higbie Frontline (10/08/26)`; SOURCE
+  shows that title; log `newsmax page: <page> -> <master>`.
+- the title names the file when every word of a naming-menu row (`NMX_SHOWS` +
+  the learned list) appears in it: `✓ smart name: HIGBIE 10.8.26 [NMX]  (the page
+  says: …)` — the naming window's own form, so the window is NOT opened. No row
+  matches (`Wake Up America`) → the window opens as before, with
+  `-> the page says: <title>` under the default name and the air date from the
+  title as its Enter date.
+- an empty answer from the service → `Newsmax's own service lists no stream for
+  this page — the episode may not be posted yet`; `locked: true` (the site's
+  Newsmax+ badge on the newest episodes for their first days) → one note,
+  `the site shows this episode as Newsmax+ — the stream answers anyway`, and the
+  rip goes on (proven 10.13: master, rendition and segments all answer 200 to
+  anyone); the service unreachable → the page is probed as before.
+
+**A SHOW page, no episode id** (`newsmaxtv.com/Shows/<slug>`, `nmx_show_hunt`):
+the engine reads the page's own listing call (`/api/v1/_24iService/GetPlaylist?
+category_ids=<id>`, the id sits in the page; the answer is JSON inside an XML
+`<string>`) and lists the newest nine episodes. PICKER/STUDIO: a framed
+`WHICH EPISODE?` list, `1)` = newest with the site's `N+` badge where it has one,
+`number [Enter = 1] ›`. BEST/AUTO and unattended runs take the newest:
+`✓ newest episode: Carl Higbie Frontline (10/13/26)`. The pick becomes the
+episode page and the rest is the episode-page path above (the "names its stream"
+line then goes to the log only — said once). This is the door that needs no
+browser at all: bookmark the five show pages, copy a show link, rip.
+
+Hand test: an episode link at `480 auto` — the three lines above and a file
+named `<ROW> <m.d.yy> [NMX].mp4` with no naming window. `slipmat smoke` 3a6
+unit-tests the id, date and row matchers.
+
+## A rendition playlist from a sniffer (10.13.26, Newsmax)
+
+A network sniffer hands over whatever the player fetched last. For an HLS
+stream that is often ONE rendition — Newsmax's `…-video=2359677.m3u8` (video
+only) or `…-audio_eng=128000.m3u8` (audio only) — not the master playlist that
+lists every quality. A lone rendition dumps as one format with no codec, so the
+photo-post gate used to answer `no video at this link — it looks like a
+photo/text post`, four times in a row on 10.13.
+
+What the engine does (`hls_master_hunt`, before the probe, any `.m3u8` link):
+read the playlist once (small, public, no cookies); a master (`#EXT-X-STREAM-INF`)
+passes through untouched; a media playlist tries the siblings in order — the
+item id (`…/item=X/version=V/X.m3u8`, Unified Streaming's naming, which is
+Newsmax's), then `playlist.m3u8`, `master.m3u8`, `index.m3u8` — and the first
+master wins:
+`✓ that link is the video-only rendition of the stream (what the sniffer caught) — using the master playlist beside it, which lists every quality`
+(log: `master playlist: <given> -> <master>`). No master found → the rendition
+rips as given; an audio-only one then dies honestly with what to copy instead.
+A `.m3u8` link is never called a photo post.
+
+Hand test: either Newsmax rendition link at `480 best` → the line above, SOURCE
+`Newsmax broadcast`, the normal NMX name. `slipmat smoke` 3a5 unit-tests the
+candidate list (item id first; `playlist.m3u8` skips itself → `master.m3u8`).
+
+## Bot-walled pages (10.13.26): the browser ladder
+
+Some sites sit behind a bot challenge that refuses yt-dlp's plain fetch with a
+403 before the page is even read. Rumble is one since 8.10.26; on 10.13.26 the
+challenge also started refusing a single browser fingerprint INTERMITTENTLY.
+Measured that day on Rumble's embed endpoint (`--impersonate <x> -J`, 21 probes):
+Chrome passed 7 of 7, Firefox 5 of 8 (and 0 of 5 in the day's real run logs),
+Safari 0 of 3; sending the Firefox cookies made no difference either way.
+
+What the engine does (`IMP_LADDER`, `imp_probe`, `imp_rotate`):
+
+- the plain probe fails → `site refused the probe — retrying as a real browser …`,
+  then one probe per rung — chrome, firefox, safari — and the first rung that
+  reads the page is kept: `✓ unlocked via browser impersonation (chrome)`.
+  It rides every later yt-dlp call (`$IMPARGS`). All three refused → one line
+  `no browser fingerprint unlocked it (chrome, firefox, safari)` and the usual
+  embed hunt / honest death follow.
+- the download re-reads the page with that fingerprint and can be refused again
+  seconds later. When an attempt's stderr carries the PAGE-read 403 (`Unable to
+  download webpage` / `Unable to download JSON metadata` / `Cloudflare anti-bot`,
+  each with `HTTP Error 403`) the engine says
+  `! the site refused the page again at the download (chrome) — retrying as firefox …`
+  and runs the same attempt again. A segment error (a 503 on a fragment, `unable
+  to download video data`) never rotates — those belong to the CDN retry ladder.
+- at most three fingerprints per run, each tried once; a rescue that proved a
+  rung (C-SPAN, the manifest swap) keeps firefox there.
+- `SLIPMAT_BROWSERS="chrome firefox safari"` in the config reorders the ladder.
+  Measure before changing it: a loop of `yt-dlp --impersonate <x> -J <page>` per
+  rung, a handful each, no cookies needed. The same key is the forced test of the
+  download-stage rotation: `SLIPMAT_BROWSERS="firefox safari chrome"` on a Rumble
+  page makes firefox unlock the probe some of the time and get refused at the
+  download's re-read some of the time — the `retrying as …` line then shows.
+
+Hand test (network): a Rumble page at the lowest rung, e.g.
+`slipmat 'https://rumble.com/v7grjhc-….html' 360` — expect the two lines above
+and a normal receipt. The run log carries `impersonation: <rung> refused` for
+every rung that failed. `slipmat smoke` 3a4 asserts the ladder's shape and runs
+`imp_refused` on a fake page-read 403 (must match) and a fake segment 403 (must
+not).
+
 ## The keys (10.6.26): one key language — x stops, ↓ steps down, Ctrl-C is the exit
 
 Every key a user may press is printed before it can be pressed (a rail block
