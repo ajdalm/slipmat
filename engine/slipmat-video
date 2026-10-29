@@ -4821,10 +4821,10 @@ if [ "$MODE" = "studio" ]; then
   for _rq in 25 30 35 40; do
     _sn=""
     case "$_rq" in
-      25) if [ "$CLS" = "broadcast" ] || [ "${EST_SHORT:-0}" -le 760 ] 2>/dev/null; then _sn="smallest that still looks right at 720 — below this the eye catches it (your marathon dial)"
+      25) if [ "$CLS" = "broadcast" ] || [ "${EST_SHORT:-0}" -le 760 ] 2>/dev/null; then _sn="smallest that still looks right at 720 — below this the eye catches it (the far end of the dial)"
           else _sn="below the 1080 eye floor — blocks, not blur; downscale instead of going lower"; fi ;;
       30) if [ "$CLS" = "clean" ]; then _sn="smallest that still looks right on clean 1080 — below this: blocks, not blur"
-          else _sn="small — a visible step below q40 on broadcast; q25 is the marathon end"; fi ;;
+          else _sn="small — a visible step below q40 on broadcast; q25 is the far end of the dial"; fi ;;
       35) _sn="splits the difference: most of q40's look, ~15% fewer MB" ;;
       40) _sn="the everyday dial — your eye can't tell it from q50"; [ "$IS_FILM" = "1" ] && _sn="film minimum — even q40 is a subtle hit on film; the original is the quality pick" ;;
     esac
