@@ -45,7 +45,10 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.14"          # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
+VERSION="4.17"          # 10.29.26 — every live status line (REC clock, sealing, probe bar, countdowns) is ONE line redrawn in place and cut to the window's width, never wrapped; the stop sentence is said once and the seal shows its own clock and size
+#VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
+#VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
+#VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
                         # 10.5.26 — Instagram login-first + cooldown · the re-encode reason is said once
                         # 9.22.26 — C-SPAN CDN split: constructible manifest now tries m3u8-1 then m3u8-0
                         # 9.21.26 — THE 8.22 ANSWERS ROUND: own-output recognition · high-dial
@@ -713,13 +716,18 @@ abridge_mid() {
 # a bump on stderr (NOT stdout) so the message shows but never pollutes the $() capture.
 uniquify() {
   _stem="$1"; _try="$_stem"; _n=2
-  # a name is taken if the final file, a growing capture (.part), a live claim
-  # sentinel (.claim), OR a STUDIO pair derived from it (" (original)"/
-  # " (reencode)") exists — two captures of the same stream started in the same
-  # minute must not share one file, and a fresh rip must not claim a bare name
-  # whose STUDIO siblings sit right next to it in Finder (7.9.26).
+  # a name is taken if the final file, a reservation (.mp4.claim in the
+  # in-progress folder), a growing capture there (.part or sealed), OR a STUDIO
+  # pair derived from it (" (original)"/" (reencode)") exists — two captures of
+  # the same stream started in the same minute must not share one file, and a
+  # fresh rip must not claim a bare name whose STUDIO siblings sit right next to
+  # it in Finder (7.9.26). 10.29.26: the reservation is a 0-byte .mp4.claim in
+  # $CAPDIR, never a 0-byte .mp4 in the output folder — the output folder only
+  # ever gains FINISHED files (a growing list shuffled the clicks), and a
+  # .claim is a name yt-dlp never writes, so a capture can land on its own stem.
   while :; do
-    if [ -e "$OUTDIR/${_try}.mp4" ] || [ -e "$OUTDIR/${_try}.mp4.part" ] || [ -e "$OUTDIR/${_try}.mp4.claim" ] \
+    if [ -e "$OUTDIR/${_try}.mp4" ] || [ -e "${CAPDIR:-$OUTDIR}/${_try}.mp4.claim" ] \
+       || [ -e "${CAPDIR:-$OUTDIR}/${_try}.mp4.part" ] || [ -e "${CAPDIR:-$OUTDIR}/${_try}.mp4" ] \
        || [ -e "$OUTDIR/${_try} (original).mp4" ] || [ -e "$OUTDIR/${_try} (reencode).mp4" ]; then
       _try="${_stem} (${_n})"; _n=$((_n+1)); continue
     fi
@@ -734,8 +742,8 @@ uniquify() {
     # any claim still 0 bytes at exit. No-WORKDIR callers (unit harnesses) keep the
     # old check-only behavior.
     if [ -n "${WORKDIR:-}" ] && [ -d "$WORKDIR" ]; then
-      if ( set -C; : > "$OUTDIR/${_try}.mp4" ) 2>/dev/null; then
-        printf '%s\n' "$OUTDIR/${_try}.mp4" >> "$WORKDIR/claims" 2>/dev/null
+      if ( set -C; : > "${CAPDIR:-$OUTDIR}/${_try}.mp4.claim" ) 2>/dev/null; then
+        printf '%s\n' "${CAPDIR:-$OUTDIR}/${_try}.mp4.claim" >> "$WORKDIR/claims" 2>/dev/null
         break
       fi
       # The create can fail for two reasons. The name exists (someone claimed it
@@ -743,7 +751,7 @@ uniquify() {
       # exist: the folder is unwritable, or the name itself is unusable (too
       # long for the filesystem, a stray "/") — every bump would fail the same
       # way, so return empty at once and let the caller die with a plain cause.
-      [ -e "$OUTDIR/${_try}.mp4" ] || { printf ''; return 1; }
+      [ -e "${CAPDIR:-$OUTDIR}/${_try}.mp4.claim" ] || { printf ''; return 1; }
       _try="${_stem} (${_n})"; _n=$((_n+1)); continue
     fi
     break
@@ -752,6 +760,28 @@ uniquify() {
   # anyway and the concierge is non-destructive by definition; the log keeps it.
   [ "$_try" != "$_stem" ] && logln "  name bump: \"${_stem}\" was taken (existing file / in-progress rip / STUDIO sibling) → \"${_try}\""
   printf '%s' "$_try"
+}
+
+# place_final <finished file in scratch> <stem> [<ext>] — the ONE way a finished
+# file reaches the output folder (10.29.26): moved whole (same volume: a rename)
+# onto its reserved name beside the other finished files, the reservation
+# released. A stranger's file put on that exact name by hand mid-rip bumps ours
+# to the next free "(n)" (logged); a 0-byte leftover there is overwritten. Sets
+# OUT (and NAME, when the stem was NAME) to where the file actually is.
+place_final() {
+  _pf_src="$1"; _pf_stem="$2"; _pf_ext="${3:-mp4}"
+  _pf_claim="${CAPDIR:-$OUTDIR}/${_pf_stem}.mp4.claim"
+  _pf_dst="$OUTDIR/${_pf_stem}.${_pf_ext}"; _pf_n=2
+  while [ -s "$_pf_dst" ]; do _pf_dst="$OUTDIR/${_pf_stem} (${_pf_n}).${_pf_ext}"; _pf_n=$((_pf_n+1)); done
+  mv -f "$_pf_src" "$_pf_dst" || return 1
+  [ -f "$_pf_claim" ] && [ ! -s "$_pf_claim" ] && rm -f "$_pf_claim" 2>/dev/null
+  if [ "$_pf_dst" != "$OUTDIR/${_pf_stem}.${_pf_ext}" ]; then
+    _pf_new=$(basename "${_pf_dst%.*}")
+    logln "  name bump at placement: \"${_pf_stem}\" was taken by a file put there meanwhile → \"${_pf_new}\""
+    [ "$_pf_stem" = "${NAME:-}" ] && NAME="$_pf_new"
+  fi
+  OUT="$_pf_dst"
+  return 0
 }
 
 # robust sorted-PTS defect score for a file: echoes "%.2f" percent-bad (or ERR)
@@ -1152,15 +1182,15 @@ probe_screen() {
       fi
       _pbar=$(awk -v p="$_ppct" -v F="$BAR_F" -v E="$BAR_E" 'BEGIN{ w=20; f=int(p*w/100); for(i=0;i<w;i++) printf "%s", (i<f?F:E) }')
       _pstat="${_pbar} ${_ppct}%"; [ "${_pexp:-0}" -gt 0 ] 2>/dev/null || _pstat="${_pstat} scanning"
-      printf '\r\033[K%s%s%s probing %s · %s elapsed · ~%s left (est %s)   %s[Enter] skips (sizes/times stay estimates)%s' \
-        "$C_CYAN" "$B_V" "$C_RESET" "$_pstat" "$( [ "$_pe" -gt 0 ] && fmt_dur "$_pe" || printf '0:00' )" "$( [ "${_prem:-0}" -gt 0 ] 2>/dev/null && fmt_dur "$_prem" || printf '0:00' )" "$(fmt_dur "$_pest")" "$C_DIM" "$C_RESET" > /dev/tty
+      live_line "$(printf '%s%s%s probing %s · %s · ~%s left (est %s)   %s[Enter] skips (sizes/times stay estimates)%s' \
+        "$C_CYAN" "$B_V" "$C_RESET" "$_pstat" "$( [ "$_pe" -gt 0 ] && fmt_dur "$_pe" || printf '0:00' )" "$( [ "${_prem:-0}" -gt 0 ] 2>/dev/null && fmt_dur "$_prem" || printf '0:00' )" "$(fmt_dur "$_pest")" "$C_DIM" "$C_RESET")" ""
       if read -t 1 -r _pk < /dev/tty; then
         pkill -P "$_ppid" 2>/dev/null; kill "$_ppid" 2>/dev/null; sleep 0.2; pkill -P "$_ppid" 2>/dev/null
         wait "$_ppid" 2>/dev/null; PROBE_SKIPPED=1; break
       fi
     done
     wait "$_ppid" 2>/dev/null
-    printf '\r\033[K' > /dev/tty
+    live_line_end
   else
     sample_probe "$MKV" 40 "$_psc" "$RATE" "$_pc40" > "$_pout" 2>/dev/null
   fi
@@ -1309,6 +1339,24 @@ box_file() {
 }
 # left rail (interactive decision blocks: prompts read live after ›, no right border)
 rail()       { printf '%s%s%s ' "$C_CYAN" "$B_V" "$C_RESET"; }      # prompt prefix string
+# live_line <text> [<indent>] — THE one way a status line is redrawn in place
+# (REC clock, sealing, probe bar, countdowns). A line wider than the window
+# wraps; `\r\033[K` then clears only the last wrapped row, and every redraw
+# leaves one more row behind (10.29.26: a long seal filled a window with the
+# same sentence 45 times). So the visible length (color codes stripped) is
+# measured against the window, re-read on every draw, and an overflow is cut
+# to fit with "…" — plain text, colors dropped only then. Never the last cell
+# (autowrap). Characters, not bytes, whatever the window's locale.
+live_line() {
+  _ll_ind="${2-  }"
+  _ll_cols=$(stty size < /dev/tty 2>/dev/null | awk '{print $2}'); [ "${_ll_cols:-0}" -gt 0 ] 2>/dev/null || _ll_cols=${COLUMNS:-80}
+  _ll_max=$(( _ll_cols - ${#_ll_ind} - 1 ))
+  _ll_plain=$(printf '%s' "$1" | sed $'s/\033\\[[0-9;]*[a-zA-Z]//g')
+  _ll_n=$(LC_CTYPE=UTF-8; printf '%s' "${#_ll_plain}")
+  if [ "$_ll_n" -le "$_ll_max" ]; then printf '\r\033[K%s%s' "$_ll_ind" "$1" > /dev/tty
+  else printf '\r\033[K%s%s…' "$_ll_ind" "$(LC_CTYPE=UTF-8; printf '%s' "${_ll_plain:0:$(( _ll_max - 1 ))}")" > /dev/tty; fi
+}
+live_line_end() { printf '\r\033[K' > /dev/tty 2>/dev/null; }   # the line is over: clear it
 frame_rail() { printf '%s%s%s %s\n' "$C_CYAN" "$B_V" "$C_RESET" "$1"; logln "| $1"; }  # a content line
 # V4.3 word-wrap for prose on the rail: wrap_rail COLOR INDENT TEXT — TEXT wraps at
 # $WRAPW (chars, multibyte-aware via ${#}); the 2nd+ lines carry INDENT (a hanging
@@ -1866,7 +1914,7 @@ EOF3
             _ov=""; _cn=5
             while [ "$_cn" -ge 1 ]; do
               _cpl="$(chip_line "keep your pick?" Enter "Best MP4 ${_ROW1:-#1}" k "keep it" "" "auto-Enter in ${_cn}s")"
-              printf '\r\033[2K%s ' "$_cpl" > /dev/tty
+              live_line "$_cpl " ""
               if IFS= read -r -s -n1 -t 1 _ov < /dev/tty; then break; fi   # one key, no Enter needed: k keeps; Enter = row 1
               _ov=""; _cn=$((_cn-1))
             done
@@ -2000,6 +2048,15 @@ if [ -n "$LOCAL_SRC" ]; then
   fi
 fi
 mkdir -p "$OUTDIR"  || die "cannot create output dir $OUTDIR"
+# "_in progress" (10.29.26): everything a run is still working on in the output
+# folder — name reservations, a growing live capture and its halves, a seal —
+# lives in this one subfolder, so the folder itself only ever gains FINISHED
+# files and holds still under the clicks. It is permanent (a folder that came
+# and went moved the list too); the underscore keeps it first in a name sort.
+# A local file's re-encode lands beside its source, and that folder gets no
+# subfolder: its reservation sits beside the source as before (0 bytes, gone at exit).
+if [ -n "$LOCAL_SRC" ] && [ -z "$OUT_FALLBACK" ]; then CAPDIR="$OUTDIR"
+else CAPDIR="$OUTDIR/_in progress"; mkdir -p "$CAPDIR" || die "cannot create $CAPDIR"; fi
 # disk-space preflight (8.11.26): fail EARLY with a plain cause instead of a
 # cryptic mid-download/mid-encode death. Floors, not estimates: a rip needs room
 # for scratch + output. SLIPMAT_MIN_FREE_MB overrides the die floor (test hook).
@@ -2077,18 +2134,34 @@ done
 # "✗ closed <title>". Every normal and die path has already run finish_log
 # (RUNLOG is then empty), so this is a no-op there. Still NO trap on INT.
 on_exit() {
+  _rc=$?
   cleanup_scratch
   [ "${IS_TTY:-0}" = "1" ] && [ -n "${LIVE_STOP:-}" ] && stty intr '^C' echo < /dev/tty 2>/dev/null   # a death mid-seal must not leave the key off
-  [ -f "${RUNLOG:-/nonexistent}" ] || return 0
-  case "$RUNLOG" in
-    *_$$.log)
-      _xl="✗ closed${ID_TITLE:+ $ID_TITLE}"
-      if [ "${IS_LIVE:-0}" = "1" ] && [ -n "${NAME:-}" ]; then
-        for _xg in "$OUTDIR/${NAME}".*; do [ -s "$_xg" ] && { _xl="$NAME"; break; }; done
-      fi
-      logln ""; logln "run ended by a signal (window closed or Ctrl-C) before it finished"
-      finish_log "$_xl" ;;
-  esac
+  if [ -f "${RUNLOG:-/nonexistent}" ]; then
+    case "$RUNLOG" in
+      *_$$.log)
+        _xl="✗ closed${ID_TITLE:+ $ID_TITLE}"
+        if [ "${IS_LIVE:-0}" = "1" ] && [ -n "${NAME:-}" ]; then
+          for _xg in "$OUTDIR/${NAME}".* "${CAPDIR:-$OUTDIR}/${NAME}".*; do [ -s "$_xg" ] && { _xl="$NAME"; break; }; done
+        fi
+        logln ""; logln "run ended by a signal (window closed or Ctrl-C) before it finished"
+        finish_log "$_xl" ;;
+    esac
+  fi
+  window_close "$_rc"
+}
+# The launcher's window closes itself WINDOW_CLOSE_MIN minutes after a finished
+# run (10.29.26): only a run that ended well (exit 0), only in a window the
+# launcher opened (SLIPMAT_WINDOW=1 — a run typed into your own tab is never
+# closed), never inside a batch; x or Enter closes it now, any other key keeps it. A failure or a stop leaves
+# the window up so the receipt can be read. tools/window-close.sh does the close.
+window_close() {
+  [ "${1:-1}" = "0" ] || return 0
+  [ "${SLIPMAT_WINDOW:-0}" = "1" ] && [ "${IS_TTY:-0}" = "1" ] && [ "${SLIPMAT_Z_AUTO:-0}" != "1" ] || return 0
+  _m="${WINDOW_CLOSE_MIN:-5}"; case "$_m" in ''|*[!0-9]*) _m=5 ;; esac
+  [ "$_m" -gt 0 ] || return 0
+  [ -f "$APPDIR/tools/window-close.sh" ] && /bin/bash "$APPDIR/tools/window-close.sh" $(( _m * 60 ))
+  return 0
 }
 trap on_exit EXIT
 trap 'cleanup_scratch; exit 143' TERM
@@ -3016,7 +3089,7 @@ ask_live_start() {
   if [ "$_secs" -gt 0 ]; then
     _i=$_secs
     while [ "$_i" -gt 0 ]; do
-      printf '\r\033[K%s%s now   %snow in %ss%s   %s%s%s ' "$(rail)" "$(chip Enter)" "$C_ACC" "$_i" "$C_RESET" "$C_CYAN" "$G_ARR" "$C_RESET" > /dev/tty
+      live_line "$(printf '%s%s now   %snow in %ss%s   %s%s%s ' "$(rail)" "$(chip Enter)" "$C_ACC" "$_i" "$C_RESET" "$C_CYAN" "$G_ARR" "$C_RESET")" ""
       if read -t 1 -r _ans < /dev/tty; then _got=1; break; fi
       _i=$((_i-1))
     done
@@ -3047,7 +3120,7 @@ ask_live_start() {
 # name, the halves removed by exact path. A lone video half is kept, said plainly.
 seal_live_orphans() {
   _sv=""; _sa=""
-  for _sf in "$OUTDIR/${NAME}".f[0-9]*.*; do
+  for _sf in "${CAPDIR:-$OUTDIR}/${NAME}".f[0-9]*.*; do
     [ -s "$_sf" ] || continue
     case "$_sf" in *.ytdl) continue ;; esac
     _st=$("$FFPROBE" -v error -show_entries stream=codec_type -of csv=p=0 "$_sf" 2>/dev/null | tr -d ',' | sort -u | tr '\n' ' ')
@@ -3055,17 +3128,17 @@ seal_live_orphans() {
   done
   [ -n "$_sv" ] || return 1
   if [ -n "$_sa" ]; then
-    "$FFMPEG" -hide_banner -loglevel error -y -i "$_sv" -i "$_sa" -map 0:v:0 -map 1:a:0 -c copy -shortest -movflags +faststart "$OUT" </dev/null 2>>"$LIVE_ERRLOG" \
-      || { rm -f "$OUT" 2>/dev/null; return 1; }
+    "$FFMPEG" -hide_banner -loglevel error -y -i "$_sv" -i "$_sa" -map 0:v:0 -map 1:a:0 -c copy -shortest -movflags +faststart "$CAP" </dev/null 2>>"$LIVE_ERRLOG" \
+      || { rm -f "$CAP" 2>/dev/null; return 1; }
     warn "the seal was cut short — sealed the video and audio halves into one mp4 myself"
     rm -f "$_sv" "$_sa" "$_sa.ytdl" "${_sa%.part}.ytdl" 2>/dev/null
   else
-    "$FFMPEG" -hide_banner -loglevel error -y -i "$_sv" -c copy -movflags +faststart "$OUT" </dev/null 2>>"$LIVE_ERRLOG" \
-      || { rm -f "$OUT" 2>/dev/null; return 1; }
+    "$FFMPEG" -hide_banner -loglevel error -y -i "$_sv" -c copy -movflags +faststart "$CAP" </dev/null 2>>"$LIVE_ERRLOG" \
+      || { rm -f "$CAP" 2>/dev/null; return 1; }
     warn "the seal was cut short and only the VIDEO half landed — this capture has no audio"
     rm -f "$_sv" 2>/dev/null
   fi
-  PRODUCED="$OUT"
+  PRODUCED="$CAP"   # sealed in the in-progress folder; the move-up places it
 }
 
 build_live_name() {
@@ -3205,6 +3278,12 @@ esac
 if [ "$IS_LIVE" = "1" ]; then
   NAME=$(build_live_name)
   OUT="$OUTDIR/${NAME}.mp4"
+  # the capture grows in the in-progress folder (10.29.26): a growing .part — and
+  # the per-stream halves and fragments of a rewind — shuffled the Finder list
+  # under the clicks. The sealed file is placed beside the finished files when
+  # the capture ends; the .mp4.claim reservation holds the name meanwhile. A
+  # capture that died with its window keeps its .part in the in-progress folder.
+  CAP="$CAPDIR/${NAME}.mp4"
   say ""
   # ---- rewind (10.5.26): from-start / last-N is a YouTube DVR feature. yt-dlp
   # reaches it with --live-from-start; tools/live-rewind.py narrows the window.
@@ -3253,7 +3332,7 @@ if [ "$IS_LIVE" = "1" ]; then
   # the keys while it records — shown, not hidden (10.5.26 night): x = stop, asked
   # once. Ctrl-C (the emergency exit, never printed) still stops at once; both
   # take the same seal path (live-rewind.py).
-  LIVE_ASK=""; LIVE_ASK_TEXT=""; LIVE_STOP_TEXT="$G_OK stopping · sealing the capture into one mp4 — keys are off until it is done (closing the window abandons it)"
+  LIVE_ASK=""; LIVE_ASK_TEXT=""; LIVE_STOP_TEXT="$G_OK stopping · sealing into one mp4 — keys are off until it is done (closing the window abandons it)"   # said ONCE, at the press (live-rewind.py prints it as a finished line); the REC line then shows the seal's own clock
   if [ "$IS_TTY" = "1" ] && [ -n "$LIVE_PY" ]; then
     LIVE_ASK="$WORKDIR/live.ask"; rm -f "$LIVE_ASK" 2>/dev/null
     LIVE_ASK_TEXT="${C_Q}stop the capture?${C_RESET} $(chip x) again = stop · any other key = keep recording"
@@ -3271,17 +3350,10 @@ if [ "$IS_LIVE" = "1" ]; then
   # 10.12 (his ask): what is being recorded, bold, right above the REC clock — title · channel · date
   LIVE_WHO="${_ptag:-}${ID_CHAN:+@$ID_CHAN}"
   say "  ${C_BOLD}${ID_TITLE:-live}${LIVE_WHO:+ · $LIVE_WHO} · $(date +%-m.%-d.%y)${C_RESET}"
-  # LIVE is the one path where YT-DLP (not ffmpeg -y) writes the final file, and a
-  # pre-existing target makes yt-dlp skip as "already downloaded" — so the 0-byte
-  # name-claim can't stay AT the target path. But simply deleting it reopened the
-  # same-video race for live (two captures started in the same MINUTE share the
-  # stamp; proven 7.8.26: both wrote ONE .part). CONVERT the claim to a .claim
-  # sentinel instead: the target is free for yt-dlp, uniquify still sees the name
-  # as taken (it checks .part and .claim too), and cleanup removes the sentinel.
-  if [ -f "$OUT" ] && [ ! -s "$OUT" ]; then
-    mv "$OUT" "$OUT.claim" 2>/dev/null
-    printf '%s\n' "$OUT.claim" >> "$WORKDIR/claims" 2>/dev/null
-  fi
+  # yt-dlp writes the capture at $CAP; the reservation is $CAP.claim (a name
+  # yt-dlp never writes or sees as "already downloaded"), so uniquify keeps
+  # seeing the name as taken the whole capture (two captures started in the same
+  # MINUTE share the stamp; proven 7.8.26) and the sealed file can land on its stem.
   term_title "● REC · $(abridge "${ID_TITLE:-live}" 55)${LIVE_WHO:+ · $LIVE_WHO} · $(date +%-m.%-d.%y)"
   # ---- live-capture display (7.7.26) -----------------------------------------
   # The old capture spewed ffmpeg's URL-opening lines + frame-stats wall, scrolling
@@ -3308,12 +3380,12 @@ if [ "$IS_LIVE" = "1" ]; then
       _ff=""   # sticky handle on the growing file once found
       while :; do
         if [ -n "$_ff" ] && [ -f "$_ff" ]; then _f="$_ff"
-        else _f="$OUT.part"; [ -f "$_f" ] || _f="$OUT"; fi
+        else _f="$CAP.part"; [ -f "$_f" ] || _f="$CAP"; fi
         _sz=$(stat -f %z "$_f" 2>/dev/null); _sz=${_sz:-0}
         # while no bytes are visible, glob for an odd-ext part file (e.g. a custom
         # pick landing .ts); once found it stays sticky — steady state is stat-only.
         if [ "$_sz" -eq 0 ] 2>/dev/null; then
-          for _g in "$OUTDIR/${NAME}."*; do
+          for _g in "$CAPDIR/${NAME}."*; do
             [ -f "$_g" ] || continue
             _gz=$(stat -f %z "$_g" 2>/dev/null); _gz=${_gz:-0}
             [ "$_gz" -gt "$_sz" ] 2>/dev/null && { _sz=$_gz; _f="$_g"; }
@@ -3333,16 +3405,23 @@ if [ "$IS_LIVE" = "1" ]; then
         fi
         # V4.1: time · size lead, then the stream, then the start clock; the stop
         # key sits at the end the whole time (10.5.26 night: shown, not hidden)
-        if [ -f "$LIVE_STOP" ]; then   # the stop landed (x or Ctrl-C): say so, once a second, until the seal is done
-          printf '\r\033[K  %s%s%s' "$C_GRN" "$LIVE_STOP_TEXT" "$C_RESET" > /dev/tty
+        if [ -f "$LIVE_STOP" ]; then   # the stop landed (x or Ctrl-C): the sentence was said once at the press; this line is the seal's own clock and the newest file's size, in place
+          [ -n "${_sl0:-}" ] || _sl0=$SECONDS
+          _se=$((SECONDS - _sl0)); printf -v _sel '%d:%02d' $((_se/60)) $((_se%60))
+          _sf=$(ls -t "$CAPDIR/${NAME}".* 2>/dev/null | grep -v '\.claim$' | head -1)
+          _ssz=$(stat -f %z "$_sf" 2>/dev/null); _ssz=${_ssz:-0}
+          if   [ "$_ssz" -ge 1073741824 ]; then printf -v _shs '%d.%02dGB' $((_ssz/1073741824)) $(( (_ssz % 1073741824) * 100 / 1073741824 ))
+          elif [ "$_ssz" -ge 1048576 ];    then _shs="$(( _ssz / 1048576 ))MB"
+          else                                  _shs="$(( _ssz / 1024 ))KB"; fi
+          live_line "${C_GRN}${G_OK}${C_RESET} sealing · $_sel · $_shs"
           sleep 1; continue
         fi
         if [ -n "$LIVE_ASK" ] && [ -f "$LIVE_ASK" ]; then   # x was pressed once: the question stays up until answered (5 s)
-          printf '\r\033[K  %s' "$LIVE_ASK_TEXT" > /dev/tty
+          live_line "$LIVE_ASK_TEXT"
           sleep 1; continue
         fi
-        printf '\r\033[K  %s%s REC%s %s · %s · since %s%s' \
-          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$LIVE_QL" "$_clk" "${LIVE_ASK:+ · $(chip x) stop}" > /dev/tty
+        live_line "$(printf '%s%s REC%s %s · %s · since %s%s' \
+          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$LIVE_QL" "$_clk" "${LIVE_ASK:+ · $(chip x) stop}")"
         sleep 2
       done
     ) &
@@ -3360,29 +3439,29 @@ if [ "$IS_LIVE" = "1" ]; then
   NAME_TMPL=$(printf '%s' "$NAME" | sed 's/%/%%/g')
   live_capture_now() {   # the proven capture, bit-for-bit: foreground, unpiped
     if [ -n "$LIVE_PY" ]; then   # same yt-dlp, in-process, + the first-Ctrl-C handler (SLIPMAT_LIVE_BACK=0 = no rewind)
-      SLIPMAT_LIVE_BACK=0 SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
+      SLIPMAT_LIVE_BACK=0 SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET"$'\n' "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
         $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
         -f "$LIVE_F" \
         --downloader-args "ffmpeg_i:-loglevel error" \
         --postprocessor-args "ffmpeg:-movflags +faststart" \
-        -o "$OUTDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+        -o "$CAPDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
     else
       "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
         -f "$LIVE_F" \
         --downloader-args "ffmpeg_i:-loglevel error" \
         --postprocessor-args "ffmpeg:-movflags +faststart" \
-        -o "$OUTDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+        -o "$CAPDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
     fi
   }
   if [ "$LIVE_REWIND" = "1" ]; then
     # same process shape as above (foreground, unpiped, Ctrl-C lands in yt-dlp);
     # the wrapper imports yt-dlp in-process and only moves its 120 h rewind cap.
     # Exit 86 = this yt-dlp moved the hook → the plain capture runs instead.
-    SLIPMAT_LIVE_BACK="$LIVE_BACK" SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET" "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
+    SLIPMAT_LIVE_BACK="$LIVE_BACK" SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET"$'\n' "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
       $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings --live-from-start \
       -f "$LIVE_F" \
       --postprocessor-args "ffmpeg:-movflags +faststart" \
-      -o "$OUTDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+      -o "$CAPDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
     if [ "$?" = "86" ]; then
       warn "this yt-dlp build moved the rewind hook (see the run log) — recording from now instead"
       LIVE_WIN=""; live_capture_now
@@ -3395,18 +3474,17 @@ if [ "$IS_LIVE" = "1" ]; then
     _how=$(head -c 12 "$LIVE_STOP" 2>/dev/null | tr -dc 'a-zA-Z-'); [ -n "$_how" ] || _how="Ctrl-C"
     logln "  stopped by $_how at $(fmt_dur "$LIVE_EL") (wall clock); later presses were disarmed"
   fi
-  rm -f "$OUT.claim" 2>/dev/null   # the capture (or its absence) speaks for itself now
   # stop the status line the instant capture ends (finalize happens inside yt-dlp)
   if [ -n "$LIVE_RPID" ]; then
     kill "$LIVE_RPID" 2>/dev/null; wait "$LIVE_RPID" 2>/dev/null
-    printf '\r\033[K' > /dev/tty 2>/dev/null
+    live_line_end
   fi
   # pick the REAL capture — never yt-dlp's intermediates (8.11, caught in the
   # wild: a 5.5h capture's receipt named the leftover NAME.temp.mp4 because it
   # was newest; the finished .mp4 sat right beside it).
   # … and never a per-stream intermediate (NAME.f136.mp4 — 10.5.26 eve: a second
   # Ctrl-C had cut the seal short and the receipt named the silent video half)
-  PRODUCED=$(ls -t "$OUTDIR/${NAME}".* 2>/dev/null | grep -vE '\.temp\.[^.]+$|\.part$|\.ytdl$|\.f[0-9]+\.[^.]+$' | head -1)
+  PRODUCED=$(ls -t "$CAPDIR/${NAME}".* 2>/dev/null | grep -vE '\.temp\.[^.]+$|\.part$|\.ytdl$|\.claim$|\.f[0-9]+\.[^.]+$' | head -1)
   { [ -n "$PRODUCED" ] && [ -s "$PRODUCED" ]; } || seal_live_orphans
   { [ -n "$PRODUCED" ] && [ -s "$PRODUCED" ]; } || { surface_log "$LIVE_ERRLOG"; die "live capture produced no file (URL may have ended/failed)."; }
   # V4.6 (9.21): the VIDEO's duration is king — the wall-clock window
@@ -3421,10 +3499,17 @@ if [ "$IS_LIVE" = "1" ]; then
   logln "  capture window ran $(fmt_dur $(( LIVE_EL > 0 ? LIVE_EL : 1 ))) (wall clock)"
   # a stale finalize temp beside a HEALTHY capture is dead bytes — sweep it
   # (only when the real file verifiably has a video stream; else leave evidence)
-  if [ -f "$OUTDIR/${NAME}.temp.mp4" ] && [ "$PRODUCED" != "$OUTDIR/${NAME}.temp.mp4" ] \
+  if [ -f "$CAPDIR/${NAME}.temp.mp4" ] && [ "$PRODUCED" != "$CAPDIR/${NAME}.temp.mp4" ] \
      && [ -n "$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$PRODUCED" 2>/dev/null)" ]; then
-    rm -f "$OUTDIR/${NAME}.temp.mp4" 2>/dev/null
+    rm -f "$CAPDIR/${NAME}.temp.mp4" 2>/dev/null
     note "cleaned up yt-dlp's leftover finalize temp."
+  fi
+  # out of the in-progress folder, whole, beside the finished files (same volume:
+  # a rename); the reservation is released. An odd extension (.ts) keeps its stem.
+  if [ "$(dirname "$PRODUCED")" = "$CAPDIR" ]; then
+    if place_final "$PRODUCED" "$(basename "${PRODUCED%.*}")" "${PRODUCED##*.}"; then PRODUCED="$OUT"
+    else warn "could not move the capture out of the in-progress folder — it is there: $PRODUCED"; fi
+    rm -f "$CAPDIR/${NAME}".*.ytdl "$CAPDIR/${NAME}.ytdl" 2>/dev/null
   fi
 
   # STUDIO-on-live: the file is now finite, so a re-encode is optional & offered.
@@ -3709,7 +3794,7 @@ if is_newsmax && [ "$IS_TTY" = "1" ] && [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z 
     cat > "$QDIR/quiz.sh" <<QEOF
 #!/bin/bash
 export LC_CTYPE=en_US.UTF-8
-Q="$QDIR"; OUTD="$OUTDIR"; WD="$WORKDIR"; DEF="$NAME"; DEFDATE="$_qdef"
+Q="$QDIR"; OUTD="$OUTDIR"; WD="$WORKDIR"; DEF="$NAME"; DEFDATE="$_qdef"; WC="$APPDIR/tools/window-close.sh"; DONE_OK=0
 SHOWS="$_qshows"; LEARN="$NMX_SHOWS_LEARNED"; PAGET="$_qpage"
 sane() { printf '%s' "\$1" | sed -e 's/:/：/g' -e 's/?/？/g' -e 's#/#⧸#g' -e 's/"/＂/g' -e 's/</＜/g' -e 's/>/＞/g' -e 's/|/｜/g' -e 's/\\*/＊/g'; }
 printf '\\033]0;NMX quiz · ${NMX_CLK:-now}\\007'
@@ -3729,7 +3814,7 @@ SHOW=""; i=1; IFS='|'; for s in \$SHOWS; do [ "\$a" = "\$i" ] && SHOW="\$s"; i=\
 if [ -z "\$SHOW" ]; then
   if [ -z "\$a" ]; then printf '   show name  › '; read -r SHOW; else SHOW="\$a"; fi   # Enter = custom; a second Enter = the default name stands
 fi
-[ -z "\$SHOW" ] && { echo "ok — default name stands. you can close this window."; rm -rf "\$Q" 2>/dev/null; exit 0; }
+[ -z "\$SHOW" ] && { echo "ok — default name stands."; rm -rf "\$Q" 2>/dev/null; /bin/bash "\$WC" 5; exit 0; }
 SHOW=\$(sane "\$SHOW")   # the menu, the file name and the learned list all carry the cleaned form
 case "|\$SHOWS|" in *"|\$SHOW|"*) : ;; *) printf '%s\n' "\$SHOW" >> "\$LEARN" 2>/dev/null ;; esac   # learn new shows
 # the date rows count back from the Enter date (the feed's date-stamp − 1 day), not from today
@@ -3754,7 +3839,7 @@ while [ ! -s "\$Q/final" ]; do
   [ \$_w -gt 14400 ] && { echo "gave up waiting after 4h."; exit 0; }
 done
 ST=\$(sed -n 1p "\$Q/final")
-if [ "\$ST" = "applied" ]; then echo "✓ the rip renamed the file itself — done; close this window."
+if [ "\$ST" = "applied" ]; then echo "✓ the rip renamed the file itself — done."; DONE_OK=1
 elif [ "\$ST" = "kept" ]; then echo "! the rip kept the DEFAULT name (rename failed — odd characters?)."
 elif [ "\$ST" = "failed" ]; then echo "✗ the rip ended without a finished file (failed or canceled) — nothing to rename."
 else
@@ -3764,11 +3849,13 @@ else
     # noclobber claim: two same-answer quiz renames must never
     # silently replace each other — creation IS the taken-test, like uniquify.
     while ! ( set -C; : > "\$T" ) 2>/dev/null; do T="\$OUTD/\$NEW (\$n).mp4"; n=\$((n+1)); [ \$n -gt 50 ] && break; done
-    mv -f "\$FP" "\$T" && echo "✓ renamed -> \$(basename "\$T")"
+    mv -f "\$FP" "\$T" && { echo "✓ renamed -> \$(basename "\$T")"; DONE_OK=1; }
   else echo "✗ finished file not found (\$FP) — rename manually."; fi
 fi
 rm -rf "\$Q" 2>/dev/null
-echo "(done — you can close this window)"
+# the name is on the file: this window has nothing left to say (10.29.26). A
+# failed rename stays up to be read.
+if [ "\$DONE_OK" = "1" ]; then /bin/bash "\$WC" 5; else echo "(done — you can close this window)"; fi
 QEOF
     chmod +x "$QDIR/quiz.sh"
     ( osascript -e "tell application \"Terminal\" to do script \"/bin/bash '$QDIR/quiz.sh'\"" >/dev/null 2>&1 & )
@@ -3903,7 +3990,7 @@ if [ "$FAST" = "1" ]; then
       "$FFMPEG" -hide_banner -loglevel error -y -i "$DLF" $VAMAP -c:v copy $AOPT $VTAG \
         -movflags +faststart -max_muxing_queue_size 40000 "$_FT" </dev/null \
         || die "could not finalize the download to mp4."
-      mv "$_FT" "$OUT" || die "could not place the finished file in $OUTDIR."
+      place_final "$_FT" "$NAME" || die "could not place the finished file in $OUTDIR."
       VOK=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$OUT")
       [ -n "$VOK" ] || die "output has no readable video stream."
       AOK=$("$FFPROBE" -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$OUT")
@@ -5379,7 +5466,7 @@ reencode() {
     surface_log "$FF_LOG"
     die "re-encode failed."
   fi
-  mv -f "$ENC_TMP" "$OUT" || die "could not move the finished encode into place."
+  place_final "$ENC_TMP" "$_name" || die "could not move the finished encode into place."
   ENC_EL=$((SECONDS - ENC_T0))
   ok "encoded in $(fmt_dur $(( ENC_EL > 0 ? ENC_EL : 1 )))"
   # ETA accountability (V4.0): ONE greppable line per encode — quoted
@@ -5425,7 +5512,7 @@ lossless() {
   "$FFMPEG" -hide_banner -loglevel error -y -i "$MKV" $VAMAP -c:v copy $AOPT $VTAG \
     -movflags +faststart -max_muxing_queue_size 40000 "$ENC_TMP" </dev/null
   { [ $? -eq 0 ] && [ -s "$ENC_TMP" ]; } || die "lossless remux failed."
-  mv -f "$ENC_TMP" "$OUT" || die "could not move the finished remux into place."
+  place_final "$ENC_TMP" "$_name" || die "could not move the finished remux into place."
   PATHTAG="LOSSLESS (video copy)"
 }
 
@@ -5436,7 +5523,7 @@ if [ "$DO_REENCODE" = "1" ]; then
   # "<base> (720p q30 24fps)" now that it is.
   if [ -n "$LOCAL_SRC" ] && [ -n "${RECIPE_TAG:-}" ]; then
     _lstem="${NAME% (reencode)}"; _lstem="${_lstem% (reencode) (*)}"
-    [ -f "$OUTDIR/${NAME}.mp4" ] && [ ! -s "$OUTDIR/${NAME}.mp4" ] && rm -f "$OUTDIR/${NAME}.mp4"
+    rm -f "$CAPDIR/${NAME}.mp4.claim" 2>/dev/null
     NAME=$(uniquify "$(abridge "$_lstem" $(( 232 - $(printf '%s' "$RECIPE_TAG" | LC_ALL=C wc -c | tr -d ' ') ))) (${RECIPE_TAG})")
     [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
   fi
@@ -5472,7 +5559,7 @@ if [ "$DO_REENCODE" = "1" ]; then
     esac
     # release the pre-claimed "(reencode)" stem (0-byte claim stub, ours) and
     # claim the [Z] name instead — same atomic uniquify path
-    [ -f "$OUTDIR/${NAME}.mp4" ] && [ ! -s "$OUTDIR/${NAME}.mp4" ] && rm -f "$OUTDIR/${NAME}.mp4"
+    rm -f "$CAPDIR/${NAME}.mp4.claim" 2>/dev/null
     NAME=$(uniquify "$(abridge "$_zn" 227) [Z]")
     [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
   fi
@@ -5489,7 +5576,7 @@ if [ "$DO_REENCODE" = "1" ]; then
       if [ "$(ask_yn "$(chip_line "keep the re-encode?" Enter "no, keep only the original" y "keep both")" n)" != "y" ]; then
         rm -f "$OUT"
         _plain="$OUTDIR/${BASE_STEM}.mp4"
-        if mv -f "$ORIG_OUT" "$_plain" 2>/dev/null; then OUT="$_plain"; NAME="$BASE_STEM"
+        if mv -f "$ORIG_OUT" "$_plain" 2>/dev/null; then OUT="$_plain"; NAME="$BASE_STEM"; rm -f "$CAPDIR/${BASE_STEM}.mp4.claim" 2>/dev/null
         else OUT="$ORIG_OUT"; fi
         ORIG_OUT=""
         PATHTAG="LOSSLESS (pointless re-encode discarded — kept your original)"

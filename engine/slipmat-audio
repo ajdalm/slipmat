@@ -318,4 +318,6 @@ say "─────────────────────────
 say "  $OUT"
 title "✓ AUDIO done · $(abridge "${M_TITLE:-$NAME}" 60)"
 mv "$RUNLOG" "$LOGDAY/$(date +%H%M%S) AUDIO $(abridge "$NAME" 140).log" 2>/dev/null
+# the launcher's window closes itself after a finished rip (10.29.26; x or Enter closes it now, any other key keeps it; WINDOW_CLOSE_MIN=0 turns it off)
+if [ "${SLIPMAT_WINDOW:-0}" = "1" ] && [ "$IS_TTY" = "1" ]; then _m="${WINDOW_CLOSE_MIN:-5}"; case "$_m" in ''|*[!0-9]*) _m=5 ;; esac; [ "$_m" -gt 0 ] && [ -f "$SLIP_REPO/tools/window-close.sh" ] && /bin/bash "$SLIP_REPO/tools/window-close.sh" $(( _m * 60 )); fi
 exit 0

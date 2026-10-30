@@ -120,6 +120,8 @@ on run argv
 	end if
 	tell application "Terminal"
 		activate
-		do script cmd
+		-- SLIPMAT_WINDOW=1: this window is the launcher's own, so it closes itself
+		-- a few minutes after a finished rip (any key keeps it). Batch windows stay.
+		do script "SLIPMAT_WINDOW=1 " & cmd
 	end tell
 end run

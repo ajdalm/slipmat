@@ -220,6 +220,43 @@ HOME=$H slipmat video '<a 3 h replay of an ended stream>' 720 auto last-5m
 #      named "… (last 5m) [id] - …"
 # then LOOK: cat /tmp/l1.raw in a Terminal tab — the question, two aligned chip rows, Enter row
 ```
+
+A capture grows in the `_in progress` folder inside the output folder and is
+placed beside the finished files when it ends (10.29.26); the folder stays (it is
+permanent, so the list never gains or loses that row). Every VOD rip reserves its
+name there too (`<name>.mp4.claim`, 0 bytes) and the output folder gains the
+finished file only:
+
+```
+# x x after 30 s (ptydrive delays are sequential: 30 then 3): while it records,
+# `ls "$O/_in progress"` shows the growing .part + the .mp4.claim and nothing new
+# in $O; after the seal the mp4 is in $O and the folder holds nothing of it
+HOME=$H SLIPMAT_LIVE_ASK=0 PTY_COLS=104 python3 tools/ptydrive.py /tmp/l4.raw 150 -- '<live url>' max best -- KEY@30:x KEY@3:x
+# a VOD: during the download `ls "$O/_in progress"` shows only the .mp4.claim,
+# `ls "$O"` nothing new; at the end the mp4 is in $O and the claim is gone
+HOME=$H slipmat video '<short vod url>' 360 best
+```
+
+Every live status line is one in-place line cut to the window (10.29.26; the
+old seal line, wider than the window, wrapped and left one row behind per tick —
+45 copies on a long seal). The width rule is proven in a narrow pty, no rip
+needed: run `python3 tools/ptyline.py` (prints each frame's visible length — at
+60 columns every frame is one row of at most 59 characters, the long ones ending
+in "…"). On a real capture in a 70-column pty the stop sentence appears ONCE as a
+finished line, the row under it reads "✓ sealing · 0:03 · 12MB" and updates in
+place, then "✓ captured …" and the DONE box:
+
+```
+HOME=$H SLIPMAT_LIVE_ASK=0 PTY_COLS=70 python3 tools/ptydrive.py /tmp/l5.raw 200 -- '<live url>' max best -- KEY@25:x KEY@3:x
+```
+
+The finished window closes itself (10.29.26): a throwaway window proves the helper
+without a rip — it closes 4 s after the three lines print, silently, and only
+that window; typed before that, `x` or Enter closes it at once, any other key keeps it:
+
+```
+osascript -e 'tell application "Terminal" to do script "bash -c \"echo test; bash ~/SLIPMAT/tools/window-close.sh 4\""'
+```
 `slipmat smoke` checks offline that the installed yt-dlp still carries the
 rewind hook, that the wrapper still handles SIGINT, that receipts never pick a
 per-stream half, and that the ask stays out of z-auto batches.

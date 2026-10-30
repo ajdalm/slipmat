@@ -44,6 +44,10 @@
 # PATH. Set this if you installed the pip variant next to Homebrew's:
 #YTDLP="$HOME/Library/Python/3.12/bin/yt-dlp"
 
+# A finished rip's window (the ones the menu-bar Shortcuts open) closes itself
+# after this many minutes; x or Enter closes it now, any other key keeps it open. 0 = windows stay open:
+#WINDOW_CLOSE_MIN=5
+
 # Scratch folder for downloads in progress (each run gets its own subfolder):
 #WORKROOT="$HOME/.slipmat/work"
 

@@ -103,7 +103,7 @@ def _on_sigint(signum, frame):
             except OSError:
                 pass
             txt = os.environ.get('SLIPMAT_LIVE_STOP_TEXT', '')
-            if txt and _fd >= 0:          # said at once; the REC line repeats it until the seal is done
+            if txt and _fd >= 0 and _stop.how != 'x':   # said ONCE: the key thread already said it on x x; a Ctrl-C says it here (10.29.26)
                 try:
                     os.write(_fd, b'\r\033[K' + txt.encode('utf-8', 'replace'))
                 except OSError:

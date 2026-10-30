@@ -112,7 +112,9 @@ video door, and it asks where the capture should start: now, 5 minutes to
 distance. AUTO(BEST) and AUTO(720p) start from now by themselves after 8
 seconds; PICKER and STUDIO wait. While it records the key is on the
 screen: `x` stops (it asks once; a second `x` seals one playable mp4).
-After the stop every key is off until the file is done. Other sites record
+After the stop every key is off until the file is done. While it records the
+growing file sits in the `_in progress` folder inside the output folder; the
+sealed mp4 is placed beside the finished files when the capture ends. Other sites record
 from now and say so. From the command line the window can be given up front and
 the question is skipped: `slipmat video <url> max best from-start`,
 `… last-2h`, `… last-90m` — and on a stream that already ended, `last-2h`
@@ -161,6 +163,19 @@ browser cookies, quality, naming style, your own embed-page hosts.
   every further key is swallowed until the receipt is written, so banging
   the key is safe. Ctrl-C is not a slipmat key: it is the terminal's own
   emergency exit, and it still works.
+- A finished window closes itself after 5 minutes: `x` or Enter closes it
+  now, any other key keeps it open (`WINDOW_CLOSE_MIN=0` in the config leaves
+  every window up). A failed or stopped run stays on screen to be read. The
+  Newsmax naming window closes itself as soon as its name is on the file.
+- Every moving line (the REC clock, the seal, the probe bar, a countdown) is
+  one line redrawn in place and cut to the window's width, so a narrow window
+  never fills with repeats. When you stop a capture the stop sentence is said
+  once and the line under it becomes the seal's own clock and size.
+- The output folder only ever gains finished files. Everything a run is still
+  working on in that folder, the reserved name, a growing live capture, a seal,
+  lives in its `_in progress` folder, and a finished file is placed whole, so
+  the list holds still while you click. Downloads and re-encodes have always
+  worked in scratch and arrived whole.
 - Embed rescue: when a page's video can't be reached the normal way,
   slipmat reads the page itself and finds the embedded video (og:video,
   JSON-LD, iframes, raw manifests, and several site-specific handlers).

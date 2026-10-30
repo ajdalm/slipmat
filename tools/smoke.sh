@@ -167,6 +167,44 @@ if grep -q 'SLIPMAT_LIVE_ASK_FLAG' "$REPO/tools/live-rewind.py" && grep -q '_res
   pass "live keys: x asks once then takes the first-Ctrl-C seal path; the terminal mode is restored at exit; the keys are shown"
 else fail "live keys drifted: the x thread (keys.py / live-rewind.py), its exit-time terminal restore, or the 'while it records' rail is missing"; fi
 
+# ---- 3c2. finished windows close themselves; the output folder only gains finished files (10.29.26)
+# the launcher arms its URL windows (SLIPMAT_WINDOW=1) and never the batch window;
+# every live yt-dlp call writes under the in-progress folder; the close helper is a
+# no-op off a tty and carries the three-line copy (x or Enter close now, any other key keeps)
+_la="$REPO/shortcuts/launch.applescript"
+if grep -q 'do script "SLIPMAT_WINDOW=1 " & cmd' "$_la" && ! grep -q 'SLIPMAT_WINDOW=1.*z-batch' "$_la" \
+   && [ "$(grep -c -- '-o "\$CAPDIR/\${NAME_TMPL}\.%(ext)s"' "$ENGINE")" = "3" ] && ! grep -q -- '-o "\$OUTDIR/\${NAME_TMPL}' "$ENGINE" \
+   && grep -q 'window_close "\$_rc"' "$ENGINE" && grep -q 'window-close.sh' "$REPO/engine/slipmat-audio" "$REPO/engine/slipmat-spotify" \
+   && [ "$(echo | TERM_PROGRAM=none bash "$REPO/tools/window-close.sh" 1 2>&1 | wc -c | tr -d ' ')" = "0" ] \
+   && grep -q 'close now' "$REPO/tools/window-close.sh" && grep -q 'keep open' "$REPO/tools/window-close.sh" \
+   && grep -q "x|X|'') " "$REPO/tools/window-close.sh"; then
+  pass "finished windows close themselves (launcher-armed only, batch never; x/Enter close now, any other key keeps); live captures write under the in-progress folder; the helper is silent off a tty"
+else fail "window close wiring: launcher arm, the three live -o paths, the exit hook, audio+spotify hooks, the helper's no-tty silence, or its three-line copy"; fi
+
+# ---- 3c3. nothing growing ever touches the output folder (10.29.26) ---------
+# every finished file goes through place_final (fast path, re-encode, remux, live);
+# the name reservation is a .mp4.claim in $CAPDIR; the folder is permanent (no rmdir);
+# nothing is ever mv'd straight onto $OUT; the live seal writes in $CAPDIR
+if [ "$(grep -c 'place_final "' "$ENGINE")" = "4" ] && grep -q '^place_final() {' "$ENGINE" \
+   && grep -q 'set -C; : > "\${CAPDIR:-\$OUTDIR}/\${_try}.mp4.claim"' "$ENGINE" \
+   && ! grep -q 'rmdir "\$CAPDIR"' "$ENGINE" && ! grep -qE 'mv (-f )?"\$(_FT|ENC_TMP)" "\$OUT"' "$ENGINE" \
+   && [ "$(grep -c -- '-movflags +faststart "\$CAP" </dev/null' "$ENGINE")" = "2" ] \
+   && grep -q 'CAPDIR="\$OUTDIR/_in progress"; mkdir -p "\$CAPDIR"' "$ENGINE"; then
+  pass "the output folder only gains finished files: 4 place_final callers, .mp4.claim reservations in the permanent in-progress folder, the live seal writes there"
+else fail "in-progress folder wiring: place_final callers (fast/encode/remux/live), the .mp4.claim reservation, a leftover rmdir or direct mv onto \$OUT, or the seal target"; fi
+
+# ---- 3c4. every live status line goes through live_line (10.29.26) -----------
+# a line wider than the window wraps and the redraw leaves a row behind each tick;
+# live_line measures and cuts. Raw in-place draws are allowed only inside live_line
+# itself and the one finished "timer landed" line; the stop sentence is said once
+# (the key thread on x x, the signal handler only on Ctrl-C) as a finished line
+_raw=$(grep -nE "printf '\\\\r\\\\033\\[(2)?K" "$ENGINE" | grep -vE '_ll_ind|live_line|the timer landed' | wc -l | tr -d ' ')
+if grep -q '^live_line() {' "$ENGINE" && [ "$(grep -c 'live_line "' "$ENGINE")" -ge 6 ] && [ "$_raw" = "0" ] \
+   && grep -q "_stop.how != 'x'" "$REPO/tools/live-rewind.py" && grep -qF "C_RESET\"\$'\\n' \"\$LIVE_PY\"" "$ENGINE" \
+   && grep -q 'live_line "${C_GRN}${G_OK}${C_RESET} sealing' "$ENGINE"; then
+  pass "every live status line is one in-place line cut to the window (live_line); the stop sentence is said once and the seal shows its own clock"
+else fail "status lines: a raw in-place printf outside live_line ($_raw), the live_line callers, the once-only stop sentence, or the sealing clock"; fi
+
 # ---- 3d. every mode the Shortcut builder emits is one the launcher handles -------
 _lmiss=""
 for _m in $(sed -n 's/^ *make_one "[^"]*" *\([a-z0-9-]*\) .*/\1/p' "$REPO/shortcuts/make-shortcuts.sh"); do

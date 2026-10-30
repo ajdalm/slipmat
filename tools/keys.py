@@ -23,7 +23,8 @@
 # The terminal is put in cbreak mode with echo off (keys arrive one at a time and
 # never print) and is restored — input flushed — on every exit path. Non-tty runs
 # never start this.
-import os, select, signal, sys, termios, time
+import os
+import re, select, signal, sys, termios, time
 
 ESC = b'\x1b'
 DOWN = (b'\x1b[B', b'\x1bOB')
@@ -84,8 +85,22 @@ def read_key(fd, timeout):
     return k
 
 
+_ANSI = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
+
+
 def say(fd, line):
+    """one in-place line, cut to the window (10.29.26): a line wider than the
+    window wraps and leaves a row behind on every redraw — same rule as the
+    engine's live_line. A finished line (ending in a newline) may wrap."""
     try:
+        if not line.endswith('\n'):
+            try:
+                cols = os.get_terminal_size(fd).columns
+            except (OSError, ValueError):
+                cols = 80
+            plain = _ANSI.sub('', line)
+            if len(plain) > cols - 1:
+                line = plain[:cols - 2] + '…'
         os.write(fd, b'\r\033[K' + line.encode('utf-8', 'replace'))
     except OSError:
         pass

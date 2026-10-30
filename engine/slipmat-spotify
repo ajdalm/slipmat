@@ -160,6 +160,8 @@ if [ "$RC" -eq 0 ]; then
   say "── DONE ── took $(( (SECONDS - T0) / 60 ))m$(( (SECONDS - T0) % 60 ))s ─────────────────────────"
   title "✓ SPOTIFY done"
   seal_log "SPOTIFY"
+  # the launcher's window closes itself after a finished rip (10.29.26; x or Enter closes it now, any other key keeps it; WINDOW_CLOSE_MIN=0 turns it off)
+  if [ "${SLIPMAT_WINDOW:-0}" = "1" ] && [ "$IS_TTY" = "1" ]; then _m="${WINDOW_CLOSE_MIN:-5}"; case "$_m" in ''|*[!0-9]*) _m=5 ;; esac; [ "$_m" -gt 0 ] && [ -f "$REPO/tools/window-close.sh" ] && /bin/bash "$REPO/tools/window-close.sh" $(( _m * 60 )); fi
 else
   say "✗ nothing ripped. Common causes: the account isn't Premium, the link is"
   say "  private, or Spotify is rate-limiting — wait a few minutes, run it again."
