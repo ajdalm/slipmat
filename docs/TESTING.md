@@ -266,6 +266,37 @@ selector that insists on it dies with "Requested format is not available"
 before a byte lands), and that a merge yt-dlp fails after a whole download is
 merged in the scratch instead of fetched again.
 
+A rewind shows how far each stream is behind live (11.2.26). The video and the
+audio of a rewound capture download as two threads, a fragment at a time; the
+audio (tiny fragments) reaches the live head long before the video, so a stop
+while the video is still behind ends the picture early with the sound running
+on to the stop. `tools/live-rewind.py` wraps yt-dlp's fragment generator and
+writes `video <s>` / `audio <s>` (seconds behind the live head) to
+`live.lag` in the run's scratch on every fragment; the REC line reads it in
+place of the window word: `video 9:41 · audio 7:31 behind live` while both
+catch up, `video 7:19 behind · audio at live`, then `at live` (within 15 s).
+The run log says where each stood at the stop; when the video was more than
+15 s behind, the receipt says so on a `stop` line, and `time … recorded` is
+the picture's own length (the sound is longer). A from-now capture never
+writes the file. Hand test (pool feed, the 720 door, a 10-minute rewind,
+`x x` at 50 s — the countdown reads `at live` around 40 s in, the stop lands
+with both streams within seconds and the receipt carries no `stop` line):
+
+```
+HOME=$H PTY_COLS=110 python3 tools/ptydrive.py /tmp/l6.raw 170 -- '<live url>' 720 auto last-10m -- KEY@50:x KEY@3:x
+```
+
+The capture ladder never ends in its cap (11.2.26): a picked row or the 720
+door leads every rung by its height, but when nothing at or under that height
+is offered the same QuickTime-native pairs run uncapped, then any single file —
+the capture lands at what there is (the receipt says `size 1080p — nothing at
+or under 720p was offered on this stream`) instead of dying with "Requested
+format is not available". `slipmat smoke` proves it offline through yt-dlp's
+own selector on a stream offering only 1080 video + audio, and proves the lag
+file through a fake fragment generator under the real wrapper. Note: the word
+`best` on the command line means the top quality by design (`RES=max`), so a
+capped live proof uses `720 auto` or a picked row, never `720 best`.
+
 ## A download that dies at the merge (11.2.26)
 
 yt-dlp downloads split video and audio as two whole files and merges them at

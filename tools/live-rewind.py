@@ -29,6 +29,15 @@
 #    (SLIPMAT_LIVE_ASK_FLAG + SLIPMAT_LIVE_ASK_TEXT), a second x within 5 s takes
 #    the exact first-Ctrl-C path above. Any other key keeps recording. Ctrl-C stays
 #    the immediate stop. The stop flag's CONTENT names which key stopped it.
+#
+# 4. How far behind live each stream is (11.2.26, SLIPMAT_LIVE_LAG=<file>). A rewind
+#    downloads its video and its audio as two threads, one fragment at a time; the
+#    audio (tiny fragments) reaches the live head long before the video, so a stop
+#    while the video is still behind ends the picture early with the sound running
+#    on. yt-dlp's fragment generator yields each fragment's sequence number beside
+#    the head's; this wraps it and writes "video <s>" / "audio <s>" (seconds behind
+#    live) to the file on every fragment. The engine's REC line reads it. Anything
+#    odd here is logged once and the capture runs without the file.
 import atexit, os, signal, sys
 
 _fd = -1
@@ -136,6 +145,51 @@ if back > 0:
         sys.stderr.write(f'live-rewind: {e}\n')
         sys.exit(86)
 import yt_dlp
+_lag_path = os.environ.get('SLIPMAT_LIVE_LAG', '')
+if _lag_path:
+    try:
+        import threading, time
+        from urllib.parse import parse_qs, urlparse
+        from yt_dlp.extractor.youtube import YoutubeIE as _LagIE
+        _lag_orig = _LagIE._live_adaptive_fragments
+        # YouTube's audio-only itags (DASH 139/140/141/249/250/251, HLS 233/234,
+        # the rest the rarer ones); anything else is the video
+        _LAG_AUDIO = {139, 140, 141, 171, 233, 234, 249, 250, 251, 256, 258, 325, 327, 328, 338, 380}
+        _lag_state, _lag_lock = {}, threading.Lock()
+
+        def _lag_write(kind, behind):
+            with _lag_lock:
+                _lag_state[kind] = max(0, int(behind))
+                tmp = _lag_path + '.tmp'
+                try:
+                    with open(tmp, 'w') as fh:
+                        fh.write(''.join(f'{k} {v}\n' for k, v in sorted(_lag_state.items())))
+                    os.replace(tmp, _lag_path)
+                except OSError:
+                    pass
+
+        def _lag_fragments(self, *a, **kw):
+            itag = a[1] if len(a) > 1 else kw.get('itag')
+            dur = a[6] if len(a) > 6 else kw.get('fragment_duration')
+            try:
+                kind = 'audio' if int(itag) in _LAG_AUDIO else 'video'
+            except (TypeError, ValueError):
+                kind = 'video'
+            head, head_t = None, 0.0
+            for frag in _lag_orig(self, *a, **kw):
+                try:
+                    fc = frag.get('fragment_count')          # the head's sequence + 1, as of head_t
+                    idx = int(parse_qs(urlparse(frag['url']).query)['sq'][0])
+                    if fc != head:
+                        head, head_t = fc, time.time()
+                    if fc is not None and dur:
+                        _lag_write(kind, (fc - 1 - idx) * float(dur) + (time.time() - head_t))
+                except Exception:
+                    pass
+                yield frag
+        _LagIE._live_adaptive_fragments = _lag_fragments
+    except Exception as e:
+        sys.stderr.write(f'live-rewind: no lag file ({e}); the capture runs without it\n')
 # the stop key (a thread reading the terminal; the engine passes the texts it shows)
 _ask_flag = os.environ.get('SLIPMAT_LIVE_ASK_FLAG', '')
 if _ask_flag and _fd >= 0:

@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.18"          # 11.2.26 — a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.19"          # 11.2.26 — a rewind shows how far the video and the audio are behind live on the REC line and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -1357,6 +1357,24 @@ live_line() {
   else printf '\r\033[K%s%s…' "$_ll_ind" "$(LC_CTYPE=UTF-8; printf '%s' "${_ll_plain:0:$(( _ll_max - 1 ))}")" > /dev/tty; fi
 }
 live_line_end() { printf '\r\033[K' > /dev/tty 2>/dev/null; }   # the line is over: clear it
+# lag_words <var> <seconds behind live> → "at live" · "0:42 behind" · "1:41:05 behind"
+# (printf -v: no fork — the REC tick calls it twice every 2 s for hours)
+lag_words() {
+  if   [ "$2" -le 15 ]; then   printf -v "$1" 'at live'
+  elif [ "$2" -ge 3600 ]; then printf -v "$1" '%d:%02d:%02d behind' $(($2/3600)) $((($2%3600)/60)) $(($2%60))
+  else                         printf -v "$1" '%d:%02d behind' $(($2/60)) $(($2%60)); fi
+}
+# read_live_lag — the rewind driver's two lines ("video <s>" · "audio <s>", seconds
+# behind the live head) → LIVE_LAG_V / LIVE_LAG_A (empty when unknown). Pure bash.
+read_live_lag() {
+  LIVE_LAG_V=""; LIVE_LAG_A=""
+  [ -n "${LIVE_LAG:-}" ] && [ -f "$LIVE_LAG" ] || return 1
+  while read -r _lk _lv; do
+    case "$_lv" in ''|*[!0-9]*) continue ;; esac
+    case "$_lk" in video) LIVE_LAG_V=$_lv ;; audio) LIVE_LAG_A=$_lv ;; esac
+  done < "$LIVE_LAG"
+  [ -n "$LIVE_LAG_V$LIVE_LAG_A" ]
+}
 frame_rail() { printf '%s%s%s %s\n' "$C_CYAN" "$B_V" "$C_RESET" "$1"; logln "| $1"; }  # a content line
 # V4.3 word-wrap for prose on the rail: wrap_rail COLOR INDENT TEXT — TEXT wraps at
 # $WRAPW (chars, multibyte-aware via ${#}); the 2nd+ lines carry INDENT (a hanging
@@ -3149,6 +3167,24 @@ seal_live_orphans() {
 # remuxed here — stream copy, faststart, the seal clock ticking — and replaces
 # the original under the same stem. If the remux fails the file keeps its real
 # extension (.ts) so nothing passes for what it is not. Reads/sets PRODUCED.
+# live_receipt_notes — two facts the receipt says ONCE, only when they are so:
+# the stop landed while the rewind's video was still behind live (the picture ends
+# there, the sound runs on to the stop) · the picked or doored height was not
+# offered and the capture landed at what there was (11.2.26).
+live_receipt_notes() {
+  if read_live_lag && [ -n "$LIVE_LAG_V" ] && [ "$LIVE_LAG_V" -gt 15 ]; then
+    lag_words _lw "$LIVE_LAG_V"; _la="at live"; [ -n "$LIVE_LAG_A" ] && lag_words _la "$LIVE_LAG_A"
+    box_line "stop    video was $_lw live, audio $_la"
+    box_line "        the picture ends ${_lw% behind} early; the sound runs on to the stop"
+  fi
+  if [ -n "${LIVE_PICK_H:-}" ]; then
+    _gh=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$PRODUCED" 2>/dev/null | head -1 | tr -dc '0-9')
+    if [ -n "$_gh" ] && [ "$_gh" -gt "$LIVE_PICK_H" ] 2>/dev/null; then
+      box_line "size    ${_gh}p — nothing at or under ${LIVE_PICK_H}p was offered on this stream; captured at what there was"
+      logln "  picked ${LIVE_PICK_H}p, stream offered nothing at or under it: captured ${_gh}p"
+    fi
+  fi
+}
 seal_as_mp4() {
   _pfmt=$("$FFPROBE" -v error -show_entries format=format_name -of csv=p=0 "$PRODUCED" 2>/dev/null | tr -d ',')
   case "$_pfmt" in *mp4*|*mov*|"") return 0 ;; esac
@@ -3347,13 +3383,18 @@ if [ "$IS_LIVE" = "1" ]; then
   # as-is, never re-encoded, never stutter-tested (memory: live-is-hard-fork —
   # only the "no menu" part of that stance is relaxed, deliberately).
   # A numeric RES (the 720 door) caps the capture stream too (10.5.26).
-  _lc=""; case "$RES" in max|ask|"") ;; *) _lc="[height<=$RES]" ;; esac
+  _lc=""; LIVE_PICK_H=""; case "$RES" in max|ask|"") ;; *) _lc="[height<=$RES]"; LIVE_PICK_H="$RES" ;; esac
+  # The ladder never ENDS in the cap (11.2.26): a picked or doored height leads,
+  # but when nothing at or under it is offered (a stream carrying one rendition,
+  # a rewind listing other ids) the same QuickTime-native pairs run uncapped, then
+  # any single file — a capture lands at what there is instead of dying with
+  # "Requested format is not available". The receipt says so, once.
   # 11.2.26: YouTube's live audio now comes as an HLS rendition (ext mp4, codec
   # unstated) beside video-only avc1 playlists — the m4a-only pairing matched
   # nothing and every from-now capture died with "Requested format is not
   # available". The plain +ba rung takes that audio; ffmpeg reads both playlists
   # in ONE call and writes one file, so the stop and the seal are unchanged.
-  LIVE_F="bv*[ext=mp4][vcodec^=avc1]${_lc}+ba[ext=m4a]/bv*[ext=mp4][vcodec^=avc1]${_lc}+ba/b[ext=mp4]${_lc}/best${_lc}/best"
+  LIVE_F="bv*[ext=mp4][vcodec^=avc1]${_lc}+ba[ext=m4a]/bv*[ext=mp4][vcodec^=avc1]${_lc}+ba/b[ext=mp4]${_lc}/best${_lc}/bv*[ext=mp4][vcodec^=avc1]+ba/bv*+ba/best"
   if [ "$RES" = "ask" ] && [ -n "$PYTHON" ] && [ -s "$INFO" ]; then
     note "pick the capture stream — sizes are unknowable on live; fps/res are real"
     present_formats
@@ -3370,8 +3411,8 @@ if [ "$IS_LIVE" = "1" ]; then
         # pick's HEIGHT caps every fallback rung; the exact id still leads.
         _ph=""; case "$SELNOTE" in [0-9]*) _ph=$(printf '%s' "$SELNOTE" | sed 's/[^0-9].*//') ;; esac
         if [ -n "$_ph" ]; then
-          _lc="[height<=$_ph]"
-          LIVE_F="bv*[ext=mp4][vcodec^=avc1]${_lc}+ba[ext=m4a]/bv*[ext=mp4][vcodec^=avc1]${_lc}+ba/b[ext=mp4]${_lc}/best${_lc}/best"
+          _lc="[height<=$_ph]"; LIVE_PICK_H="$_ph"
+          LIVE_F="bv*[ext=mp4][vcodec^=avc1]${_lc}+ba[ext=m4a]/bv*[ext=mp4][vcodec^=avc1]${_lc}+ba/b[ext=mp4]${_lc}/best${_lc}/bv*[ext=mp4][vcodec^=avc1]+ba/bv*+ba/best"
         fi
         LIVE_F="${SEL}/${LIVE_F}"
       fi
@@ -3416,8 +3457,15 @@ if [ "$IS_LIVE" = "1" ]; then
   LIVE_RPID=""
   LIVE_STOP="$WORKDIR/live.stop"   # touched by live-rewind.py on the first Ctrl-C; the REC line turns into "stopping"
   rm -f "$LIVE_STOP" 2>/dev/null
+  # 11.2.26: a rewind runs its two streams as two threads, a fragment at a time;
+  # the audio (tiny fragments) reaches live long before the video. The driver
+  # writes how far each is behind the live head; the REC line shows it so the
+  # stop can be timed — a stop while the video is behind ends the picture there
+  # while the sound runs on to the stop. A from-now capture never writes it.
+  LIVE_LAG="$WORKDIR/live.lag"; rm -f "$LIVE_LAG" 2>/dev/null
   LIVE_QL="${SELNOTE:-best}"; case "$LIVE_QL" in custom*) LIVE_QL="custom" ;; esac
-  LIVE_QL="$LIVE_QL${LIVE_WIN:+ · $LIVE_WIN}"
+  LIVE_QL0="$LIVE_QL"; LIVE_QL="$LIVE_QL${LIVE_WIN:+ · $LIVE_WIN}"
+  logln "  live selector: $LIVE_F"
   if [ "$IS_TTY" = "1" ]; then
     (
       # PURE-BASH tick (one stat fork per 2s): a 12-hour recording must not burn
@@ -3451,6 +3499,20 @@ if [ "$IS_LIVE" = "1" ]; then
         else
           _mid="connecting …"     # handshake phase: no bytes yet, say so plainly
         fi
+        # a rewind: "video 28:40 · audio 26:30 behind live" while both catch up, then
+        # "video 20:32 behind · audio at live", then "at live" — in place of the window
+        # word (the receipt keeps it), so the stop chip stays inside the window
+        _ql="$LIVE_QL"
+        if read_live_lag; then
+          if [ -n "$LIVE_LAG_V" ] && [ -n "$LIVE_LAG_A" ] && [ "$LIVE_LAG_V" -gt 15 ] && [ "$LIVE_LAG_A" -gt 15 ]; then
+            lag_words _lw "$LIVE_LAG_V"; lag_words _la "$LIVE_LAG_A"; _ql="$LIVE_QL0 · video ${_lw% behind} · audio ${_la% behind} behind live"
+          elif [ -n "$LIVE_LAG_V" ] && [ -n "$LIVE_LAG_A" ] && [ "$LIVE_LAG_V" -le 15 ] && [ "$LIVE_LAG_A" -le 15 ]; then _ql="$LIVE_QL0 · at live"
+          else
+            _ql="$LIVE_QL0"
+            [ -n "$LIVE_LAG_V" ] && { lag_words _lw "$LIVE_LAG_V"; _ql="$_ql · video $_lw"; }
+            [ -n "$LIVE_LAG_A" ] && { lag_words _lw "$LIVE_LAG_A"; _ql="$_ql · audio $_lw"; }
+          fi
+        fi
         # V4.1: time · size lead, then the stream, then the start clock; the stop
         # key sits at the end the whole time (10.5.26 night: shown, not hidden)
         if [ -f "$LIVE_STOP" ]; then   # the stop landed (x or Ctrl-C): the sentence was said once at the press; this line is the seal's own clock and the newest file's size, in place
@@ -3469,7 +3531,7 @@ if [ "$IS_LIVE" = "1" ]; then
           sleep 1; continue
         fi
         live_line "$(printf '%s%s REC%s %s · %s · since %s%s' \
-          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$LIVE_QL" "$_clk" "${LIVE_ASK:+ · $(chip x) stop}")"
+          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$_ql" "$_clk" "${LIVE_ASK:+ · $(chip x) stop}")"
         sleep 2
       done
     ) &
@@ -3505,7 +3567,7 @@ if [ "$IS_LIVE" = "1" ]; then
     # same process shape as above (foreground, unpiped, Ctrl-C lands in yt-dlp);
     # the wrapper imports yt-dlp in-process and only moves its 120 h rewind cap.
     # Exit 86 = this yt-dlp moved the hook → the plain capture runs instead.
-    SLIPMAT_LIVE_BACK="$LIVE_BACK" SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET"$'\n' "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
+    SLIPMAT_LIVE_BACK="$LIVE_BACK" SLIPMAT_LIVE_LAG="$LIVE_LAG" SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET"$'\n' "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
       $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings --live-from-start \
       -f "$LIVE_F" \
       --postprocessor-args "ffmpeg:-movflags +faststart" \
@@ -3521,6 +3583,7 @@ if [ "$IS_LIVE" = "1" ]; then
   if [ -f "$LIVE_STOP" ]; then
     _how=$(head -c 12 "$LIVE_STOP" 2>/dev/null | tr -dc 'a-zA-Z-'); [ -n "$_how" ] || _how="Ctrl-C"
     logln "  stopped by $_how at $(fmt_dur "$LIVE_EL") (wall clock); later presses were disarmed"
+    read_live_lag && logln "  at the stop: video ${LIVE_LAG_V:-?}s behind live · audio ${LIVE_LAG_A:-?}s behind live"
   fi
   # stop the status line the instant capture ends (finalize happens inside yt-dlp)
   if [ -n "$LIVE_RPID" ]; then
@@ -3540,7 +3603,9 @@ if [ "$IS_LIVE" = "1" ]; then
   # log keeps it for telemetry. Duration minus start_time: a rewound capture's
   # timestamps begin where the stream's do, hours in (10.5.26 eve: "43:08:09").
   seal_as_mp4   # 11.2.26: a split-playlist capture lands as MPEG-TS — the seal is an mp4
-  LIVE_DUR=$("$FFPROBE" -v error -show_entries format=duration,start_time -of default=nw=1 "$PRODUCED" 2>/dev/null \
+  LIVE_DUR=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=duration -of default=nw=1 "$PRODUCED" 2>/dev/null \
+    | awk -F= '/^duration=/{d=$2} END{ if (d=="N/A"||d=="") d=0; printf "%d", d }')   # the picture's own length (11.2.26: a rewind stopped with the video behind carries longer sound)
+  [ "${LIVE_DUR:-0}" -gt 0 ] 2>/dev/null || LIVE_DUR=$("$FFPROBE" -v error -show_entries format=duration,start_time -of default=nw=1 "$PRODUCED" 2>/dev/null \
     | awk -F= '/^duration=/{d=$2} /^start_time=/{s=$2} END{ if (s=="N/A"||s=="") s=0; if (d=="N/A"||d=="") d=0; v=d-s; if (v<0) v=d; printf "%d", v }')
   [ "${LIVE_DUR:-0}" -gt 0 ] 2>/dev/null || LIVE_DUR=$(( LIVE_EL > 0 ? LIVE_EL : 1 ))
   live_rearm   # the file is sealed and measured: Ctrl-C works again (keys typed meanwhile are dropped)
@@ -3575,6 +3640,7 @@ if [ "$IS_LIVE" = "1" ]; then
       box_top "DONE (LIVE)"
       box_file file "$(basename "$PRODUCED")"
       box_line "time    $(fmt_dur "$LIVE_DUR") recorded${LIVE_WIN:+ · $LIVE_WIN}"
+      live_receipt_notes
       box_file path "$(dirname "$PRODUCED")/"
       box_bot
       logln "  $PRODUCED"
@@ -3588,6 +3654,7 @@ if [ "$IS_LIVE" = "1" ]; then
     box_file file "$(basename "$PRODUCED")"
     box_line "size    $(fmt_bytes "$(stat -f %z "$PRODUCED" 2>/dev/null || echo 0)")"
     box_line "time    $(fmt_dur "$LIVE_DUR") recorded${LIVE_WIN:+ · $LIVE_WIN}"
+    live_receipt_notes
     box_file path "$(dirname "$PRODUCED")/"
     box_bot
     logln "  $PRODUCED"

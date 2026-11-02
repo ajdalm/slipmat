@@ -165,6 +165,24 @@ else fail "live capture selector insists on m4a audio — a from-now YouTube cap
 if grep -q '_lc="\[height<=\$_ph\]"' "$ENGINE" && grep -q 'LIVE_F="${SEL}/${LIVE_F}"' "$ENGINE"; then
   pass "a picked live row caps every fallback rung by its height (a 360p pick on a rewind stays ≤360)"
 else fail "a picked live row leads an UNCAPPED fallback — when the rewind's ids differ, a 360p pick comes back 1080"; fi
+# … and the ladder never ENDS in the cap (11.2.26): when nothing at or under the picked
+# height is offered, the same pairs run uncapped — a capture lands at what there is.
+# Functional: yt-dlp's own selector on a stream offering only 1080 video + audio.
+if [ "$(grep -c 'best${_lc}/bv\*\[ext=mp4\]\[vcodec^=avc1\]+ba/bv\*+ba/best"' "$ENGINE")" != "2" ] || ! grep -q '^live_receipt_notes() {' "$ENGINE"; then
+  fail "the live ladder ends in its cap — a 360p pick on a stream offering only 1080 dies with 'Requested format is not available'"
+elif [ -n "$_lpy" ]; then
+  _lad=$(sed -n 's/^ *LIVE_F="\(bv\*.*\)"$/\1/p' "$ENGINE" | head -1); _lad=${_lad//'${_lc}'/[height<=360]}
+  _land=$("$_lpy" - "$_lad" <<'PY' 2>&1
+import sys, yt_dlp
+fmts = [{'format_id': '137', 'ext': 'mp4', 'vcodec': 'avc1.640028', 'acodec': 'none', 'height': 1080, 'url': 'x', 'protocol': 'http_dash_segments'},
+        {'format_id': '140', 'ext': 'm4a', 'vcodec': 'none', 'acodec': 'mp4a.40.2', 'url': 'x', 'protocol': 'http_dash_segments'}]
+sel = yt_dlp.YoutubeDL({'quiet': True}).build_format_selector(sys.argv[1])
+print('+'.join(f['format_id'] for f in sel({'formats': fmts, 'has_merged_format': False, 'incomplete_formats': False})) or 'nothing')
+PY
+)
+  if [ "$_land" = "137+140" ]; then pass "a 360p pick on a stream offering only 1080 still lands (137+140) — the ladder never ends in its cap"
+  else fail "the capped live ladder selects '$_land' when only 1080 is offered (want 137+140)"; fi
+else skip "live ladder tail — no python with yt_dlp"; fi
 # ---- 3c3. a merge that dies after a whole download is merged here, never fetched again (11.2.26)
 # yt-dlp's own merge failed three times in one night on hours-long replays; the
 # blank-page swap then re-downloaded each from the top. The scratch halves are
@@ -193,6 +211,32 @@ else
   if [ "$_rc2" != "0" ]; then pass "salvage merge stays out of every other failure (no 'Postprocessing' in yt-dlp's words → not its case)"
   else fail "salvage merge fired on a failure that was not yt-dlp's merge"; fi
 fi
+# ---- 3c4b. a rewind says how far each stream is behind live (11.2.26)
+# the driver wraps yt-dlp's fragment generator and writes "video <s>" / "audio <s>";
+# the REC line reads it. Functional: a fake generator under the real wrapper.
+if [ -n "$_lpy" ]; then
+  _lagout=$(SLIPMAT_LIVE_LAG="$S/live.lag" "$_lpy" - "$REPO/tools/live-rewind.py" <<'PY' 2>&1
+import os, sys, runpy
+from yt_dlp.extractor.youtube import YoutubeIE
+def fake(self, video_id, itag, client_name, live_start_time, url_feed, base_url, fragment_duration, last_seq_cache, ctx):
+    for idx in range(100, 104):
+        yield {'url': f'https://h/x?sq={idx}', 'fragment_count': 1000}
+YoutubeIE._live_adaptive_fragments = fake
+sys.argv = [sys.argv[1], '--version']
+try:
+    runpy.run_path(sys.argv[0], run_name='__main__')
+except SystemExit:
+    pass
+list(YoutubeIE._live_adaptive_fragments(None, 'v', 137, 'web', None, None, None, 5, {}, {}))
+list(YoutubeIE._live_adaptive_fragments(None, 'v', 140, 'web', None, None, None, 5, {}, {}))
+print(open(os.environ['SLIPMAT_LIVE_LAG']).read().replace('\n', ' '))
+PY
+)
+  if printf '%s' "$_lagout" | grep -q 'audio 4480 video 4480' && grep -q 'SLIPMAT_LIVE_LAG="\$LIVE_LAG"' "$ENGINE" \
+     && grep -q 'LIVE_QL0 · video ${_lw% behind} · audio ${_la% behind} behind live' "$ENGINE" && grep -q '^read_live_lag() {' "$ENGINE"; then
+    pass "a rewind writes how far each stream is behind live (fragment 103 of a 1000-head at 5 s = 4480 s) and the REC line reads it"
+  else fail "the rewind lag file or its REC-line reader is missing (driver said: $(printf '%s' "$_lagout" | tail -1))"; fi
+else skip "rewind lag — no python with yt_dlp"; fi
 # ---- 3c5. the live seal is an mp4 (11.2.26)
 # A split-playlist capture (video + audio read by one ffmpeg) lands as MPEG-TS under an
 # .mp4 name and yt-dlp does not fix a merged live download; QuickTime refused it.
