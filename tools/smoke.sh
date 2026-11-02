@@ -153,6 +153,64 @@ _lpy=$(sed -n '1s/^#![ ]*//p' "$YTDLP" 2>/dev/null); case "$_lpy" in *python*) [
 if [ -z "$_lpy" ]; then skip "live rewind hook — no python with yt_dlp found beside $YTDLP"
 elif SLIPMAT_LIVE_BACK=60 "$_lpy" "$REPO/tools/live-rewind.py" --version >/dev/null 2>"$S/rewind.err"; then pass "live rewind hook present in yt-dlp $("$YTDLP" --version 2>/dev/null) (from-start / last-Nh doors work)"
 else fail "live rewind hook missing — this yt-dlp moved it; the livestream doors record from now ($(head -1 "$S/rewind.err"))" "$S/rewind.err"; fi
+# ---- 3c2. a from-now live capture pairs HLS-only audio (11.2.26)
+# YouTube's live audio arrives as an HLS rendition (ext mp4, codec unstated) beside
+# video-only avc1 playlists; a pairing that insists on m4a matches nothing and the
+# capture dies with "Requested format is not available" before a byte lands.
+if grep -q 'LIVE_F="bv\*\[ext=mp4\]\[vcodec^=avc1\]${_lc}+ba\[ext=m4a\]/bv\*\[ext=mp4\]\[vcodec^=avc1\]${_lc}+ba/' "$ENGINE"; then
+  pass "live capture selector falls back to HLS-only audio (+ba without the m4a gate)"
+else fail "live capture selector insists on m4a audio — a from-now YouTube capture dies with 'Requested format is not available'"; fi
+# a picked row caps every fallback rung: the rewind's format list carries other ids than the
+# picker's dump, the exact id misses, and an uncapped fallback took 1080 on a 360p pick (11.2.26)
+if grep -q '_lc="\[height<=\$_ph\]"' "$ENGINE" && grep -q 'LIVE_F="${SEL}/${LIVE_F}"' "$ENGINE"; then
+  pass "a picked live row caps every fallback rung by its height (a 360p pick on a rewind stays ≤360)"
+else fail "a picked live row leads an UNCAPPED fallback — when the rewind's ids differ, a 360p pick comes back 1080"; fi
+# ---- 3c3. a merge that dies after a whole download is merged here, never fetched again (11.2.26)
+# yt-dlp's own merge failed three times in one night on hours-long replays; the
+# blank-page swap then re-downloaded each from the top. The scratch halves are
+# whole: the engine merges them itself. Functional: two halves + yt-dlp's words in.
+_salv=$(sed -n '/^  salvage_merge() {$/,/^  }$/p' "$ENGINE")
+if [ -z "$_salv" ] || ! grep -q 'if salvage_merge; then YTRC=0' "$ENGINE"; then
+  fail "no salvage merge — a merge that dies after a whole download walks the ladder and fetches hours of video again"
+elif ! grep -q 'ls "\$WORKDIR/\${WORKSTEM}"\.\* 2>/dev/null)" \]; then' "$ENGINE"; then
+  fail "the blank-page manifest swap still keys on 'no .part' — it fires on a failed merge and re-downloads the whole show"
+else
+  mkdir -p "$S/salv"
+  "$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i testsrc=duration=3:size=320x240:rate=30 -c:v libx264 -pix_fmt yuv420p -an "$S/salv/x.f1.mp4" </dev/null 2>/dev/null
+  "$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i sine=duration=3 -c:a aac -vn "$S/salv/x.f2.m4a" </dev/null 2>/dev/null
+  printf 'ERROR: Postprocessing: Conversion failed!\n' > "$S/salv/ytdlp.err"
+  _rc=$( ( WORKDIR="$S/salv"; WORKSTEM="x"; YTERR="$S/salv/ytdlp.err"; RUNLOG="$S/salv/run.log"; RETRY_NOTE=""
+           yterr_show() { :; }; warn() { :; }; logln() { :; }
+           eval "$_salv"; salvage_merge >/dev/null 2>&1; echo $? ) 2>/dev/null )
+  _vs=$("$FFPROBE" -v error -show_entries stream=codec_type -of csv=p=0 "$S/salv/x.mkv" 2>/dev/null | tr -d ',' | sort -u | tr '\n' ' ')
+  if [ "$_rc" = "0" ] && [ "$_vs" = "audio video " ] && [ ! -e "$S/salv/x.f1.mp4" ] && [ ! -e "$S/salv/x.f2.m4a" ]; then
+    pass "a failed yt-dlp merge is merged here: two whole halves → one mkv with both streams, nothing fetched again"
+  else fail "salvage merge did not produce one mkv from two whole halves (rc=$_rc · streams='$_vs')" "$S/salv/run.log"; fi
+  : > "$S/salv/ytdlp.err"
+  _rc2=$( ( WORKDIR="$S/salv"; WORKSTEM="x"; YTERR="$S/salv/ytdlp.err"; RUNLOG="$S/salv/run.log"; RETRY_NOTE=""
+            yterr_show() { :; }; warn() { :; }; logln() { :; }
+            eval "$_salv"; salvage_merge >/dev/null 2>&1; echo $? ) 2>/dev/null )
+  if [ "$_rc2" != "0" ]; then pass "salvage merge stays out of every other failure (no 'Postprocessing' in yt-dlp's words → not its case)"
+  else fail "salvage merge fired on a failure that was not yt-dlp's merge"; fi
+fi
+# ---- 3c5. the live seal is an mp4 (11.2.26)
+# A split-playlist capture (video + audio read by one ffmpeg) lands as MPEG-TS under an
+# .mp4 name and yt-dlp does not fix a merged live download; QuickTime refused it.
+_sealfn=$(sed -n '/^seal_as_mp4() {$/,/^}$/p' "$ENGINE")
+if [ -z "$_sealfn" ] || ! grep -q '^  seal_as_mp4 ' "$ENGINE"; then
+  fail "no seal_as_mp4 — a from-now capture of split playlists stays MPEG-TS under an .mp4 name (QuickTime refuses it)"
+else
+  mkdir -p "$S/seal"
+  "$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i testsrc=duration=2:size=320x240:rate=30 -f lavfi -i sine=duration=2 -c:v libx264 -pix_fmt yuv420p -c:a aac -f mpegts "$S/seal/cap.mp4" </dev/null 2>/dev/null
+  _after=$( ( PRODUCED="$S/seal/cap.mp4"; LIVE_ERRLOG="$S/seal/err.log"; C_GRN=""; G_OK=""; C_RESET=""
+              live_line() { :; }; live_line_end() { :; }; warn() { :; }; logln() { :; }
+              eval "$_sealfn"; seal_as_mp4 >/dev/null 2>&1; printf '%s' "$PRODUCED" ) 2>/dev/null )
+  _afmt=$("$FFPROBE" -v error -show_entries format=format_name -of csv=p=0 "$_after" 2>/dev/null | tr -d ',')
+  _ast=$("$FFPROBE" -v error -show_entries stream=codec_type -of csv=p=0 "$_after" 2>/dev/null | tr -d ',' | sort -u | tr '\n' ' ')
+  if [ "$_after" = "$S/seal/cap.mp4" ] && case "$_afmt" in *mp4*) true ;; *) false ;; esac && [ "$_ast" = "audio video " ] && [ ! -e "$S/seal/cap.remux.tmp" ]; then
+    pass "live seal: an MPEG-TS capture is remuxed into a real mp4 under its own name (both streams, no temp left)"
+  else fail "live seal did not turn the MPEG-TS capture into an mp4 (name='$_after' format='$_afmt' streams='$_ast')" "$S/seal/err.log"; fi
+fi
 # 10.5.26 eve, seen in the field: a second Ctrl-C mid-seal left NAME.f136.mp4 + NAME.f140.mp4.part and the
 # receipt named the silent video half ("captured 43:08:09"). The wrapper disarms the key after the first
 # press; the engine never picks a per-stream intermediate and re-arms the key afterwards.

@@ -260,6 +260,24 @@ osascript -e 'tell application "Terminal" to do script "bash -c \"echo test; bas
 `slipmat smoke` checks offline that the installed yt-dlp still carries the
 rewind hook, that the wrapper still handles SIGINT, that receipts never pick a
 per-stream half, and that the ask stays out of z-auto batches.
+Since 11.2.26 it also checks that the from-now capture selector accepts
+YouTube's HLS-only audio rendition (the live audio no longer comes as m4a; a
+selector that insists on it dies with "Requested format is not available"
+before a byte lands), and that a merge yt-dlp fails after a whole download is
+merged in the scratch instead of fetched again.
+
+## A download that dies at the merge (11.2.26)
+
+yt-dlp downloads split video and audio as two whole files and merges them at
+the end. When that merge fails it prints only ffmpeg's last line
+("Postprocessing: Conversion failed!"), and the two halves sit finished in the
+scratch with no `.part` beside them. The engine now merges them itself
+(timestamps regenerated, ffmpeg's words kept in the run log under
+`salvage merge`) and carries on to the stutter test; the receipt notes it. The
+blank-page manifest swap fires only when nothing at all was downloaded, so a
+failed merge never re-downloads the show. Offline proof: `slipmat smoke` feeds
+two whole halves and yt-dlp's words into the salvage and expects one mkv with
+both streams.
 
 ## Ended streams still being finished by YouTube (post_live, 10.13.26)
 

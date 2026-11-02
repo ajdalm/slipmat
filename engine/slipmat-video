@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.17"          # 10.29.26 — every live status line (REC clock, sealing, probe bar, countdowns) is ONE line redrawn in place and cut to the window's width, never wrapped; the stop sentence is said once and the seal shows its own clock and size
+VERSION="4.18"          # 11.2.26 — a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -3141,6 +3141,38 @@ seal_live_orphans() {
   PRODUCED="$CAP"   # sealed in the in-progress folder; the move-up places it
 }
 
+# 11.2.26: the seal means an mp4. A from-now capture of split playlists (video +
+# audio read by ONE ffmpeg) is written as MPEG-TS, and yt-dlp's own mpegts→mp4
+# fixup does not run on a merged live download — the file carried .mp4 and
+# QuickTime would not open it (a single combined track never had this: yt-dlp
+# fixes that one itself). Any sealed capture whose container is not mp4/mov is
+# remuxed here — stream copy, faststart, the seal clock ticking — and replaces
+# the original under the same stem. If the remux fails the file keeps its real
+# extension (.ts) so nothing passes for what it is not. Reads/sets PRODUCED.
+seal_as_mp4() {
+  _pfmt=$("$FFPROBE" -v error -show_entries format=format_name -of csv=p=0 "$PRODUCED" 2>/dev/null | tr -d ',')
+  case "$_pfmt" in *mp4*|*mov*|"") return 0 ;; esac
+  _rmx="${PRODUCED%.*}.remux.tmp"; _rt0=$SECONDS
+  ( while :; do
+      _rs=$(stat -f %z "$_rmx" 2>/dev/null); _rs=${_rs:-0}; _re=$((SECONDS - _rt0))
+      live_line "${C_GRN}${G_OK}${C_RESET} sealing · $(printf '%d:%02d' $((_re/60)) $((_re%60))) · $(( _rs / 1048576 ))MB · mp4"
+      sleep 1
+    done ) &
+  _rpid=$!
+  "$FFMPEG" -hide_banner -loglevel error -y -i "$PRODUCED" -map 0:v:0 -map '0:a:0?' -c copy -movflags +faststart -f mp4 "$_rmx" </dev/null 2>>"${LIVE_ERRLOG:-/dev/null}"; _rrc=$?
+  kill "$_rpid" 2>/dev/null; wait "$_rpid" 2>/dev/null; live_line_end
+  if [ "$_rrc" = 0 ] && [ -s "$_rmx" ]; then
+    rm -f "$PRODUCED"; mv -f "$_rmx" "${PRODUCED%.*}.mp4"; PRODUCED="${PRODUCED%.*}.mp4"
+    logln "  sealed: the $_pfmt capture was remuxed into an mp4 (stream copy, faststart)"
+    return 0
+  fi
+  rm -f "$_rmx"
+  case "$_pfmt" in *mpegts*) _rext="ts" ;; *) _rext="${_pfmt%%,*}" ;; esac
+  mv -f "$PRODUCED" "${PRODUCED%.*}.$_rext" 2>/dev/null && PRODUCED="${PRODUCED%.*}.$_rext"
+  warn "the capture could not be remuxed into an mp4 (ffmpeg's words are in the run log) — kept as .$_rext"
+  return 1
+}
+
 build_live_name() {
   _chan=$(name_handle)
   _title=$(clean_field "$M_TITLE")
@@ -3316,7 +3348,12 @@ if [ "$IS_LIVE" = "1" ]; then
   # only the "no menu" part of that stance is relaxed, deliberately).
   # A numeric RES (the 720 door) caps the capture stream too (10.5.26).
   _lc=""; case "$RES" in max|ask|"") ;; *) _lc="[height<=$RES]" ;; esac
-  LIVE_F="bv*[ext=mp4][vcodec^=avc1]${_lc}+ba[ext=m4a]/b[ext=mp4]${_lc}/best${_lc}/best"
+  # 11.2.26: YouTube's live audio now comes as an HLS rendition (ext mp4, codec
+  # unstated) beside video-only avc1 playlists — the m4a-only pairing matched
+  # nothing and every from-now capture died with "Requested format is not
+  # available". The plain +ba rung takes that audio; ffmpeg reads both playlists
+  # in ONE call and writes one file, so the stop and the seal are unchanged.
+  LIVE_F="bv*[ext=mp4][vcodec^=avc1]${_lc}+ba[ext=m4a]/bv*[ext=mp4][vcodec^=avc1]${_lc}+ba/b[ext=mp4]${_lc}/best${_lc}/best"
   if [ "$RES" = "ask" ] && [ -n "$PYTHON" ] && [ -s "$INFO" ]; then
     note "pick the capture stream — sizes are unknowable on live; fps/res are real"
     present_formats
@@ -3325,6 +3362,17 @@ if [ "$IS_LIVE" = "1" ]; then
         warn "that stream isn't QuickTime-native and live is captured WITHOUT re-encode —"
         warn "using the best QuickTime stream instead. (STUDIO can re-encode after capture.)"
       else
+        # 11.2.26: the picker reads the plain page, whose live ids are the HLS set
+        # (229–234). A REWIND re-extracts with --live-from-start and lists the
+        # DASH set (133–137 + 140) — the picked id was never there, yt-dlp fell to
+        # the next rung, and on an `ask` run that rung had no cap: a 360p pick
+        # came back 1080 on every rewind for a week (480 and 720 picks too). The
+        # pick's HEIGHT caps every fallback rung; the exact id still leads.
+        _ph=""; case "$SELNOTE" in [0-9]*) _ph=$(printf '%s' "$SELNOTE" | sed 's/[^0-9].*//') ;; esac
+        if [ -n "$_ph" ]; then
+          _lc="[height<=$_ph]"
+          LIVE_F="bv*[ext=mp4][vcodec^=avc1]${_lc}+ba[ext=m4a]/bv*[ext=mp4][vcodec^=avc1]${_lc}+ba/b[ext=mp4]${_lc}/best${_lc}/best"
+        fi
         LIVE_F="${SEL}/${LIVE_F}"
       fi
     fi
@@ -3491,6 +3539,7 @@ if [ "$IS_LIVE" = "1" ]; then
   # number (padded by connect/buffer lag) confused and no longer prints; the run
   # log keeps it for telemetry. Duration minus start_time: a rewound capture's
   # timestamps begin where the stream's do, hours in (10.5.26 eve: "43:08:09").
+  seal_as_mp4   # 11.2.26: a split-playlist capture lands as MPEG-TS — the seal is an mp4
   LIVE_DUR=$("$FFPROBE" -v error -show_entries format=duration,start_time -of default=nw=1 "$PRODUCED" 2>/dev/null \
     | awk -F= '/^duration=/{d=$2} /^start_time=/{s=$2} END{ if (s=="N/A"||s=="") s=0; if (d=="N/A"||d=="") d=0; v=d-s; if (v<0) v=d; printf "%d", v }')
   [ "${LIVE_DUR:-0}" -gt 0 ] 2>/dev/null || LIVE_DUR=$(( LIVE_EL > 0 ? LIVE_EL : 1 ))
@@ -4108,6 +4157,52 @@ else
     esac
     [ -s "$MKV" ]
   }
+  # 11.2.26: yt-dlp's OWN merge can die after the whole download has landed
+  # ("ERROR: Postprocessing: Conversion failed!" is ffmpeg's last line; the reason
+  # above it is dropped unless yt-dlp runs verbose). Three hours-long live replays
+  # did this in one night, and each was then fetched AGAIN from the top: the
+  # blank-page swap read "no .part" as "nothing downloaded". The per-stream files
+  # are whole and sit in the scratch — merge them here with regenerated
+  # timestamps, keep ffmpeg's words in the run log, and carry on. 0 = the merged
+  # scratch sits where yt-dlp's would have (stage_mkv finds it); 1 = not that
+  # failure, or the merge failed here too (the ladder below takes over).
+  salvage_merge() {
+    grep -q 'Postprocessing' "${YTERR:-/nonexistent}" 2>/dev/null || return 1
+    [ -z "$(ls "$WORKDIR/${WORKSTEM}".*part 2>/dev/null)" ] || return 1
+    _sv=""; _sa=""; _sb=""
+    for _f in "$WORKDIR/${WORKSTEM}".*; do
+      [ -s "$_f" ] || continue
+      case "$_f" in *.part|*.ytdl|*.temp.*|*.log|*.err|*.json|*.mkv) continue ;; esac
+      _st=$("$FFPROBE" -v error -show_entries stream=codec_type -of csv=p=0 "$_f" 2>/dev/null | tr -d ',' | sort -u | tr '\n' ' ')
+      case "$_st" in
+        *video*audio*|*audio*video*) [ -z "$_sb" ] && _sb="$_f" ;;
+        *video*) [ -z "$_sv" ] && _sv="$_f" ;;
+        *audio*) [ -z "$_sa" ] && _sa="$_f" ;;
+      esac
+    done
+    [ -n "$_sb" ] || { [ -n "$_sv" ] && [ -n "$_sa" ]; } || return 1   # a lone video half is not a rip
+    yterr_show
+    warn "yt-dlp's merge failed after the whole download landed — merging the scratch streams here (nothing re-downloaded) …"
+    _out="$WORKDIR/${WORKSTEM}.mkv"; rm -f "$_out" "$WORKDIR/${WORKSTEM}".temp.* 2>/dev/null
+    printf '  salvage merge (yt-dlp merge failed) — ffmpeg says:\n' >> "${RUNLOG:-/dev/null}"
+    _ok=0
+    if [ -n "$_sb" ]; then
+      "$FFMPEG" -hide_banner -loglevel error -y -fflags +genpts -i "$_sb" -map 0:v:0 -map 0:a:0 -c copy -max_muxing_queue_size 40000 "$_out" </dev/null 2>>"${RUNLOG:-/dev/null}" && _ok=1
+      [ "$_ok" = 1 ] || { "$FFMPEG" -hide_banner -loglevel error -y -fflags +genpts+igndts -avoid_negative_ts make_zero -i "$_sb" -map 0:v:0 -map 0:a:0 -c copy -max_muxing_queue_size 40000 "$_out" </dev/null 2>>"${RUNLOG:-/dev/null}" && _ok=1; }
+    else
+      "$FFMPEG" -hide_banner -loglevel error -y -fflags +genpts -i "$_sv" -i "$_sa" -map 0:v:0 -map 1:a:0 -c copy -max_muxing_queue_size 40000 "$_out" </dev/null 2>>"${RUNLOG:-/dev/null}" && _ok=1
+      [ "$_ok" = 1 ] || { "$FFMPEG" -hide_banner -loglevel error -y -fflags +genpts+igndts -avoid_negative_ts make_zero -i "$_sv" -i "$_sa" -map 0:v:0 -map 1:a:0 -c copy -max_muxing_queue_size 40000 "$_out" </dev/null 2>>"${RUNLOG:-/dev/null}" && _ok=1; }
+    fi
+    if [ "$_ok" = 1 ] && [ -s "$_out" ]; then
+      for _f in "$_sb" "$_sv" "$_sa"; do [ -n "$_f" ] && rm -f "$_f"; done
+      logln "  salvage: merged the scratch streams here after yt-dlp's merge failed (nothing re-downloaded)"
+      RETRY_NOTE="merged here after yt-dlp's merge failed (nothing re-downloaded)"
+      return 0
+    fi
+    rm -f "$_out"
+    warn "the merge failed here too (ffmpeg's words are in the run log) — walking the ladder"
+    return 1
+  }
   # media duration in whole seconds ('' when unreadable)
   media_dur() { "$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$1" 2>/dev/null | awk '{ if ($1+0>0) printf "%.0f", $1+0 }'; }
   # the largest enumerable rung strictly below $1 (real menu rungs when the dump is
@@ -4215,6 +4310,7 @@ else
       # (nothing re-downloaded). Only then walk the ladder down.
       if pieces_backoff; then continue; fi   # the downloader's own race: fewer pieces, same rung, resumed
       if imp_rotate; then continue; fi       # the page refused the download's re-read: next browser fingerprint, same rung
+      if salvage_merge; then YTRC=0; else    # 11.2.26: a merge that died after a whole download is merged here, nothing re-fetched (else-branch closes at "# salvage_merge")
       if [ "$SAME_RETRY" = "0" ] && [ "$IS_HLS" = "1" ]; then
         _pp=$(ls -S "$WORKDIR/${WORKSTEM}".*part 2>/dev/null | head -1)
         _ppz=$(stat -f %z "$_pp" 2>/dev/null); _ppz=${_ppz:-0}
@@ -4231,8 +4327,11 @@ else
       # a blank shell ("Unsupported URL"; no .part ever appeared). The manifest the probe
       # already found needs no page at all — swap to it ONCE and retry the same rung
       # before walking the ladder down (which would just re-scrape the same blank page).
+      # 11.2.26: the test is "nothing was ever downloaded" — not "no .part": a merge
+      # that failed AFTER a whole download leaves finished halves and no .part, and
+      # the swap then fetched hours of video a second time (three times in one night).
       if [ "$MANIFEST_SWAP" = "0" ] && [ -s "${INFO:-/nonexistent}" ] && [ -n "$PYTHON" ] \
-         && [ -z "$(ls "$WORKDIR/${WORKSTEM}".*part 2>/dev/null)" ]; then
+         && [ -z "$(ls "$WORKDIR/${WORKSTEM}".* 2>/dev/null)" ]; then
         MANIFEST_SWAP=1
         _mf=$("$PYTHON" -c 'import json,sys
 try: d=json.load(sys.stdin)
@@ -4275,6 +4374,7 @@ print(u or "")' < "$INFO" 2>/dev/null)
       else
         die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)${VIMEO_LOCKED:+This Vimeo is EMBED-LOCKED and no known host unlocked it — run PICKER and paste the page it is embedded on. }${VIMEO_LOCKED:-${NET_DIE_HINT:-The link may be expired, private, or need a login.}}"
       fi
+      fi   # salvage_merge
     fi
     stage_mkv || die "download reported success but left no usable file (unexpected)."
     # fragment-loss coverage check (HLS with a known duration only): one skipped
