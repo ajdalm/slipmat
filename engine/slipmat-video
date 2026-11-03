@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.20"          # 11.2.26 — a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.21"          # 11.2.26 — a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -1550,9 +1550,22 @@ def tt_hev(f):
     # tiktok-h265-is-video-only) — never PREFER it when an alternative exists. The
     # post-download audio-verify loop backstops the rungs where it is the only codec.
     return IS_TT and (f.get("vcodec") or "").lower().startswith(("hev", "hvc", "h265", "bytevc"))
+def untested(f):
+    # 11.2.26: yt-dlp 2026.10.26 lists YouTube HLS copies of every size beside the
+    # DASH files and marks them as not yet verified (the -F table says Untested);
+    # it ranks them last itself. Picked by bitrate they won every rung, and their
+    # MPEG-TS video half (one packet per fragment with no timestamp) killed the
+    # merge at 720, 480 and 360 in a row (the El-Sayed interview). Last here too.
+    return bool(f.get("__needs_testing"))
+def is_direct(f):
+    # one whole file over http(s) -- not a playlist of pieces (m3u8, dash segments):
+    # the fast path (no stutter test, no re-encode) and never the mpegts merge death.
+    return str(f.get("protocol") or "https").lower() in ("http", "https")
 def pick_video(cand):
     # At one resolution: prefer QT video-only (clean DASH ladder; audio paired
     # separately), then QT muxed, then anything (vp9/av1 -> flagged re-encode).
+    # Within each group: a rendition yt-dlp has not verified loses, a TikTok-h265
+    # loses, a whole file beats a playlist of pieces, then the higher bitrate.
     # Within each group, a TikTok-h265 loses ties (tt_hev above); do NOT otherwise
     # "prefer hevc to shrink the file" — that redesign was tried and REVERTED
     # (silent files). A rung where h265 is the ONLY codec is still picked; the
@@ -1560,9 +1573,10 @@ def pick_video(cand):
     # (NO apostrophes in these comments — VR_PY lives in a single-quoted string.)
     qvo = [f for f in cand if is_qt(f) and not has_audio(f)]
     qmx = [f for f in cand if is_qt(f) and has_audio(f)]
-    if qvo: return max(qvo, key=lambda f: (not tt_hev(f), tbr(f))), "0"
-    if qmx: return max(qmx, key=lambda f: (not tt_hev(f), tbr(f))), "0"
-    return max(cand, key=tbr), "1"
+    rank = lambda f: (not untested(f), not tt_hev(f), is_direct(f), tbr(f))
+    if qvo: return max(qvo, key=rank), "0"
+    if qmx: return max(qmx, key=rank), "0"
+    return max(cand, key=lambda f: (not untested(f), is_direct(f), tbr(f))), "1"
 def best_audio():
     if not auds: return None
     def ascore(f):
@@ -4296,6 +4310,20 @@ else
       "$FFMPEG" -hide_banner -loglevel error -y -fflags +genpts -i "$_sv" -i "$_sa" -map 0:v:0 -map 1:a:0 -c copy -max_muxing_queue_size 40000 "$_out" </dev/null 2>>"${RUNLOG:-/dev/null}" && _ok=1
       [ "$_ok" = 1 ] || { "$FFMPEG" -hide_banner -loglevel error -y -fflags +genpts+igndts -avoid_negative_ts make_zero -i "$_sv" -i "$_sa" -map 0:v:0 -map 1:a:0 -c copy -max_muxing_queue_size 40000 "$_out" </dev/null 2>>"${RUNLOG:-/dev/null}" && _ok=1; }
     fi
+    if [ "$_ok" != 1 ]; then
+      # 11.2.26 (the El-Sayed interview, a YouTube HLS rendition): a video half yt-dlp
+      # wrote as MPEG-TS can carry one packet per fragment with NO timestamp at all;
+      # matroska refuses such a packet even with regenerated timestamps, mp4 takes it
+      # and stamps it. Go by way of an mp4, then into the mkv the pipeline expects.
+      _via="$WORKDIR/${WORKSTEM}.salvage.mp4"; rm -f "$_via"
+      printf '  salvage merge: the mkv refused a packet with no timestamp — going by way of an mp4\n' >> "${RUNLOG:-/dev/null}"
+      if [ -n "$_sb" ]; then
+        "$FFMPEG" -hide_banner -loglevel error -y -i "$_sb" -map 0:v:0 -map 0:a:0 -c copy -max_muxing_queue_size 40000 "$_via" </dev/null 2>>"${RUNLOG:-/dev/null}"
+      else
+        "$FFMPEG" -hide_banner -loglevel error -y -i "$_sv" -i "$_sa" -map 0:v:0 -map 1:a:0 -c copy -max_muxing_queue_size 40000 "$_via" </dev/null 2>>"${RUNLOG:-/dev/null}"
+      fi && "$FFMPEG" -hide_banner -loglevel error -y -i "$_via" -c copy "$_out" </dev/null 2>>"${RUNLOG:-/dev/null}" && _ok=1
+      rm -f "$_via"
+    fi
     if [ "$_ok" = 1 ] && [ -s "$_out" ]; then
       for _f in "$_sb" "$_sv" "$_sa"; do [ -n "$_f" ] && rm -f "$_f"; done
       logln "  salvage: merged the scratch streams here after yt-dlp's merge failed (nothing re-downloaded)"
@@ -4472,7 +4500,9 @@ print(u or "")' < "$INFO" 2>/dev/null)
         RETRY_NOTE="partial: ${BEST_COV}% of the show (fragments kept failing)"
         break
       fi
-      if [ "$IS_HLS" = "1" ]; then
+      if grep -q 'Postprocessing' "${YTERR:-/nonexistent}" 2>/dev/null; then
+        die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)The download landed but its video and audio could not be merged into one file, by yt-dlp or here (ffmpeg's words are in the run log under 'salvage merge') — toss this run log at an AI agent."
+      elif [ "$IS_HLS" = "1" ]; then
         die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)These CDN walls are usually TRANSIENT: run the SAME link again in a minute (a lower resolution finishes faster); copy a fresh link only if it keeps failing."
       else
         die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)${VIMEO_LOCKED:+This Vimeo is EMBED-LOCKED and no known host unlocked it — run PICKER and paste the page it is embedded on. }${VIMEO_LOCKED:-${NET_DIE_HINT:-The link may be expired, private, or need a login.}}"

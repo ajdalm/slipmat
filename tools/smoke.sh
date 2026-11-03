@@ -211,6 +211,49 @@ else
   if [ "$_rc2" != "0" ]; then pass "salvage merge stays out of every other failure (no 'Postprocessing' in yt-dlp's words → not its case)"
   else fail "salvage merge fired on a failure that was not yt-dlp's merge"; fi
 fi
+
+# ---- 3c4. an unverified rendition never wins a size (11.2.26, the El-Sayed interview): yt-dlp 2026.10.26 lists
+# YouTube's HLS copy of every DASH size (Untested in -F, ranked last by yt-dlp itself); picked by bitrate it won
+# every rung and its MPEG-TS half killed the merge at 720, 480 and 360 in a row. The whole file wins its size, the
+# unverified copy is last — with or without the flag (the day yt-dlp verifies them, a whole file still wins).
+cat > "$S/hlscopy.json" <<'JEOF'
+{"id":"x","title":"t","duration":3931,"formats":[
+ {"format_id":"140","ext":"m4a","protocol":"https","vcodec":"none","acodec":"mp4a.40.2","tbr":129.5,"filesize":63622247,"url":"https://e/a"},
+ {"format_id":"134","ext":"mp4","protocol":"https","vcodec":"avc1.4D401E","acodec":"none","height":360,"width":640,"fps":30,"tbr":198.5,"filesize":93020000,"url":"https://e/v"},
+ {"format_id":"230","ext":"mp4","protocol":"m3u8_native","vcodec":"avc1.4D401E","acodec":"none","height":360,"width":640,"fps":30,"tbr":442.5,"__needs_testing":true,"url":"https://e/m.m3u8"},
+ {"format_id":"136","ext":"mp4","protocol":"https","vcodec":"avc1.64001F","acodec":"none","height":720,"width":1280,"fps":30,"tbr":630.4,"filesize":295440000,"url":"https://e/v7"},
+ {"format_id":"232","ext":"mp4","protocol":"m3u8_native","vcodec":"avc1.64001F","acodec":"none","height":720,"width":1280,"fps":30,"tbr":1152.1,"__needs_testing":true,"url":"https://e/m7.m3u8"}]}
+JEOF
+sed 's/,"__needs_testing":true//g' "$S/hlscopy.json" > "$S/hlscopy-verified.json"
+_us=$(printf '\037')
+_s3=$(python3 -c "$_vrpy" select 360 < "$S/hlscopy.json" 2>/dev/null | cut -d"$_us" -f1,4)
+_s7=$(python3 -c "$_vrpy" select 720 < "$S/hlscopy.json" 2>/dev/null | cut -d"$_us" -f1,4)
+_sv=$(python3 -c "$_vrpy" select 720 < "$S/hlscopy-verified.json" 2>/dev/null | cut -d"$_us" -f1,4)
+_mn=$(python3 -c "$_vrpy" menu < "$S/hlscopy.json" 2>/dev/null | cut -d"$_us" -f1,6,7 | tr '\n' ' ')
+if [ "$_s3" = "134+140${_us}https" ] && [ "$_s7" = "136+140${_us}https" ] && [ "$_sv" = "136+140${_us}https" ] \
+   && [ "$_mn" = "720${_us}https${_us}136+140 360${_us}https${_us}134+140 " ]; then
+  pass "a size's whole file beats its unverified HLS copy (yt-dlp 2026.10.26 lists both): 360 → 134+140, 720 → 136+140, the menu rows too, flag or no flag"
+else fail "the picker takes an HLS copy over the whole file at the same size (360: '$_s3' · 720: '$_s7' · verified: '$_sv' · menu: '$_mn')"; fi
+
+# ---- 3c5. the salvage merge takes a video half whose packets carry no timestamps (11.2.26): matroska refuses
+# the packet, mp4 stamps it — so the salvage goes by way of an mp4. Functional on the real 600 KB MPEG-TS snippet
+# kept at ~/.slipmat/fixtures/yt-hls-untimed.ts when it is there (25 s of the El-Sayed half); the route's presence otherwise.
+_unt="$REAL_HOME/.slipmat/fixtures/yt-hls-untimed.ts"
+if ! printf '%s\n' "$_salv" | grep -q 'salvage\.mp4'; then
+  fail "the salvage merge has no mp4 route — a video half with no timestamps dies in the mkv (El-Sayed, 11.2.26)"
+elif [ -s "$_unt" ]; then
+  mkdir -p "$S/salv2"; cp "$_unt" "$S/salv2/y.f230.mp4"
+  "$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i sine=duration=25 -c:a aac -vn "$S/salv2/y.f140.m4a" </dev/null 2>/dev/null
+  printf 'ERROR: Postprocessing: Conversion failed!\n' > "$S/salv2/ytdlp.err"
+  _rc=$( ( WORKDIR="$S/salv2"; WORKSTEM="y"; YTERR="$S/salv2/ytdlp.err"; RUNLOG="$S/salv2/run.log"; RETRY_NOTE=""
+           yterr_show() { :; }; warn() { :; }; logln() { :; }
+           eval "$_salv"; salvage_merge >/dev/null 2>&1; echo $? ) 2>/dev/null )
+  _d=$("$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$S/salv2/y.mkv" 2>/dev/null | cut -d. -f1)
+  _vs=$("$FFPROBE" -v error -show_entries stream=codec_type -of csv=p=0 "$S/salv2/y.mkv" 2>/dev/null | tr -d ',' | sort -u | tr '\n' ' ')
+  if [ "$_rc" = "0" ] && [ "$_vs" = "audio video " ] && [ "${_d:-0}" -ge 24 ] && grep -q 'by way of an mp4' "$S/salv2/run.log" && [ ! -e "$S/salv2/y.salvage.mp4" ]; then
+    pass "salvage by way of an mp4: the real MPEG-TS half with no timestamps lands in one mkv (${_d}s, both streams), the mp4 step cleaned up"
+  else fail "salvage by way of an mp4 failed on the timestamp-less half (rc=$_rc · streams='$_vs' · ${_d:-0}s)" "$S/salv2/run.log"; fi
+else skip "salvage by way of an mp4 — the route is present; no ~/.slipmat/fixtures/yt-hls-untimed.ts on this machine to run it on"; fi
 # ---- 3c4b. a rewind says how far each stream is behind live (11.2.26)
 # the driver wraps yt-dlp's fragment generator and writes "video <s>" / "audio <s>";
 # the REC line reads it. Functional: a fake generator under the real wrapper.

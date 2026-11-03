@@ -264,7 +264,11 @@ Since 11.2.26 it also checks that the from-now capture selector accepts
 YouTube's HLS-only audio rendition (the live audio no longer comes as m4a; a
 selector that insists on it dies with "Requested format is not available"
 before a byte lands), and that a merge yt-dlp fails after a whole download is
-merged in the scratch instead of fetched again.
+merged in the scratch instead of fetched again. Since 4.21 (the same evening) it
+also feeds the picker a dump that lists a size twice, as a whole file and as
+YouTube's unverified HLS copy, and expects the whole file; and it runs the
+salvage on a real MPEG-TS half whose packets carry no timestamps when the local
+snippet `~/.slipmat/fixtures/yt-hls-untimed.ts` is present.
 
 A rewind shows how far each stream is behind live (11.2.26). The video and the
 audio of a rewound capture download as two threads, a fragment at a time; the
@@ -324,6 +328,21 @@ blank-page manifest swap fires only when nothing at all was downloaded, so a
 failed merge never re-downloads the show. Offline proof: `slipmat smoke` feeds
 two whole halves and yt-dlp's words into the salvage and expects one mkv with
 both streams.
+
+The same evening the cause of the El-Sayed failure (a 60 Minutes interview,
+1:05:31) turned out to sit upstream of the merge. yt-dlp 2026.10.26 lists
+YouTube's HLS copy of every DASH size beside the whole file (`Untested` in
+`-F`; yt-dlp itself ranks them last), and the picker, choosing by bitrate,
+took the copy at 720, 480 and 360 in a row. Its MPEG-TS video half carries one
+packet per fragment with no timestamp at all; matroska refuses such a packet
+even with regenerated timestamps, so yt-dlp's merge and the salvage both died
+and the ladder blamed the CDN. Two rules since 4.21: the picker ranks an
+unverified rendition last and, at the same size, a whole file over a playlist
+of pieces (YouTube is back on its DASH files, the fast path); and the salvage
+has a third route, by way of an mp4 (mp4 stamps the packet), proven on the
+real halves (117,815 frames, 1:05:31, both streams). A ladder that ends on a
+merge death now says so instead of calling it a CDN wall. `slipmat smoke` 3c4
+and 3c5 cover both rules offline.
 
 ## Ended streams still being finished by YouTube (post_live, 10.13.26)
 
