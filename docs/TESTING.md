@@ -557,3 +557,36 @@ HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/k.raw 150 -- '<live url>' ma
 Real screens from 10.5.26: `NOTES/2026-10-05-asks-renders/keys-x-*.raw` in the
 private notebook (`bash show-keys-x.sh` there renders all four).
 
+
+## The day's Newsmax shows (11.2.26): `slipmat newsmax`
+
+`tools/newsmax-today.sh` reads `NMX_DAILY` from `~/.slipmat/config` (pipe-separated
+`slug=size`, the slug from `newsmaxtv.com/Shows/<slug>`, size `best` or a height),
+reads each show the way the engine's show door does (the show page's listing call
+→ newest episode → Newsmax's own service → title, master playlist) and prints one
+row per show: the name the engine will write (`<ROW> <m.d.yy> [NMX]`), the size, or
+`already in the folder` when that file exists. Then it runs the engine once per show,
+one after another (the CDN throttles parallel pulls; the total is fastest this way):
+`best` → `slipmat video <episode> best`; a height → `<height> auto`. `custom` prints
+each show's ladder (`1) 1080p 2) 720p …`) and takes one line of picks — `1, 2, 4, 3`
+(one per show, in order), a lone number for every show, a short line = best for the
+rest; `custom 1,2,4,3` on the command line skips the ask. `list` only looks.
+`slipmat smoke` 3e asserts the picks line and the ladder parse (pure hooks
+`--parse-picks`, `--parse-ladder`). Live proof 11.2.26: `list` read the four shows,
+named three for 11.2 and saw the fourth's newest (10.30) already in the folder.
+
+## The silent-file rule (11.2.26)
+
+A file that lands with no audio stream is told apart, once on screen and again on
+the receipt's `audio` line: `silent by nature — the source has no audio track`
+(the dump lists none) versus `the source lists an audio track, but none could be
+fetched` (the dump claims audio, the pick landed silent, the re-fetch landed silent,
+and the audio-only rescue — `-f ba` fetched on its own and paired in with ffmpeg,
+`audio_only_rescue` — found nothing either). The rescue sits on both download paths
+(fast path and mkv scratch) and runs only after the existing one re-fetch. `slipmat
+smoke` 3f runs `silent_verdict` on a 1 s silent mp4 against a no-audio dump and an
+audio-claiming dump and asserts both sentences, the receipt line, and the rescue
+call on both paths. Two cosmetic rulings landed with it: the source note never says
+`· ?` when the dump carries no codec, and a reel whose dump lists only non-QuickTime
+codecs says it once, at the landing (`only vp9 is offered — converting to HEVC`),
+the first line now log-only.

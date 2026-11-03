@@ -8,6 +8,8 @@
 #   slipmat spotify <url>                         a Spotify playlist, album or track URL
 #                                                 → the same AAC-320 m4a
 #   slipmat spotify --login                       log in to Spotify (once)
+#   slipmat newsmax [custom [1,2,4,3] | list]     the day's Newsmax shows (NMX_DAILY in
+#                                                 ~/.slipmat/config), newest episode each
 #   slipmat z-batch [opts] <folder>               unattended zoom-crop / re-encode batch
 #   slipmat compare <file> <q> <q> [...]          measure quality dials on your file first
 #   slipmat smoke                                 offline self-test, about a minute —
@@ -19,7 +21,7 @@ set -u
 SELF="$0"; while [ -L "$SELF" ]; do _l=$(readlink "$SELF"); case "$_l" in /*) SELF="$_l" ;; *) SELF="$(dirname "$SELF")/$_l" ;; esac; done
 HERE="$(cd "$(dirname "$SELF")" && pwd)"
 CMD="${1:-}"
-usage() { sed -n '2,16p' "$0" | sed 's/^# //;s/^#//'; }
+usage() { sed -n '2,18p' "$0" | sed 's/^# //;s/^#//'; }
 case "$CMD" in
   hello|setup) shift; exec /bin/bash "$HERE/tools/hello.sh" "$@" ;;
   ""|help)
@@ -31,6 +33,7 @@ case "$CMD" in
   video)   shift; exec "$HERE/engine/slipmat-video" "$@" ;;
   audio)   shift; exec "$HERE/engine/slipmat-audio" "$@" ;;
   spotify) shift; exec "$HERE/engine/slipmat-spotify" "$@" ;;
+  newsmax) shift; exec /bin/bash "$HERE/tools/newsmax-today.sh" "$@" ;;
   z-batch) shift; exec /bin/bash "$HERE/tools/z-batch.sh" "$@" ;;
   compare) shift; exec /bin/bash "$HERE/tools/compare.sh" "$@" ;;
   smoke)   shift; exec /bin/bash "$HERE/tools/smoke.sh" "$@" ;;

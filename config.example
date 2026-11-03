@@ -68,3 +68,7 @@
 
 # Newsmax naming menu — pipe-separated rows; names you type are learned:
 #NMX_SHOWS="SHOW ONE|SHOW TWO"
+
+# The day's Newsmax shows for `slipmat newsmax` — the slug from
+# newsmaxtv.com/Shows/<slug> and the size each rips at (best or a height):
+#NMX_DAILY="Show-One=best|Show-Two=720|Show-Three=360"

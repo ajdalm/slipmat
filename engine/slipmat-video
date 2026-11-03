@@ -820,6 +820,42 @@ EOF
 audio_streams() {
   "$FFPROBE" -v error -select_streams a -show_entries stream=index -of csv=p=0 "$1" 2>/dev/null | grep -c .
 }
+# ---- the silent-file rule (11.2.26): a file that lands without audio is told apart —
+# "the source has no audio track" from "the source lists audio and none could be
+# fetched" — said once on screen and again on the receipt's `audio` line. Before
+# giving up, the audio is fetched on its own and paired in: a pick can land
+# video-only while an audio-only stream still serves.
+AUDIO_NOTE=""
+source_claims_audio() {
+  [ -n "$PYTHON" ] && [ -s "${INFO:-}" ] && [ "$("$PYTHON" -c "$VR_PY" hasaudio < "$INFO" 2>/dev/null)" = "1" ]
+}
+audio_only_rescue() {   # $1 = the silent file; an audio-only fetch is paired into it in place
+  _ao="$WORKDIR/${WORKSTEM}.aud"
+  rm -f "$_ao".* 2>/dev/null
+  logln "  audio rescue: fetching the audio on its own"
+  "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "ba" $DLPAR --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
+    $DLPROG -o "$_ao.%(ext)s" "$URL" >/dev/null 2>>"$YTERR" || { logln "  audio rescue: no audio-only stream landed"; return 1; }
+  _af=$(ls -t "$_ao".* 2>/dev/null | grep -vE '\.(part|ytdl|temp)$' | head -1)
+  { [ -n "$_af" ] && [ "$(audio_streams "$_af")" != "0" ]; } || { logln "  audio rescue: the fetch left no audio"; return 1; }
+  _mx="$WORKDIR/${WORKSTEM}.paired.${1##*.}"
+  "$FFMPEG" -y -v error -i "$1" -i "$_af" -map 0:v:0 -map 1:a:0 -c copy "$_mx" 2>>"$YTERR" \
+    || "$FFMPEG" -y -v error -i "$1" -i "$_af" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k "$_mx" 2>>"$YTERR" \
+    || { rm -f "$_mx"; logln "  audio rescue: the pairing failed (ffmpeg's words are in $YTERR)"; return 1; }
+  mv -f "$_mx" "$1"; rm -f "$_af"
+  ok "the audio landed on its own and is paired in"
+  AVFIX_NOTE="audio fetched on its own and paired in (the picks landed silent)"
+  return 0
+}
+silent_verdict() {   # $1 = the landed file: which kind of silent it is, said once
+  [ "$(audio_streams "$1")" = "0" ] || return 0
+  if source_claims_audio; then
+    AUDIO_NOTE="silent — the source lists an audio track, none could be fetched (the run log has yt-dlp's words)"
+    warn "this file is silent: the source lists an audio track, but none could be fetched — not a silent source"
+  else
+    AUDIO_NOTE="silent — the source has no audio track"
+    note "this file is silent by nature — the source has no audio track"
+  fi
+}
 
 # Short side min(w,h) of a file's video ('' when unreadable) — resolution identity
 # for portrait-correct comparisons (memory: format-aware-selection).
@@ -1701,7 +1737,8 @@ elif cmd == "select":
     # V4.1 note = key-first: "1080p vertical · h265" (orientation from the dump)
     _w = rep.get("width") or 0; _h = rep.get("height") or 0
     _o = ("(V)" if _h > _w else "") if (_w and _h) else ""   # V4.5: flag vertical only
-    note = "%sp%s · %s" % (p_of(rep), (" " + _o) if _o else "", vc_short(rep))
+    _vcs = vc_short(rep)   # a dump without a codec says nothing, not "?" (11.2.26)
+    note = "%sp%s%s" % (p_of(rep), (" " + _o) if _o else "", (" · " + _vcs) if _vcs != "?" else "")
     print(SEP.join([sel, str(needreenc), note, proto, downgraded]))
 elif cmd == "check":
     # Pre-flight a CUSTOM spec ("137+140", lone id, ...) against the dump, so the
@@ -1862,7 +1899,7 @@ present_formats() {
     # V4.1: orientation word (rule: horizontal/vertical, never landscape/portrait)
     # V4.5: vertical is FLAGGED "(V)", a normal horizontal frame says nothing
     _ow=$(printf '%s' "$_dim" | awk '{print $2}'); case "$_ow" in portrait|square) _ow="(V)" ;; *) _ow="" ;; esac
-    _SEL_ARR[$_i]="$_sel"; _NR_ARR[$_i]="$_nr"; _PROTO_ARR[$_i]="$_proto"; _NOTE_ARR[$_i]="${_p}p${_ow:+ $_ow} · ${_vc}"
+    _SEL_ARR[$_i]="$_sel"; _NR_ARR[$_i]="$_nr"; _PROTO_ARR[$_i]="$_proto"; _NOTE_ARR[$_i]="${_p}p${_ow:+ $_ow}$([ "$_vc" != "?" ] && printf ' · %s' "$_vc")"
     [ "$_i" = "1" ] && _ROW1="${_p}p${_ow:+ $_ow} ${_vc} · ${_mb}"   # row 1 as shown — the custom-pick ask names it
     MENU_PS="$MENU_PS $_p"
     MENU_MBS="$MENU_MBS ${_p}:${_mb}"
@@ -3809,7 +3846,7 @@ elif [ -n "$SEL" ]; then
     # if a non-QT codec actually lands.
     DLSEL="${QTCHAIN}/${SEL}/bv*${HCAP}+ba/b"
     if [ "$NEEDRE" = "1" ]; then
-      ok "dump shows only non-QuickTime codecs ($SELNOTE) — trying QuickTime-native streams first (re-encode only if none land)"
+      logln "  dump shows only non-QuickTime codecs ($SELNOTE) — trying QuickTime-native streams first"   # the landed codec says it once (11.2.26)
     else
       ok "dump's best QuickTime stream is $SELNOTE but higher rungs exist — asking for the best QuickTime stream fresh at download"
     fi
@@ -4114,13 +4151,14 @@ if [ "$FAST" = "1" ]; then
     DLF=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
     [ -n "$DLF" ] || die "audio re-fetch produced no file."
     if [ "$(audio_streams "$DLF")" = "0" ]; then
-      warn "still no audio — the source's audio metadata appears wrong; keeping the video-only file."
+      audio_only_rescue "$DLF" || true   # silent_verdict below says which kind of silent it is
     else
       _ash=$(file_short_side "$DLF")
       ok "audio-bearing rendition landed${_ash:+ (${_ash}p)}"
       AVFIX_NOTE="audio re-fetched (first pick landed silent)"
     fi
   fi
+  silent_verdict "$DLF"
   keys_stop
   DL_EL=$((SECONDS - DL_T0))
   # V4.4: the download telemetry is a dim line HERE, between [2] and
@@ -4133,7 +4171,7 @@ if [ "$FAST" = "1" ]; then
       # the "ready" stream is actually NOT QuickTime-playable -> route to re-encode
       # say it ONCE: when the dump already warned (NEEDRE) this is the expected result,
       # not news; the [4] codec line below stays quiet (RE_SAID)
-      if [ "${NEEDRE:-0}" = "1" ]; then note "no QuickTime-native stream landed — ${RVC:-unknown} it is; re-encoding to HEVC …"
+      if [ "${NEEDRE:-0}" = "1" ]; then note "only ${RVC:-a non-QuickTime codec} is offered — converting to HEVC for QuickTime …"
       else note "stream is ${RVC:-unknown} — QuickTime can't play it; re-encoding to HEVC …"; fi
       RE_SAID=1
       "$FFMPEG" -hide_banner -loglevel error -y -i "$DLF" -c copy "$MKV" </dev/null \
@@ -4177,6 +4215,7 @@ if [ "$FAST" = "1" ]; then
       box_line "time    $(fmt_dur $(( SECONDS - T_RUN0 > 0 ? SECONDS - T_RUN0 : 1 )))"
       got_line "$OUT"
       [ -n "${AVFIX_NOTE:-}" ] && box_line "note    $AVFIX_NOTE"
+      [ -n "${AUDIO_NOTE:-}" ] && box_line "audio   $AUDIO_NOTE"
       [ -n "${SLIPMAT_ALSO_KEPT:-}" ] && box_line "kept    $SLIPMAT_ALSO_KEPT"   # V4.5: the STUDIO file this re-rip came from
       box_file path "$(dirname "$OUT")/"
       box_bot
@@ -4573,7 +4612,7 @@ print(u or "")' < "$INFO" 2>/dev/null)
     [ "$YTRC" -eq 0 ] || die "audio re-fetch failed (yt-dlp exit $YTRC)$(yterr_said)"
     stage_mkv || die "audio re-fetch left no usable file."
     if [ "$(audio_streams "$MKV")" = "0" ]; then
-      warn "still no audio — the source's audio metadata appears wrong; continuing with the video-only file."
+      audio_only_rescue "$MKV" || true   # silent_verdict below says which kind of silent it is
     else
       _ash=$(file_short_side "$MKV")
       ok "audio-bearing rendition landed${_ash:+ (${_ash}p)}"
@@ -4581,6 +4620,7 @@ print(u or "")' < "$INFO" 2>/dev/null)
     fi
     DL_EL=$((SECONDS - DL_T0))
   fi
+  silent_verdict "$MKV"
   # download speed is first-class data (8.10.26): slow-CDN patterns become visible
   # in receipts/logs instead of folklore (fresh NMX ≈ 15MB/s; throttled ≈ 0.6).
   DLMBS=$(awk -v b="$(stat -f %z "$MKV" 2>/dev/null || echo 0)" -v t="${DL_EL:-0}" 'BEGIN{ if (t>0 && b>0) printf "%.1f", b/1048576/t }')
@@ -5920,6 +5960,7 @@ awk -v d="$DRIFT" 'BEGIN{ split(d,a," "); exit !(a[1]+0 > 0.25) }' 2>/dev/null &
 logln "  check: ${FINALDEF}% bad PTS · drift ${DRIFT} · source ${VERDICT} (${DEFECT}%)"
 [ -n "${RETRY_NOTE:-}" ] && box_line "note    $RETRY_NOTE"
 [ -n "${AVFIX_NOTE:-}" ] && box_line "note    $AVFIX_NOTE"
+[ -n "${AUDIO_NOTE:-}" ] && box_line "audio   $AUDIO_NOTE"
 # (V4.2: no `kept` line — the original's existence is implied by the delete question just answered)
 [ -n "${ZBOX:-}" ] && [ "${ZMODE:-0}" = "1" ] && box_line "crop    ${ZBOX} (zoom-crop)"
 [ -n "${OUT_FALLBACK:-}" ] && box_line "note    $OUT_FALLBACK"

@@ -358,6 +358,31 @@ done
 if [ -z "$_lmiss" ] && osacompile -o "$S/launch.scpt" "$REPO/shortcuts/launch.applescript" 2>/dev/null; then pass "launcher compiles and handles every builder mode"
 else fail "launcher drift: modes not handled or script does not compile:$_lmiss"; fi
 
+# ---- 3e. the day's Newsmax shows (11.2.26): the picks line and a master playlist's ladder read right,
+# and the wrapper knows the verb. One number = every show; commas or spaces; short = best for the rest.
+_nt="$REPO/tools/newsmax-today.sh"
+_p1=$(bash "$_nt" --parse-picks "1, 2, 4, 3" 4); _p2=$(bash "$_nt" --parse-picks "2" 4); _p3=$(bash "$_nt" --parse-picks "1 2" 4); _p4=$(bash "$_nt" --parse-picks "" 4)
+_ld=$(printf '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\na.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360\nb.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720\nc.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480\nd.m3u8\n' | bash "$_nt" --parse-ladder | tr '\n' ' ')
+if [ "$_p1" = "1 2 4 3 " ] && [ "$_p2" = "2 2 2 2 " ] && [ "$_p3" = "1 2 best best " ] && [ -z "$_p4" ] && [ "$_ld" = "1080 720 480 360 " ] \
+   && grep -q '^  newsmax)' "$REPO/slipmat"; then
+  pass "slipmat newsmax: picks '1, 2, 4, 3' → one per show, a lone number covers every show, a master's ladder reads 1080 720 480 360"
+else fail "slipmat newsmax parsing: picks '$_p1' / '$_p2' / '$_p3' / '$_p4' · ladder '$_ld'"; fi
+
+# ---- 3f. the silent-file rule (11.2.26): a file without audio says WHICH kind of silent it is —
+# the source has no audio track, or the source lists one and none could be fetched.
+mkdir -p "$S/silent"
+"$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i testsrc=duration=1:size=160x120:rate=10 -c:v libx264 -pix_fmt yuv420p -an "$S/silent/v.mp4" </dev/null 2>/dev/null
+printf '{"formats":[{"format_id":"1","vcodec":"avc1","acodec":"none","height":120,"width":160,"url":"https://e/v"}]}' > "$S/silent/noaudio.json"
+printf '{"formats":[{"format_id":"1","vcodec":"avc1","acodec":"none","height":120,"width":160,"url":"https://e/v"},{"format_id":"2","vcodec":"none","acodec":"mp4a.40.2","url":"https://e/a"}]}' > "$S/silent/hasaudio.json"
+_sv=$(sed -n '/^source_claims_audio() {/,/^}/p; /^silent_verdict() {/,/^}/p; /^audio_streams() {/,/^}/p' "$ENGINE")
+_sa=$(cd "$S/silent" && PYTHON=python3 VR_PY="$_vrpy" FFPROBE="$FFPROBE" INFO="$S/silent/noaudio.json" bash -c "warn() { printf 'W:%s\n' \"\$*\"; }; note() { printf 'N:%s\n' \"\$*\"; }; $_sv; silent_verdict v.mp4; printf 'A:%s\n' \"\$AUDIO_NOTE\"" 2>&1)
+_sb=$(cd "$S/silent" && PYTHON=python3 VR_PY="$_vrpy" FFPROBE="$FFPROBE" INFO="$S/silent/hasaudio.json" bash -c "warn() { printf 'W:%s\n' \"\$*\"; }; note() { printf 'N:%s\n' \"\$*\"; }; $_sv; silent_verdict v.mp4; printf 'A:%s\n' \"\$AUDIO_NOTE\"" 2>&1)
+if printf '%s' "$_sa" | grep -q '^N:this file is silent by nature' && printf '%s' "$_sa" | grep -q '^A:silent — the source has no audio track' \
+   && printf '%s' "$_sb" | grep -q '^W:this file is silent: the source lists an audio track' && printf '%s' "$_sb" | grep -q '^A:silent — the source lists an audio track' \
+   && grep -q 'box_line "audio   \$AUDIO_NOTE"' "$ENGINE" && grep -q 'audio_only_rescue "\$DLF"' "$ENGINE" && grep -q 'audio_only_rescue "\$MKV"' "$ENGINE"; then
+  pass "the silent-file rule: no audio track → 'silent by nature'; audio listed but none landed → 'none could be fetched'; both on the receipt's audio line; the audio-only rescue sits on both paths"
+else fail "the silent-file rule: no-audio dump → '$_sa' · audio-claiming dump → '$_sb'"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:

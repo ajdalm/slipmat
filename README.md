@@ -41,6 +41,11 @@ and switches again if the site balks at the download). A Newsmax show
 page or episode page works as is: slipmat reads the show's episode list and
 asks Newsmax's own service for the stream and the show's name, so no browser
 or stream sniffer is needed.
+`slipmat newsmax` rips the day's shows in one go: list them once in
+`~/.slipmat/config` (`NMX_DAILY="Show-One=best|Show-Two=360"`), and each run
+takes every show's newest episode at its size, skipping any already in the
+folder. `slipmat newsmax custom` shows each show's sizes and takes one line of
+picks (`1, 2, 4, 3`); `slipmat newsmax list` only looks.
 
 ```
 pip3 install -U "yt-dlp[default,curl-cffi]"
