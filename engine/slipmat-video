@@ -1560,6 +1560,8 @@ def untested(f):
 def is_direct(f):
     # one whole file over http(s) -- not a playlist of pieces (m3u8, dash segments):
     # the fast path (no stutter test, no re-encode) and never the mpegts merge death.
+    # Holds on every site, even when the playlist copy has the higher bitrate
+    # (settled 11.2.26; the picker asserts it in smoke 3c4).
     return str(f.get("protocol") or "https").lower() in ("http", "https")
 def pick_video(cand):
     # At one resolution: prefer QT video-only (clean DASH ladder; audio paired
