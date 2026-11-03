@@ -609,3 +609,23 @@ the source size, the sharpness of 1080 native with none of the bloat. The dial i
 `NMX_HIGH_Q`; `h55` on the answer line overrides it for one show. The ledger row is
 in `~/.slipmat/logs/compare-ledger.tsv`; the side-by-side clip (q40 | source | q60,
 with damage maps) sits in `~/.slipmat/compare/`.
+
+## The title hook, widened (11.3.26)
+
+`~/.slipmat/title-hook` now runs for every source except social clips (X, TikTok,
+Instagram, Threads, Truth Social, Facebook — the handle is their identity) and gets
+three arguments: the title, the channel or handle, and the source tag (`WH`, `CSPAN`
+or the platform tag). It answers one line: the name, optionally a tab and the
+event's own date (`M.D.YY`, which outranks the upload date), optionally a tab and the
+bracket tag to write (`-` = none; empty = the source's own `[WH]`/`[CSPAN]`). The
+engine's `smart_title` is the one reader; the VOD name and the live-capture name
+both use it (a smart-named live capture keeps its `[L- date - time]` stamp). A
+second copy of one video at another size is suffixed `(720)` rather than `(2)`
+(`uniquify` takes the picked short side; the same size still bumps to `(2)`), and
+`place_final` corrects that suffix to the size that actually landed (a 1080 pick the
+defect rule brought to 720 reads `(720)`). Own-output recognition reads a smart name
+ending in ` - M.D.YY`. `slipmat smoke` 3g runs the engine with a throwaway hook that
+answers `SMART NAME<TAB>10.21.26<TAB>-` and expects `SMART NAME - 10.21.26.mp4`; 3h
+unit-tests the size suffix and the placement correction. The menu-bar door
+`[SLIPMAT VIDEO] NEWSMAX` (`make-shortcuts.sh -n`, launcher mode `newsmax`) opens a
+window that asks the one question and closes itself 45 s after the show windows open.

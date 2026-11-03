@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.22"          # 11.2.26 — the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.23"          # 11.3.26 — the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -717,7 +717,8 @@ abridge_mid() {
 
 # If $OUTDIR/$1.mp4 exists, append " (2)", " (3)" ... and echo the free stem. Announces
 # a bump on stderr (NOT stdout) so the message shows but never pollutes the $() capture.
-uniquify() {
+uniquify() {   # $1 = the stem · $2 = the picked short side (optional): a second copy of one video at ANOTHER
+               # size is "stem (720)" rather than "stem (2)" (11.3.26); the same size still bumps to (2)
   _stem="$1"; _try="$_stem"; _n=2
   # a name is taken if the final file, a reservation (.mp4.claim in the
   # in-progress folder), a growing capture there (.part or sealed), OR a STUDIO
@@ -732,6 +733,10 @@ uniquify() {
     if [ -e "$OUTDIR/${_try}.mp4" ] || [ -e "${CAPDIR:-$OUTDIR}/${_try}.mp4.claim" ] \
        || [ -e "${CAPDIR:-$OUTDIR}/${_try}.mp4.part" ] || [ -e "${CAPDIR:-$OUTDIR}/${_try}.mp4" ] \
        || [ -e "$OUTDIR/${_try} (original).mp4" ] || [ -e "$OUTDIR/${_try} (reencode).mp4" ]; then
+      if [ -n "${2:-}" ] && [ "$_n" -eq 2 ] && [ -s "$OUTDIR/${_stem}.mp4" ]; then
+        _eh=$(file_short_side "$OUTDIR/${_stem}.mp4")
+        if [ -n "$_eh" ] && [ "$_eh" != "$2" ]; then _stem="${_stem} (${2})"; _try="$_stem"; continue; fi
+      fi
       _try="${_stem} (${_n})"; _n=$((_n+1)); continue
     fi
     # CLAIM the name ATOMICALLY: noclobber `>` is create-if-absent (O_EXCL), so the
@@ -778,6 +783,19 @@ place_final() {
   while [ -s "$_pf_dst" ]; do _pf_dst="$OUTDIR/${_pf_stem} (${_pf_n}).${_pf_ext}"; _pf_n=$((_pf_n+1)); done
   mv -f "$_pf_src" "$_pf_dst" || return 1
   [ -f "$_pf_claim" ] && [ ! -s "$_pf_claim" ] && rm -f "$_pf_claim" 2>/dev/null
+  # a size suffix names what LANDED: a 1080 pick that the defect rule brought to 720 reads (720)
+  case "$_pf_stem" in *" ("[0-9][0-9][0-9]")"|*" ("[0-9][0-9][0-9][0-9]")")
+    _pf_h="${_pf_stem##* (}"; _pf_h="${_pf_h%)}"; _pf_act=$(file_short_side "$_pf_dst")
+    if [ -n "$_pf_act" ] && [ "$_pf_act" != "$_pf_h" ]; then
+      _pf_fix="${_pf_stem% (*} (${_pf_act})"; _pf_fdst="$OUTDIR/${_pf_fix}.${_pf_ext}"; _pf_k=2
+      while [ -e "$_pf_fdst" ]; do _pf_fdst="$OUTDIR/${_pf_fix} (${_pf_k}).${_pf_ext}"; _pf_k=$((_pf_k+1)); done
+      if mv -f "$_pf_dst" "$_pf_fdst" 2>/dev/null; then
+        logln "  size suffix: (${_pf_h}) was the pick, (${_pf_act}) is what landed → $(basename "$_pf_fdst")"
+        [ "$_pf_stem" = "${NAME:-}" ] && NAME=$(basename "${_pf_fdst%.*}")
+        _pf_dst="$_pf_fdst"
+      fi
+    fi ;;
+  esac
   if [ "$_pf_dst" != "$OUTDIR/${_pf_stem}.${_pf_ext}" ]; then
     _pf_new=$(basename "${_pf_dst%.*}")
     logln "  name bump at placement: \"${_pf_stem}\" was taken by a file put there meanwhile → \"${_pf_new}\""
@@ -2110,6 +2128,7 @@ OWN_OUT=0
 if [ -n "$LOCAL_SRC" ]; then
   case "$(basename "$LOCAL_SRC")" in
     *" [Z]"*|*"(reencode)"*|*"(q"[0-9][0-9]*|*"[L- "*|*"[NMX]"*|*"[WH]"*|*"[CSPAN]"*|*"] - "*"@"*" - "*) OWN_OUT=1 ;;
+    *" - "[0-9]"."[0-9]"."[0-9][0-9]|*" - "[0-9][0-9]"."[0-9]"."[0-9][0-9]|*" - "[0-9]"."[0-9][0-9]"."[0-9][0-9]|*" - "[0-9][0-9]"."[0-9][0-9]"."[0-9][0-9]) OWN_OUT=1 ;;   # a smart name: "NAME - M.D.YY"
   esac
 fi
 [ -x "$YTDLP" ]  || die "yt-dlp not found — install it:  brew install yt-dlp"
@@ -3080,7 +3099,7 @@ build_vod_name() {
     esac
     _sb=$(printf '%s' "${_pre}${_suffix}" | LC_ALL=C wc -c | tr -d ' ')
     _name="${_pre}$(abridge "${_title:-${_tag}@${_chan}}" $((235 - _sb)))${_suffix}"
-    printf '%s' "$(uniquify "$_name")"; return
+    printf '%s' "$(uniquify "$_name" "${1:-}")"; return   # $1 = the picked short side (a second copy at another size)
   fi
 
   # nothing usable -> safe, unique fallback
@@ -3287,11 +3306,42 @@ seal_as_mp4() {
   return 1
 }
 
+# ---- the title hook (V4.5g; widened 11.3.26) ----------------------------------
+# An optional executable ~/.slipmat/title-hook maps a source title to the user's own
+# naming convention. It gets $1 the title, $2 the channel/handle, $3 the source tag
+# (WH · CSPAN · the platform tag) and prints one line: NAME, optionally a TAB and the
+# event's own date (M.D.YY), optionally a TAB and the tag to write ("-" = none;
+# empty = the source's own). Nothing printed = the standard name. Social clips (X,
+# TikTok, Instagram, Threads, Truth Social, Facebook) never reach it: the handle IS
+# their identity. smart_title → SMART_NAME / SMART_DATE / SMART_TAG (empty = none).
+SMART_NAME=""; SMART_DATE=""; SMART_TAG=""
+smart_title() {
+  SMART_NAME=""; SMART_DATE=""; SMART_TAG=""
+  [ -x "$HOME/.slipmat/title-hook" ] || return 0
+  _st_tag=""
+  case "$(lc "${RESCUE_PAGE_URL:-$URL}")" in *c-span.org*|*c-spanvideo.org*) _st_tag="CSPAN" ;; esac
+  [ -z "$_st_tag" ] && case "${M_CHANNEL}${M_UPLOADER}" in *"The White House"*) _st_tag="WH" ;; esac
+  _st_p=$(platform_tag)
+  case "$_st_p" in IG|TT|X|TH|TS|FB) return 0 ;; esac
+  _st_out=$("$HOME/.slipmat/title-hook" "$(clean_field "$M_TITLE")" "$(name_handle)" "${_st_tag:-$_st_p}" 2>/dev/null | head -1)
+  [ -n "$_st_out" ] || return 0
+  SMART_NAME=$(clean_field "$(printf '%s' "$_st_out" | cut -f1)")
+  SMART_DATE=$(printf '%s' "$_st_out" | cut -s -f2 | tr -dc '0-9.')
+  _st_ht=$(printf '%s' "$_st_out" | cut -s -f3 | tr -d '[]' )
+  case "$_st_ht" in -) SMART_TAG="" ;; "") SMART_TAG="$_st_tag" ;; *) SMART_TAG="$_st_ht" ;; esac
+}
 build_live_name() {
   _chan=$(name_handle)
   _title=$(clean_field "$M_TITLE")
   _stamp="L- $(date '+%-m.%-d.%y - %-I.%M%p')"   # capture-start date+time, no zeros
-  if [ -n "$_title" ] || [ -n "$_chan" ]; then
+  smart_title
+  if [ -n "$SMART_NAME" ]; then
+    # a smart-named live capture keeps the live stamp (the pair rule, STUDIO siblings, own-output recognition)
+    _suffix="${SMART_TAG:+ [$SMART_TAG]} [${_stamp}]"
+    _sb=$(printf '%s' "$_suffix" | LC_ALL=C wc -c | tr -d ' ')
+    _name="$(abridge "$SMART_NAME" $((235 - _sb)))${_suffix}"
+    logln "  smart title: official \"$_title\""
+  elif [ -n "$_title" ] || [ -n "$_chan" ]; then
     _tag=$(platform_tag)
     _suffix=""
     [ -n "$M_ID" ]   && _suffix=" [${M_ID}]"
@@ -3946,22 +3996,16 @@ elif [ -n "$LOCAL_SRC" ]; then
   NAME=$(uniquify "$(abridge "$_lb" 223) (reencode)")   # 223 + " (reencode)" = 235-byte stem budget
   [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
 else
-  # ---- V4.5g SMART TITLE (AUTO on qualifying sources, visible echo).
-  # An optional executable ~/.slipmat/title-hook maps the source title to the
-  # user's own naming convention; it is called only for C-SPAN and White House
-  # sources, and empty output keeps the standard name. Smart names carry no
-  # video id: `SHORT NAME [WH] - 9.13.26`
-  # (uniquify bumps collisions). The official title is echoed once and logged.
-  _stag=""; _smart=""
-  case "$(lc "${RESCUE_PAGE_URL:-$URL}")" in *c-span.org*|*c-spanvideo.org*) _stag="CSPAN" ;; esac
-  [ -z "$_stag" ] && case "${M_CHANNEL}${M_UPLOADER}" in *"The White House"*) _stag="WH" ;; esac
-  [ -n "$_stag" ] && [ -x "$HOME/.slipmat/title-hook" ] \
-    && _smart=$(clean_field "$("$HOME/.slipmat/title-hook" "$(clean_field "$M_TITLE")" 2>/dev/null)")
+  # ---- V4.5g SMART TITLE (AUTO on qualifying sources, visible echo; widened 11.3.26 —
+  # see smart_title above). Smart names carry no video id: `SHORT NAME [WH] - 9.13.26`
+  # or `SHORT NAME - 9.13.26`; the hook's own date wins over the upload date.
+  _pick_h=$(printf '%s' "${SELNOTE:-}" | sed -n 's/^\([0-9][0-9]*\)p.*/\1/p')   # the picked short side → a size suffix on a second copy
+  smart_title; _smart="$SMART_NAME"; _stag="$SMART_TAG"
   _nrow=""
   if [ -z "$_smart" ] && is_newsmax && [ -n "$NMX_PAGE_TITLE" ]; then _nrow=$(nmx_show_match "$NMX_PAGE_TITLE" "$(nmx_show_rows)"); fi
   if [ -n "$_smart" ]; then
-    _sdate=""; [ -n "$M_UPDATE" ] && _sdate=$(ymd_to_mdy "$M_UPDATE"); [ -z "$_sdate" ] && _sdate=$(date +%-m.%-d.%y)
-    NAME=$(uniquify "$(abridge "$_smart" 215) [${_stag}] - ${_sdate}")
+    _sdate="$SMART_DATE"; [ -z "$_sdate" ] && [ -n "$M_UPDATE" ] && _sdate=$(ymd_to_mdy "$M_UPDATE"); [ -z "$_sdate" ] && _sdate=$(date +%-m.%-d.%y)
+    NAME=$(uniquify "$(abridge "$_smart" 215)${_stag:+ [$_stag]} - ${_sdate}" "$_pick_h")
     [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
     ok "smart name: ${C_MAG}${C_BOLD}${NAME}${C_RESET}  (official: $(abridge "$(clean_field "$M_TITLE")" 70))"
     logln "  smart title: official \"$(clean_field "$M_TITLE")\""
@@ -3975,7 +4019,7 @@ else
     ok "smart name: ${C_MAG}${C_BOLD}${NAME}${C_RESET}  (the page says: $(abridge "$NMX_PAGE_TITLE" 70))"
     logln "  smart title: official \"$NMX_PAGE_TITLE\""
   else
-    NAME=$(build_vod_name)
+    NAME=$(build_vod_name "$_pick_h")
   fi
 fi
 

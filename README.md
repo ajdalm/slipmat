@@ -49,6 +49,8 @@ question — `b` best (720p re-encode), `h` high (native 1080p at `NMX_HIGH_Q`),
 one per show in order — and opens a Terminal window per show, each closing
 itself when its rip is done. `slipmat newsmax h b q q` skips the question;
 `slipmat newsmax list` only looks.
+`slipmat hello` can add it to the menu bar as `[SLIPMAT VIDEO] NEWSMAX`
+(`shortcuts/make-shortcuts.sh -n`).
 
 ```
 pip3 install -U "yt-dlp[default,curl-cffi]"

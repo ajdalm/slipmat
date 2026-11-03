@@ -58,8 +58,11 @@
 # Filename style for video rips: standard | dated-first | tight
 #NAMING_STYLE="standard"
 
-# An executable that maps a source title to your own naming convention (gets
-# the title as $1, prints the new name or nothing to keep the template):
+# An executable that maps a source title to your own naming convention. It gets
+# $1 the title, $2 the channel, $3 the source tag (WH, CSPAN or the platform) and
+# prints the new name — optionally a tab and the event's own date (M.D.YY), a tab
+# and the tag to write ("-" for none) — or nothing to keep the template. It runs
+# for every source except social clips (X, TikTok, Instagram, Threads, Facebook):
 #   ~/.slipmat/title-hook
 
 # An executable that adds your own machine-specific checks to `slipmat doctor`

@@ -14,6 +14,7 @@
 --   live-start  a YouTube livestream from its beginning (best quality, no questions)
 --   live-2h     the same, from 2 hours back        (other sites: from now, says so)
 --   live-1h     the same, from 1 hour back
+--   newsmax     the day's Newsmax shows (slipmat newsmax): one question, a window per show
 --
 -- Clipboard rule: read TEXT first and let it win whenever it
 -- looks like a URL — AppleScript happily coerces URL *text* to a file
@@ -65,6 +66,14 @@ on run argv
 		tell application "Terminal"
 			activate
 			do script quoted form of slip & " z-batch" & argstr
+		end tell
+		return
+	end if
+
+	if mode is "newsmax" then
+		tell application "Terminal"
+			activate
+			do script "SLIPMAT_WINDOW=1 " & quoted form of slip & " newsmax"
 		end tell
 		return
 	end if

@@ -386,6 +386,17 @@ if printf '%s' "$_sa" | grep -q '^N:this file is silent by nature' && printf '%s
   pass "the silent-file rule: no audio track → 'silent by nature'; audio listed but none landed → 'none could be fetched'; both on the receipt's audio line; the audio-only rescue sits on both paths"
 else fail "the silent-file rule: no-audio dump → '$_sa' · audio-claiming dump → '$_sb'"; fi
 
+# ---- 3h. a second copy of one video at another size is "(720)", at the same size "(2)" (11.3.26); the suffix is
+# corrected at placement to the size that landed.
+mkdir -p "$S/u"
+"$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i testsrc=duration=1:size=640x360:rate=10 -c:v libx264 -pix_fmt yuv420p -an "$S/u/X.mp4" </dev/null 2>/dev/null
+"$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i testsrc=duration=1:size=320x240:rate=10 -c:v libx264 -pix_fmt yuv420p -an "$S/u/landed.mp4" </dev/null 2>/dev/null
+_uq=$(sed -n '/^uniquify() {/,/^}/p; /^file_short_side() {/,/^}/p; /^place_final() {/,/^}/p' "$ENGINE")
+_r=$(cd "$S/u" && OUTDIR="$S/u" FFPROBE="$FFPROBE" WORKDIR="" CAPDIR="$S/u" bash -c "logln() { :; }; $_uq; printf '%s|%s|' \"\$(uniquify X 720)\" \"\$(uniquify X 360)\"; NAME='Y (720)'; place_final landed.mp4 'Y (720)' mp4; printf '%s' \"\$NAME\"" 2>&1)
+if [ "$_r" = "X (720)|X (2)|Y (240)" ] && [ -s "$S/u/Y (240).mp4" ]; then
+  pass "a second copy at another size is X (720), at the same size X (2); a (720) that landed at 240 is placed as Y (240)"
+else fail "size suffix: '$_r'"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:
@@ -444,6 +455,20 @@ if [ -n "$_l5" ] && ! grep -q 'heads-up' "$_l5"; then pass "BEST is wordless: no
 else fail "BEST printed a size heads-up (ruled local + STUDIO only)" "$_l5"; fi
 if [ -n "$_l5" ] && comma_clean "$_l5"; then pass "probed values comma-free in the BEST log"
 else fail "a probed value carries ffprobe's trailing comma (BEST log)" "$_l5"; fi
+
+# ---- 5b. the title hook (11.3.26): it gets title · channel · source tag and may answer NAME <TAB> date <TAB> tag;
+# "-" as the tag writes no bracket, its date outranks the upload date; the menu-bar door for the day's shows exists.
+mkdir -p "$FH/.slipmat"
+cat > "$FH/.slipmat/title-hook" <<'HEOF'
+#!/bin/bash
+printf 'SMART NAME\t10.21.26\t-\n'
+HEOF
+chmod 755 "$FH/.slipmat/title-hook"
+HOME="$FH" SLIPMAT_LOCAL_MKV="$FX/clean.mkv" "$ENGINE" "https://example.test/clean-hook" max best </dev/null > "$S/run-hook.txt" 2>&1 || true
+rm -f "$FH/.slipmat/title-hook"
+if [ -s "$OUT/SMART NAME - 10.21.26.mp4" ] && grep -q 'mode is "newsmax"' "$REPO/shortcuts/launch.applescript" && grep -q '"\[SLIPMAT VIDEO\] NEWSMAX" newsmax' "$REPO/shortcuts/make-shortcuts.sh"; then
+  pass "the title hook names the file from its three answers (SMART NAME - 10.21.26: the hook's date, no bracket tag); the NEWSMAX menu-bar door is built and handled"
+else fail "the title hook protocol: $(ls "$OUT" | grep -i 'smart' | head -2 | tr '\n' ' ')" "$S/run-hook.txt"; fi
 
 # ---- 6. BEST on broken timestamps: the detector must say DEFECT ------------
 HOME="$FH" SLIPMAT_LOCAL_MKV="$FX/defect.mkv" "$ENGINE" "https://example.test/defect" max best </dev/null > "$S/run6.txt" 2>&1

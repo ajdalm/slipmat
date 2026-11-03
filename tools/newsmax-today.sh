@@ -247,3 +247,7 @@ done
 say ""
 if [ "$WHERE" = "windows" ]; then say "${C_B}NEWSMAX TODAY${C_Z} — $_ran window(s) opened · $_skipped already there · each window closes itself when its rip is done (x stops it, ↓ steps a slow download down)"
 else say "${C_B}NEWSMAX TODAY${C_Z} — $_ran ripped · $_skipped already there"; fi
+# a menu-bar window (SLIPMAT_WINDOW=1) closes itself once the shows are off in their own windows
+[ "${SLIPMAT_WINDOW:-0}" = "1" ] && [ "$WHERE" = "windows" ] && [ -t 0 ] && [ -f "$HERE/tools/window-close.sh" ] \
+  && /bin/bash "$HERE/tools/window-close.sh" 45 "This window closes itself in 45 s — the shows run in their own windows"
+exit 0

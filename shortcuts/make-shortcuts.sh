@@ -15,11 +15,12 @@
 # Usage: make-shortcuts.sh [-c] [-l] [output-dir]     (default ~/.slipmat/shortcuts)
 #   -c   also build the optional [SLIPMAT VIDEO] AUTO CROP(PiP)
 #   -l   also build the three livestream doors (FROM START · LAST 2HRS · LAST 1HR)
+#   -n   also build [SLIPMAT VIDEO] NEWSMAX (the day's shows: slipmat newsmax)
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
-CROP=0; LIVE=0
-while [ $# -gt 0 ]; do case "$1" in -c) CROP=1; shift ;; -l) LIVE=1; shift ;; -cl|-lc) CROP=1; LIVE=1; shift ;; *) break ;; esac; done
+CROP=0; LIVE=0; NMX=0
+while [ $# -gt 0 ]; do case "$1" in -c) CROP=1; shift ;; -l) LIVE=1; shift ;; -n) NMX=1; shift ;; -cl|-lc) CROP=1; LIVE=1; shift ;; *) break ;; esac; done
 OUT="${1:-$HOME/.slipmat/shortcuts}"
 mkdir -p "$OUT"
 # files this builder made under names since retired (exact names only)
@@ -86,6 +87,7 @@ make_one "[SLIPMAT VIDEO] STUDIO"         studio  4274264319 || fail=1   # yello
 make_one "[SLIPMAT WEBAUDIO]"             audio   1440408063 || fail=1   # light blue
 make_one "[SLIPMAT SPOTIFY]"              spotify 4292093695 || fail=1   # green
 [ "$CROP" = "1" ] && { make_one "[SLIPMAT VIDEO] AUTO CROP(PiP)" crop 4274264319 || fail=1; }   # yellow, optional
+[ "$NMX" = "1" ] && { make_one "[SLIPMAT VIDEO] NEWSMAX" newsmax 4274264319 || fail=1; }   # yellow, optional: the day's shows
 if [ "$LIVE" = "1" ]; then   # the livestream doors (optional; YouTube rewinds, other sites record from now)
   make_one "[SLIPMAT VIDEO] LIVESTREAM - FROM START" live-start 4274264319 || fail=1
   make_one "[SLIPMAT VIDEO] LIVESTREAM - LAST 2HRS"  live-2h    4274264319 || fail=1
