@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.19"          # 11.2.26 — a rewind shows how far the video and the audio are behind live on the REC line and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.20"          # 11.2.26 — a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -1364,14 +1364,28 @@ lag_words() {
   elif [ "$2" -ge 3600 ]; then printf -v "$1" '%d:%02d:%02d behind' $(($2/3600)) $((($2%3600)/60)) $(($2%60))
   else                         printf -v "$1" '%d:%02d behind' $(($2/60)) $(($2%60)); fi
 }
-# read_live_lag — the rewind driver's two lines ("video <s>" · "audio <s>", seconds
-# behind the live head) → LIVE_LAG_V / LIVE_LAG_A (empty when unknown). Pure bash.
+# lag_clock <var> <seconds> → "0:42" · "1:41:05" (the plain clock, no words)
+lag_clock() {
+  if [ "$2" -ge 3600 ]; then printf -v "$1" '%d:%02d:%02d' $(($2/3600)) $((($2%3600)/60)) $(($2%60))
+  else                       printf -v "$1" '%d:%02d' $(($2/60)) $(($2%60)); fi
+}
+# eta_words <var> <seconds> → "~45s" · "~8m" · "~1h20m" · "~12h" (rounded, for a live-in guess)
+eta_words() {
+  if   [ "$2" -lt 60 ];    then printf -v "$1" '~%ds' "$2"
+  elif [ "$2" -lt 3600 ];  then printf -v "$1" '~%dm' $(( ($2 + 30) / 60 ))
+  elif [ "$2" -lt 36000 ]; then printf -v "$1" '~%dh%02dm' $(($2/3600)) $(( ($2 % 3600 + 30) / 60 ))
+  else                          printf -v "$1" '~%dh' $(( ($2 + 1800) / 3600 )); fi
+}
+# read_live_lag — the rewind driver's two lines ("video <s> <eta>" · "audio <s> <eta>":
+# seconds behind the live head, seconds until it reaches live or -1) →
+# LIVE_LAG_V / LIVE_LAG_A and LIVE_ETA_V / LIVE_ETA_A (empty when unknown). Pure bash.
 read_live_lag() {
-  LIVE_LAG_V=""; LIVE_LAG_A=""
+  LIVE_LAG_V=""; LIVE_LAG_A=""; LIVE_ETA_V=""; LIVE_ETA_A=""
   [ -n "${LIVE_LAG:-}" ] && [ -f "$LIVE_LAG" ] || return 1
-  while read -r _lk _lv; do
+  while read -r _lk _lv _le; do
     case "$_lv" in ''|*[!0-9]*) continue ;; esac
-    case "$_lk" in video) LIVE_LAG_V=$_lv ;; audio) LIVE_LAG_A=$_lv ;; esac
+    case "$_le" in ''|*[!0-9]*) _le="" ;; esac
+    case "$_lk" in video) LIVE_LAG_V=$_lv; LIVE_ETA_V=$_le ;; audio) LIVE_LAG_A=$_lv; LIVE_ETA_A=$_le ;; esac
   done < "$LIVE_LAG"
   [ -n "$LIVE_LAG_V$LIVE_LAG_A" ]
 }
@@ -3172,10 +3186,18 @@ seal_live_orphans() {
 # there, the sound runs on to the stop) · the picked or doored height was not
 # offered and the capture landed at what there was (11.2.26).
 live_receipt_notes() {
-  if read_live_lag && [ -n "$LIVE_LAG_V" ] && [ "$LIVE_LAG_V" -gt 15 ]; then
-    lag_words _lw "$LIVE_LAG_V"; _la="at live"; [ -n "$LIVE_LAG_A" ] && lag_words _la "$LIVE_LAG_A"
-    box_line "stop    video was $_lw live, audio $_la"
-    box_line "        the picture ends ${_lw% behind} early; the sound runs on to the stop"
+  # the GAP between the two is what the file shows (11.2.26, his from-the-start
+  # click: both 119 h behind live, stopped together — nothing ran on)
+  if read_live_lag && [ -n "$LIVE_LAG_V" ] && [ -n "$LIVE_LAG_A" ]; then
+    _gap=$(( LIVE_LAG_V - LIVE_LAG_A ))
+    if [ "$_gap" -gt 15 ]; then
+      lag_clock _lg "$_gap"; lag_words _lw "$LIVE_LAG_V"; lag_words _la "$LIVE_LAG_A"
+      box_line "stop    the picture ends $_lg before the sound"
+      box_line "        video was $_lw live, audio $_la"
+    elif [ "$LIVE_LAG_V" -gt 15 ]; then
+      lag_clock _lg "$LIVE_LAG_V"
+      box_line "stop    stopped $_lg short of live — video and audio end together"
+    fi
   fi
   if [ -n "${LIVE_PICK_H:-}" ]; then
     _gh=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$PRODUCED" 2>/dev/null | head -1 | tr -dc '0-9')
@@ -3464,7 +3486,7 @@ if [ "$IS_LIVE" = "1" ]; then
   # while the sound runs on to the stop. A from-now capture never writes it.
   LIVE_LAG="$WORKDIR/live.lag"; rm -f "$LIVE_LAG" 2>/dev/null
   LIVE_QL="${SELNOTE:-best}"; case "$LIVE_QL" in custom*) LIVE_QL="custom" ;; esac
-  LIVE_QL0="$LIVE_QL"; LIVE_QL="$LIVE_QL${LIVE_WIN:+ · $LIVE_WIN}"
+  LIVE_QL="$LIVE_QL${LIVE_WIN:+ · $LIVE_WIN}"
   logln "  live selector: $LIVE_F"
   if [ "$IS_TTY" = "1" ]; then
     (
@@ -3474,6 +3496,7 @@ if [ "$IS_LIVE" = "1" ]; then
       # writes NAME.mp4.part, then renames to NAME.mp4 at finalize).
       _S0=$SECONDS; _clk=$(date '+%-I:%M%p')
       _ff=""   # sticky handle on the growing file once found
+      _two=0   # 1 = the last draw was TWO lines (REC + the rewind line under it): the next draw climbs one row first
       while :; do
         if [ -n "$_ff" ] && [ -f "$_ff" ]; then _f="$_ff"
         else _f="$CAP.part"; [ -f "$_f" ] || _f="$CAP"; fi
@@ -3499,23 +3522,34 @@ if [ "$IS_LIVE" = "1" ]; then
         else
           _mid="connecting …"     # handshake phase: no bytes yet, say so plainly
         fi
-        # a rewind: "video 28:40 · audio 26:30 behind live" while both catch up, then
-        # "video 20:32 behind · audio at live", then "at live" — in place of the window
-        # word (the receipt keeps it), so the stop chip stays inside the window
-        _ql="$LIVE_QL"
-        if read_live_lag; then
-          if [ -n "$LIVE_LAG_V" ] && [ -n "$LIVE_LAG_A" ] && [ "$LIVE_LAG_V" -gt 15 ] && [ "$LIVE_LAG_A" -gt 15 ]; then
-            lag_words _lw "$LIVE_LAG_V"; lag_words _la "$LIVE_LAG_A"; _ql="$LIVE_QL0 · video ${_lw% behind} · audio ${_la% behind} behind live"
-          elif [ -n "$LIVE_LAG_V" ] && [ -n "$LIVE_LAG_A" ] && [ "$LIVE_LAG_V" -le 15 ] && [ "$LIVE_LAG_A" -le 15 ]; then _ql="$LIVE_QL0 · at live"
+        # a rewind gets its OWN line under the REC line (11.2.26, his word: the
+        # one-line form "video 1:41:30 · audio 1:39:10 behind live" read as lingo):
+        #   ↳ catching up · video 1:41:30 behind live, ~52m to go · audio 1:39:10 behind live, ~6m to go
+        #   ↳ video 24:31 behind live, ~8m to go · audio is live · stop now = video ends 24:31 early
+        #   ↳ rewind caught up · video and audio are both live · a stop now ends them together
+        # ("~… to go" = the lag's slope over the last two minutes; absent until 20 s
+        # of it exist or while the lag is not shrinking)
+        # Both lines are redrawn in place: climb one row, REC, newline, the rewind
+        # line. The ask and the stop write where the cursor is (the rewind row): the
+        # REC row above stays as a finished line; a "keep" redraw reclaims it.
+        _l2=""
+        if read_live_lag && [ -n "$LIVE_LAG_V" ] && [ -n "$LIVE_LAG_A" ]; then
+          if [ "$LIVE_LAG_V" -le 15 ] && [ "$LIVE_LAG_A" -le 15 ]; then
+            _l2="rewind caught up · video and audio are both live · a stop now ends them together"
           else
-            _ql="$LIVE_QL0"
-            [ -n "$LIVE_LAG_V" ] && { lag_words _lw "$LIVE_LAG_V"; _ql="$_ql · video $_lw"; }
-            [ -n "$LIVE_LAG_A" ] && { lag_words _lw "$LIVE_LAG_A"; _ql="$_ql · audio $_lw"; }
+            lag_clock _lv "$LIVE_LAG_V"; lag_clock _la "$LIVE_LAG_A"
+            _ev=""; _ea=""
+            [ -n "$LIVE_ETA_V" ] && { eta_words _ev "$LIVE_ETA_V"; _ev=", $_ev to go"; }
+            [ -n "$LIVE_ETA_A" ] && { eta_words _ea "$LIVE_ETA_A"; _ea=", $_ea to go"; }
+            if [ "$LIVE_LAG_A" -le 15 ]; then _l2="video $_lv behind live$_ev · audio is live · stop now = video ends $_lv early"
+            elif [ "$LIVE_LAG_V" -le 15 ]; then _l2="catching up · video is live · audio $_la behind live$_ea"
+            else _l2="catching up · video $_lv behind live$_ev · audio $_la behind live$_ea"; fi
           fi
         fi
         # V4.1: time · size lead, then the stream, then the start clock; the stop
         # key sits at the end the whole time (10.5.26 night: shown, not hidden)
         if [ -f "$LIVE_STOP" ]; then   # the stop landed (x or Ctrl-C): the sentence was said once at the press; this line is the seal's own clock and the newest file's size, in place
+          _two=0   # the stop sentence took the rewind row and moved on; the REC row above is history now
           [ -n "${_sl0:-}" ] || _sl0=$SECONDS
           _se=$((SECONDS - _sl0)); printf -v _sel '%d:%02d' $((_se/60)) $((_se%60))
           _sf=$(ls -t "$CAPDIR/${NAME}".* 2>/dev/null | grep -v '\.claim$' | head -1)
@@ -3530,8 +3564,10 @@ if [ "$IS_LIVE" = "1" ]; then
           live_line "$LIVE_ASK_TEXT"
           sleep 1; continue
         fi
+        [ "$_two" = "1" ] && printf '\033[A' > /dev/tty 2>/dev/null   # back up onto the REC row
         live_line "$(printf '%s%s REC%s %s · %s · since %s%s' \
-          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$_ql" "$_clk" "${LIVE_ASK:+ · $(chip x) stop}")"
+          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$LIVE_QL" "$_clk" "${LIVE_ASK:+ · $(chip x) stop}")"
+        if [ -n "$_l2" ]; then printf '\n' > /dev/tty 2>/dev/null; live_line "${C_MAG}↳${C_RESET} $_l2"; _two=1; else _two=0; fi
         sleep 2
       done
     ) &

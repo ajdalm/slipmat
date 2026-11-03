@@ -232,9 +232,9 @@ list(YoutubeIE._live_adaptive_fragments(None, 'v', 140, 'web', None, None, None,
 print(open(os.environ['SLIPMAT_LIVE_LAG']).read().replace('\n', ' '))
 PY
 )
-  if printf '%s' "$_lagout" | grep -q 'audio 4480 video 4480' && grep -q 'SLIPMAT_LIVE_LAG="\$LIVE_LAG"' "$ENGINE" \
-     && grep -q 'LIVE_QL0 · video ${_lw% behind} · audio ${_la% behind} behind live' "$ENGINE" && grep -q '^read_live_lag() {' "$ENGINE"; then
-    pass "a rewind writes how far each stream is behind live (fragment 103 of a 1000-head at 5 s = 4480 s) and the REC line reads it"
+  if printf '%s' "$_lagout" | grep -q 'audio 4480 -1 video 4480 -1' && grep -q 'SLIPMAT_LIVE_LAG="\$LIVE_LAG"' "$ENGINE" \
+     && grep -q '_l2="video $_lv behind live$_ev · audio is live · stop now = video ends $_lv early"' "$ENGINE" && grep -q '^lag_clock() {' "$ENGINE" && grep -q '^eta_words() {' "$ENGINE" && grep -q '_gap=$(( LIVE_LAG_V - LIVE_LAG_A ))' "$ENGINE" && grep -q '^read_live_lag() {' "$ENGINE"; then
+    pass "a rewind writes how far each stream is behind live (fragment 103 of a 1000-head at 5 s = 4480 s, eta unknown yet) and its own line under REC reads it; the receipt reads the gap"
   else fail "the rewind lag file or its REC-line reader is missing (driver said: $(printf '%s' "$_lagout" | tail -1))"; fi
 else skip "rewind lag — no python with yt_dlp"; fi
 # ---- 3c5. the live seal is an mp4 (11.2.26)

@@ -35,8 +35,10 @@
 #    audio (tiny fragments) reaches the live head long before the video, so a stop
 #    while the video is still behind ends the picture early with the sound running
 #    on. yt-dlp's fragment generator yields each fragment's sequence number beside
-#    the head's; this wraps it and writes "video <s>" / "audio <s>" (seconds behind
-#    live) to the file on every fragment. The engine's REC line reads it. Anything
+#    the head's; this wraps it and writes "video <s> <eta>" / "audio <s> <eta>"
+#    (seconds behind live, and seconds until it reaches live — the lag's slope over
+#    the last two minutes, -1 until 20 s of it exist or while it is not shrinking)
+#    to the file on every fragment. The engine's rewind line reads it. Anything
 #    odd here is logged once and the capture runs without the file.
 import atexit, os, signal, sys
 
@@ -155,15 +157,31 @@ if _lag_path:
         # YouTube's audio-only itags (DASH 139/140/141/249/250/251, HLS 233/234,
         # the rest the rarer ones); anything else is the video
         _LAG_AUDIO = {139, 140, 141, 171, 233, 234, 249, 250, 251, 256, 258, 325, 327, 328, 338, 380}
-        _lag_state, _lag_lock = {}, threading.Lock()
+        _lag_state, _lag_hist, _lag_lock = {}, {}, threading.Lock()
+
+        def _lag_eta(kind, now, behind):
+            # seconds until this stream reaches live: the lag's slope over the last
+            # 120 s (a fragment's lag − the one ≥20 s before it); -1 while unknown or
+            # while the lag is not shrinking (a throttled or stalled stream)
+            h = _lag_hist.setdefault(kind, [])
+            h.append((now, behind))
+            while h and now - h[0][0] > 120:
+                h.pop(0)
+            t0, b0 = h[0]
+            if now - t0 < 20 or b0 <= behind:
+                return -1
+            rate = (b0 - behind) / (now - t0)      # seconds of lag shed per wall second
+            return int(behind / rate) if rate > 0 else -1
 
         def _lag_write(kind, behind):
             with _lag_lock:
-                _lag_state[kind] = max(0, int(behind))
+                now = time.time()
+                behind = max(0, int(behind))
+                _lag_state[kind] = (behind, _lag_eta(kind, now, behind))
                 tmp = _lag_path + '.tmp'
                 try:
                     with open(tmp, 'w') as fh:
-                        fh.write(''.join(f'{k} {v}\n' for k, v in sorted(_lag_state.items())))
+                        fh.write(''.join(f'{k} {v[0]} {v[1]}\n' for k, v in sorted(_lag_state.items())))
                     os.replace(tmp, _lag_path)
                 except OSError:
                     pass

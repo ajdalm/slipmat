@@ -272,15 +272,30 @@ audio (tiny fragments) reaches the live head long before the video, so a stop
 while the video is still behind ends the picture early with the sound running
 on to the stop. `tools/live-rewind.py` wraps yt-dlp's fragment generator and
 writes `video <s>` / `audio <s>` (seconds behind the live head) to
-`live.lag` in the run's scratch on every fragment; the REC line reads it in
-place of the window word: `video 9:41 · audio 7:31 behind live` while both
-catch up, `video 7:19 behind · audio at live`, then `at live` (within 15 s).
-The run log says where each stood at the stop; when the video was more than
-15 s behind, the receipt says so on a `stop` line, and `time … recorded` is
-the picture's own length (the sound is longer). A from-now capture never
-writes the file. Hand test (pool feed, the 720 door, a 10-minute rewind,
-`x x` at 50 s — the countdown reads `at live` around 40 s in, the stop lands
-with both streams within seconds and the receipt carries no `stop` line):
+`live.lag` in the run's scratch on every fragment, as `video <s> <eta>` /
+`audio <s> <eta>` (seconds behind the live head, and seconds until it reaches
+live — the lag's slope over the last two minutes, -1 until 20 s of it exist or
+while the lag is not shrinking); the engine reads it onto a line of its own
+under the REC line (11.2.26 evening — the one-line form read as lingo), both
+redrawn in place:
+`↳ catching up · video 1:41:30 behind live, ~52m to go · audio 1:39:10 behind live, ~6m to go`,
+then `↳ video 24:31 behind live, ~8m to go · audio is live · stop now = video ends 24:31 early`,
+then `↳ rewind caught up · video and audio are both live · a stop now ends them together`
+(live = within 15 s; "~… to go" appears after the first 20 s). The run log says
+where each stood at the stop. The receipt reads the GAP between the two: when
+the video ended more than 15 s before the sound it says `stop    the picture
+ends 24:31 before the sound`; when both were still far from live and stopped
+together (a from-the-start capture of a days-old stream begins 120 h back and
+sheds hours of lag per hour) it says `stop    stopped 119:14:13 short of live —
+video and audio end together`; `time … recorded` is the picture's own length.
+A from-now capture never writes the file. Proven on his clicks (11.2
+afternoon): a 480p last-90m rewind logged `video 1471s behind` against the
+file's audio − video = 1470 s, a 360p last-2h one 1059 s against 1060 s; a
+144p from-the-start capture of the days-old pool feed stopped at 2:17 with
+both 429253 s behind and equal 47:55 streams. Hand test (pool feed, the 720
+door, a 10-minute rewind, `x x` at 50 s — the line reads `caught up` around
+40 s in, the stop lands with both streams within seconds and the
+receipt carries no `stop` line):
 
 ```
 HOME=$H PTY_COLS=110 python3 tools/ptydrive.py /tmp/l6.raw 170 -- '<live url>' 720 auto last-10m -- KEY@50:x KEY@3:x
