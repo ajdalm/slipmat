@@ -70,5 +70,7 @@
 #NMX_SHOWS="SHOW ONE|SHOW TWO"
 
 # The day's Newsmax shows for `slipmat newsmax` — the slug from
-# newsmaxtv.com/Shows/<slug> and the size each rips at (best or a height):
-#NMX_DAILY="Show-One=best|Show-Two=720|Show-Three=360"
+# newsmaxtv.com/Shows/<slug> and each show's usual answer (best · high ·
+# quick · small · a height); NMX_HIGH_Q is the dial `high` renders at:
+#NMX_DAILY="Show-One=best|Show-Two=quick|Show-Three=360"
+#NMX_HIGH_Q=45

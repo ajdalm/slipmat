@@ -42,10 +42,13 @@ page or episode page works as is: slipmat reads the show's episode list and
 asks Newsmax's own service for the stream and the show's name, so no browser
 or stream sniffer is needed.
 `slipmat newsmax` rips the day's shows in one go: list them once in
-`~/.slipmat/config` (`NMX_DAILY="Show-One=best|Show-Two=360"`), and each run
-takes every show's newest episode at its size, skipping any already in the
-folder. `slipmat newsmax custom` shows each show's sizes and takes one line of
-picks (`1, 2, 4, 3`); `slipmat newsmax list` only looks.
+`~/.slipmat/config` (`NMX_DAILY="Show-One=best|Show-Two=quick"`), and each run
+reads every show's newest episode, skips any already in the folder, asks one
+question — `b` best (720p re-encode), `h` high (native 1080p at `NMX_HIGH_Q`),
+`q` quick (480p direct copy, minutes), `s` small (360p), one answer for all or
+one per show in order — and opens a Terminal window per show, each closing
+itself when its rip is done. `slipmat newsmax h b q q` skips the question;
+`slipmat newsmax list` only looks.
 
 ```
 pip3 install -U "yt-dlp[default,curl-cffi]"

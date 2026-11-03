@@ -561,19 +561,25 @@ private notebook (`bash show-keys-x.sh` there renders all four).
 ## The day's Newsmax shows (11.2.26): `slipmat newsmax`
 
 `tools/newsmax-today.sh` reads `NMX_DAILY` from `~/.slipmat/config` (pipe-separated
-`slug=size`, the slug from `newsmaxtv.com/Shows/<slug>`, size `best` or a height),
-reads each show the way the engine's show door does (the show page's listing call
-→ newest episode → Newsmax's own service → title, master playlist) and prints one
-row per show: the name the engine will write (`<ROW> <m.d.yy> [NMX]`), the size, or
-`already in the folder` when that file exists. Then it runs the engine once per show,
-one after another (the CDN throttles parallel pulls; the total is fastest this way):
-`best` → `slipmat video <episode> best`; a height → `<height> auto`. `custom` prints
-each show's ladder (`1) 1080p 2) 720p …`) and takes one line of picks — `1, 2, 4, 3`
-(one per show, in order), a lone number for every show, a short line = best for the
-rest; `custom 1,2,4,3` on the command line skips the ask. `list` only looks.
-`slipmat smoke` 3e asserts the picks line and the ladder parse (pure hooks
-`--parse-picks`, `--parse-ladder`). Live proof 11.2.26: `list` read the four shows,
-named three for 11.2 and saw the fourth's newest (10.30) already in the folder.
+`slug=usual answer`, the slug from `newsmaxtv.com/Shows/<slug>`), reads each show the
+way the engine's show door does (the show page's listing call → newest episode →
+Newsmax's own service → title, master playlist) and prints one row per show: the
+name the engine will write (`<ROW> <m.d.yy> [NMX]`) and its usual answer, or
+`already in the folder` when that file exists. Then ONE question — `How do you want
+them?` — answered for every show at once or one per show in order: `b` best (720p CFR
+re-encode, the engine's `best`), `h` high (native 1080p CFR re-encode at `NMX_HIGH_Q`,
+default 45 — the engine's `best` under `SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=<q>`; `h55` = at
+that dial), `q` quick (`480 auto`, a direct copy), `s` small (`360 auto`), a height, or
+a row number from `list`. Enter = each show's usual. Then a Terminal window per show
+(the launcher's kind: `SLIPMAT_WINDOW=1`, closes itself after a finished rip; `x`
+stops, `↓` steps a slow download down); `--here` or `NMX_WINDOWS=0` runs them in the
+current window one after another. `slipmat newsmax h b q q` skips the question.
+`slipmat smoke` 3e asserts the answers line, each answer's engine words and the ladder
+parse (pure hooks `--parse-picks`, `--answer-cmd`, `--parse-ladder`). The engine's
+`SLIPMAT_KEEP_NATIVE=1` keeps a defective >720 source at its native size in the
+no-questions modes (the receipt says `kept at 1080p (native asked for) · q50`).
+Live proof 11.2.26 20:34: `slipmat newsmax h b b b` read the four shows, skipped the
+one already in the folder and opened three windows that ripped side by side.
 
 ## The silent-file rule (11.2.26)
 
@@ -590,3 +596,16 @@ call on both paths. Two cosmetic rulings landed with it: the source note never s
 `· ?` when the dump carries no codec, and a reel whose dump lists only non-QuickTime
 codecs says it once, at the landing (`only vp9 is offered — converting to HEVC`),
 the first line now log-only.
+
+## The high dial, measured (11.2.26): `slipmat compare` on an hour of 1080 broadcast
+
+The 1080 h264 source (2.07 GB, 25% stutter → the CFR re-encode runs) scored at
+q40 45 50 55 60, six 10 s windows: q40 ≈1.36 GB · q45 ≈1.70 GB (+25%, +1.3 VMAF =
+0.21 JND) · q50 ≈2.14 GB (+58%, at the source size) · q55 ≈3.00 GB (+121%, 0.56 JND)
+· q60 ≈3.71 GB (+174%, 0.63 JND). Every step above q40 stays under one
+just-noticeable difference in normal viewing; q50 lands at the source's own size
+and q55–q60 are 1.5–1.8× the source. So `high` renders at q45: the last dial under
+the source size, the sharpness of 1080 native with none of the bloat. The dial is
+`NMX_HIGH_Q`; `h55` on the answer line overrides it for one show. The ledger row is
+in `~/.slipmat/logs/compare-ledger.tsv`; the side-by-side clip (q40 | source | q60,
+with damage maps) sits in `~/.slipmat/compare/`.

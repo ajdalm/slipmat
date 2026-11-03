@@ -358,15 +358,18 @@ done
 if [ -z "$_lmiss" ] && osacompile -o "$S/launch.scpt" "$REPO/shortcuts/launch.applescript" 2>/dev/null; then pass "launcher compiles and handles every builder mode"
 else fail "launcher drift: modes not handled or script does not compile:$_lmiss"; fi
 
-# ---- 3e. the day's Newsmax shows (11.2.26): the picks line and a master playlist's ladder read right,
-# and the wrapper knows the verb. One number = every show; commas or spaces; short = best for the rest.
+# ---- 3e. the day's Newsmax shows (11.2.26): the answers line, each answer's engine words and a master
+# playlist's ladder read right, and the wrapper knows the verb. One answer = every show; commas or spaces;
+# a short line = best for the rest; `high` = native 1080 at NMX_HIGH_Q, `h55` at that dial, `quick` = 480 direct.
 _nt="$REPO/tools/newsmax-today.sh"
-_p1=$(bash "$_nt" --parse-picks "1, 2, 4, 3" 4); _p2=$(bash "$_nt" --parse-picks "2" 4); _p3=$(bash "$_nt" --parse-picks "1 2" 4); _p4=$(bash "$_nt" --parse-picks "" 4)
+_p1=$(bash "$_nt" --parse-picks "b h q q" 4); _p2=$(bash "$_nt" --parse-picks "h" 4); _p3=$(bash "$_nt" --parse-picks "1,2,4,3" 4); _p4=$(bash "$_nt" --parse-picks "h55 480" 4); _p5=$(bash "$_nt" --parse-picks "" 2)
+_c1=$(NMX_HIGH_Q=50 bash "$_nt" --answer-cmd high "1080 720 480 360"); _c2=$(bash "$_nt" --answer-cmd high@55 ""); _c3=$(bash "$_nt" --answer-cmd quick ""); _c4=$(bash "$_nt" --answer-cmd row2 "1080 720 480 360"); _c5=$(bash "$_nt" --answer-cmd row1 "1080 720 480 360"); _c6=$(bash "$_nt" --answer-cmd row9 "1080 720 480 360")
 _ld=$(printf '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\na.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360\nb.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720\nc.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480\nd.m3u8\n' | bash "$_nt" --parse-ladder | tr '\n' ' ')
-if [ "$_p1" = "1 2 4 3 " ] && [ "$_p2" = "2 2 2 2 " ] && [ "$_p3" = "1 2 best best " ] && [ -z "$_p4" ] && [ "$_ld" = "1080 720 480 360 " ] \
-   && grep -q '^  newsmax)' "$REPO/slipmat"; then
-  pass "slipmat newsmax: picks '1, 2, 4, 3' → one per show, a lone number covers every show, a master's ladder reads 1080 720 480 360"
-else fail "slipmat newsmax parsing: picks '$_p1' / '$_p2' / '$_p3' / '$_p4' · ladder '$_ld'"; fi
+if [ "$_p1" = "best high quick quick " ] && [ "$_p2" = "high high high high " ] && [ "$_p3" = "row1 row2 row4 row3 " ] && [ "$_p4" = "high@55 480 best best " ] && [ "$_p5" = "best best " ] \
+   && [ "$_c1" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=50 best" ] && [ "$_c2" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=55 best" ] && [ "$_c3" = "480 auto" ] && [ "$_c4" = "720 auto" ] && [ "$_c5" = "best" ] && [ "$_c6" = "360 auto" ] \
+   && [ "$_ld" = "1080 720 480 360 " ] && grep -q '^  newsmax)' "$REPO/slipmat" && grep -q 'SLIPMAT_KEEP_NATIVE' "$ENGINE"; then
+  pass "slipmat newsmax: 'b h q q' → one answer per show, 'h' covers every show, rows and heights read, high = native 1080 at the dial, a master's ladder reads 1080 720 480 360"
+else fail "slipmat newsmax parsing: '$_p1' / '$_p2' / '$_p3' / '$_p4' / '$_p5' · cmds '$_c1' / '$_c2' / '$_c3' / '$_c4' / '$_c5' / '$_c6' · ladder '$_ld'"; fi
 
 # ---- 3f. the silent-file rule (11.2.26): a file without audio says WHICH kind of silent it is —
 # the source has no audio track, or the source lists one and none could be fetched.
@@ -432,6 +435,11 @@ HOME="$FH" SLIPMAT_LOCAL_MKV="$FX/clean.mkv" "$ENGINE" "https://example.test/cle
 _rc=$?; _l5=$(newest_log); _o5=$(ls -t "$OUT"/*.mp4 2>/dev/null | head -1)
 if [ "$_rc" -eq 0 ] && [ -s "$_o5" ] && [ "$(vcodec "$_o5")" = "hevc" ]; then pass "BEST on vp9: hevc mp4 produced ($(basename "$_o5"))"
 else fail "BEST on vp9: exit $_rc, output: ${_o5:-none} ($(vcodec "${_o5:-/nonexistent}"))" "$S/run5.txt"; fi
+# 11.2.26: SLIPMAT_Q sets the dial for one no-questions run (the Newsmax `high` answer rides on it)
+HOME="$FH" SLIPMAT_LOCAL_MKV="$FX/clean.mkv" SLIPMAT_Q=45 "$ENGINE" "https://example.test/clean-q45" max best </dev/null > "$S/run5q.txt" 2>&1
+_l5q=$(newest_log)
+if [ -n "$_l5q" ] && grep -q 're-encoding → .*q45' "$_l5q"; then pass "SLIPMAT_Q=45 sets the dial of a BEST re-encode (the log says q45)"
+else fail "SLIPMAT_Q=45 did not reach the re-encode (the dial default is set after the environment is read?)" "$_l5q"; fi
 if [ -n "$_l5" ] && ! grep -q 'heads-up' "$_l5"; then pass "BEST is wordless: no size heads-up on a URL rip (local files and STUDIO only)"
 else fail "BEST printed a size heads-up (ruled local + STUDIO only)" "$_l5"; fi
 if [ -n "$_l5" ] && comma_clean "$_l5"; then pass "probed values comma-free in the BEST log"

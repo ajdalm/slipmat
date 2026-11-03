@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.21"          # 11.2.26 — a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.22"          # 11.2.26 — the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -304,6 +304,9 @@ TERM_SIZE="48x132"          # V4.3: 48 rows × 132 cols (measured against a hand
 [ -f "$HOME/.slipmat/config" ] && . "$HOME/.slipmat/config"
 [ -n "${SLIPMAT_EMBED_HOSTS:-}" ] && VIMEO_EMBED_HOSTS="$SLIPMAT_EMBED_HOSTS"
 [ -n "${Q_AUTO:-}" ] || Q_AUTO=$Q_MEDLOW
+# SLIPMAT_Q=<dial> (11.2.26): the quality dial for this one run in the no-questions
+# modes (BEST / AUTO) — the way an unattended run asks for a sharper re-encode.
+case "${SLIPMAT_Q:-}" in [1-9][0-9]) Q_AUTO="$SLIPMAT_Q" ;; esac
 mkdir -p "$HOME/.slipmat" 2>/dev/null
 # Output-folder guard: finished files must never land inside slipmat's own app
 # folder (the folder holding engine/) — an update, reinstall or a broad git
@@ -4742,10 +4745,16 @@ ZMODE=0; ZBOX=""; _ZCUSTOM=""   # V3.9 zoom-crop state (STUDIO z path sets them)
 # STUDIO is excluded (it asks). In PICKER this overrides an explicit high-res pick, so
 # we announce it and point at STUDIO for anyone who wants defective-native. (memory:
 # defect-downscale-no-questions.)
+# SLIPMAT_KEEP_NATIVE=1 (11.2.26) keeps the native size in those modes — the way an
+# unattended run asks for a 1080 re-encode (Q_AUTO sets its dial); said in the receipt.
 if [ "$MODE" != "studio" ] && [ "$VERDICT" = "DEFECT" ] && [ -n "$SHORT" ] && [ "$SHORT" -gt 720 ] 2>/dev/null; then
-  if [ "$PORTRAIT" = "1" ]; then SCALE="-vf scale=720:-2"; else SCALE="-vf scale=-2:720"; fi
-  HLABEL="720p"
-  warn "defective ${SHORT}p → downscaling to 720 (cleaner + much smaller). Use STUDIO to force native."
+  if [ "${SLIPMAT_KEEP_NATIVE:-0}" = "1" ]; then
+    ok "defective ${SHORT}p kept at ${SHORT}p (native asked for) · q${Q}"
+  else
+    if [ "$PORTRAIT" = "1" ]; then SCALE="-vf scale=720:-2"; else SCALE="-vf scale=-2:720"; fi
+    HLABEL="720p"
+    warn "defective ${SHORT}p → downscaling to 720 (cleaner + much smaller). Use STUDIO to force native."
+  fi
 fi
 
 # STUDIO: interactive choices (run in a Terminal). All flags below are proven;
