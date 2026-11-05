@@ -73,7 +73,7 @@ have_name() {   # $1 = the file stem → 0 when the finished file OR a running r
 wait_args() {
   _w="${NMX_WAIT_H:-3}"; _rest=""; _grab=0
   for _a in $1; do
-    if [ "$_grab" = "1" ]; then _grab=0; case "$_a" in [0-9]*) _w="$_a"; continue ;; esac; fi
+    if [ "$_grab" = "1" ]; then _grab=0; case "$_a" in [0-9]|[0-9][0-9]|[0-9].[0-9]*|[0-9][0-9].[0-9]*|.[0-9]*) _w="$_a"; continue ;; esac; fi
     case "$_a" in --wait=*) _w="${_a#--wait=}" ;; --wait) _grab=1 ;; --now|now) _w=0 ;; *) _rest="$_rest $_a" ;; esac
   done
   printf '%s\t%s' "$_w" "${_rest# }"
@@ -179,6 +179,7 @@ MODE="go"; PICKS="${*:-}"
 case "${1:-}" in list) MODE="list" ;; esac
 _wa=$(wait_args "$PICKS"); WAIT_H=$(printf '%s' "$_wa" | cut -f1); PICKS=$(printf '%s' "$_wa" | cut -f2)
 case "$WAIT_H" in ''|*[!0-9.]*) WAIT_H=3 ;; esac
+[ "$(printf '%s' "$WAIT_H" | awk '{print ($1>0)?1:0}')" = "1" ] || WAIT_H=0
 TODAY=$(today_mdy)
 [ -n "$PY" ] || die "python3 is needed to read the show pages"
 [ -n "$NMX_DAILY" ] || die "no shows set — put NMX_DAILY=\"Show-Slug=best|Other-Show=quick\" in ~/.slipmat/config (the slug is the one in newsmaxtv.com/Shows/<slug>)"
@@ -270,7 +271,14 @@ for _slug in $SLUGS; do
   _lad=$(printf '%s' "$LADDERS" | cut -d'|' -f$((_i+1)))
   _a=$(printf '%s' "$PICKSET" | awk -v n="$_i" '{print $n}'); [ -n "$_a" ] || _a="best"
   _late=$(printf '%s' "$LATE" | awk -v n="$_i" '{print $n}')
-  if [ "$_late" = "1" ]; then _waiting="$_waiting $_i"; say "  ${C_Y}$_i) $_slug — today's episode is not posted yet; watching for it${C_Z}"; continue; fi
+  if [ "$_late" = "1" ]; then
+    _waiting="$_waiting $_i"
+    if [ "$_have" = "0" ]; then   # the newest one is not in the folder either: rip it now, and watch for today's
+      say "  ${C_Y}$_i) $_slug — today's episode is not posted yet; ripping the $(printf '%s' "$_name" | sed -n -E 's/.* ([0-9.]+) \[NMX\]$/\1/p') one now and watching for today's${C_Z}"
+      rip_one "$_i" "$_slug" "$_eid" "$_name" "$_lad" "$_a" ""; _ran=$((_ran+1))
+    else say "  ${C_Y}$_i) $_slug — today's episode is not posted yet; watching for it${C_Z}"; fi
+    continue
+  fi
   if [ "$_have" = "2" ]; then _skipped=$((_skipped+1)); say "  ${C_D}$_i) $_name — ripping now in its own window, left alone${C_Z}"; continue; fi
   if [ "$_have" = "1" ]; then _skipped=$((_skipped+1)); say "  ${C_D}$_i) $_name — already in the folder, skipped${C_Z}"; continue; fi
   rip_one "$_i" "$_slug" "$_eid" "$_name" "$_lad" "$_a" ""
@@ -281,11 +289,11 @@ done
 # then with its own answer (its window opens, or it runs here). The watch ends when every
 # show is in, or after NMX_WAIT_H hours (3), and says which never came. x ends the watch
 # early (asked once); the rips already running are not touched.
-_never=""; _late_n=0
+_never=""; _late_n=0; _ended=0; _asked=0
 if [ -n "$_waiting" ]; then
   _late_n=$(printf '%s' "$_waiting" | wc -w | tr -d ' ')
   _end=$(( $(date +%s) + $(printf '%s' "$WAIT_H" | awk '{printf "%d", $1*3600}') ))
-  _every=600; [ "${NMX_WAIT_EVERY:-}" != "" ] && _every="$NMX_WAIT_EVERY"
+  _every="${NMX_WAIT_EVERY:-600}"; case "$_every" in ''|0|*[!0-9]*) _every=600 ;; esac   # whole seconds, never a tight loop on the site
   say ""
   say "${C_B}WATCHING${C_Z} for $_late_n show(s) not posted yet — reading the site every $([ "$_every" -ge 60 ] && printf '%s min' "$((_every/60))" || printf '%s s' "$_every") until $(date -r "$_end" +%-I:%M%p | tr A-Z a-z), ripping each when it drops · ${C_B}x${C_Z} ends the watch"
   _asked=0
@@ -294,7 +302,7 @@ if [ -n "$_waiting" ]; then
     if [ -t 0 ]; then IFS= read -r -t "$_every" -n 1 _k 2>/dev/null; else sleep "$_every"; fi
     case "$_k" in
       x|X) if [ "$_asked" = "0" ]; then _asked=1; say "  ${C_Q}end the watch?${C_Z}  ${C_B}x${C_Z} ends it · any other key keeps watching"; continue
-           else say "  watch ended — $(printf '%s' "$_waiting" | wc -w | tr -d ' ') show(s) left unwatched"; _waiting=""; break; fi ;;
+           else say "  watch ended — $(printf '%s' "$_waiting" | wc -w | tr -d ' ') show(s) left unwatched"; break; fi ;;
       '') : ;;
       *) _asked=0; continue ;;
     esac
@@ -320,10 +328,12 @@ if [ -n "$_waiting" ]; then
     _waiting="${_still# }"
   done
   for _i in $_waiting; do _never="$_never $(printf '%s' "$SLUGS" | awk -v n="$_i" '{print $n}')"; done
+  [ "$_asked" = "1" ] && [ -n "$_never" ] && _ended=1
 fi
 say ""
 _w=""; [ "$_late_n" -gt 0 ] && _w=" · $((_late_n - $(printf '%s' "$_never" | wc -w | tr -d ' '))) picked up while watching"
-[ -n "$_never" ] && _w="$_w · never posted in the ${WAIT_H} h:${_never}"
+if [ "${_ended:-0}" = "1" ]; then _w="$_w · watch ended early, still not posted:${_never}"
+elif [ -n "$_never" ]; then _w="$_w · never posted in the ${WAIT_H} h:${_never}"; fi
 if [ "$WHERE" = "windows" ]; then say "${C_B}NEWSMAX TODAY${C_Z} — $_ran window(s) opened · $_skipped already there$_w · each window closes itself when its rip is done (x stops it, ↓ steps a slow download down)"
 else say "${C_B}NEWSMAX TODAY${C_Z} — $_ran ripped · $_skipped already there$_w"; fi
 # a menu-bar window (SLIPMAT_WINDOW=1) closes itself once the shows are off in their own windows

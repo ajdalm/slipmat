@@ -369,7 +369,8 @@ if [ "$_p1" = "best high quick quick " ] && [ "$_p2" = "high high high high " ] 
    && [ "$_c1" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=50 best" ] && [ "$_c2" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=55 best" ] && [ "$_c3" = "480 auto" ] && [ "$_c4" = "720 auto" ] && [ "$_c5" = "best" ] && [ "$_c6" = "360 auto" ] \
    && [ "$_ld" = "1080 720 480 360 " ] && grep -q '^  newsmax)' "$REPO/slipmat" && grep -q 'SLIPMAT_KEEP_NATIVE' "$ENGINE" \
    && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'h b b b --wait 2' | tr '\t' '|')" = "2|h b b b" ] && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'b now' | tr '\t' '|')" = "0|b" ] \
-   && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'h b' | tr '\t' '|')" = "3|h b" ] && grep -q 'mp4.claim' "$_nt" && grep -q 'today_mdy' "$_nt"; then
+   && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'h b' | tr '\t' '|')" = "3|h b" ] && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'b --wait 1080,480' | tr '\t' '|')" = "3|b 1080,480" ] \
+   && grep -q 'mp4.claim' "$_nt" && grep -q 'today_mdy' "$_nt"; then
   pass "slipmat newsmax: 'b h q q' → one answer per show, 'h' covers every show, rows and heights read, high = native 1080 at the dial, a master's ladder reads 1080 720 480 360; --wait 2 / now / the 3 h default parse, a running rip's reservation counts as taken, the watch keys on today's date"
 else fail "slipmat newsmax parsing: '$_p1' / '$_p2' / '$_p3' / '$_p4' / '$_p5' · cmds '$_c1' / '$_c2' / '$_c3' / '$_c4' / '$_c5' / '$_c6' · ladder '$_ld'"; fi
 
