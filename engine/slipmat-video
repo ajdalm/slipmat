@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.23"          # 11.3.26 — the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.24"          # 11.4.26 — a YouTube link that names one video and its playlist is cut to that video before the probe (the whole-playlist dump ripped the first video of the list at 360p over a throttled bare file); a playlist dump of YouTube entries hands back the entry as its page, never a bare file, and a watch link id picks its own entry. 4.23: the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -1803,7 +1803,14 @@ elif cmd == "plrescue":
             # a link that names ONE item of a reel (instagram.com/stories/<user>/<numeric
             # id>/) gets THAT item, never the lead one. Entry ids are shortcodes: the
             # numeric id in base64 over the Instagram alphabet.
-            m = re.search(r"instagram\.com/stories/(?!highlights/)[^/?#]+/(\d{6,})", sys.argv[2] if len(sys.argv) > 2 else "")
+            _lu = sys.argv[2] if len(sys.argv) > 2 else ""
+            m = re.search(r"instagram\.com/stories/(?!highlights/)[^/?#]+/(\d{6,})", _lu)
+            # a YouTube watch link that still carries v= names ONE entry of the list: that one
+            # (yt_one_video cuts such links before the probe; this is the belt under it)
+            my = re.search(r"youtu(?:be\.com/watch\?(?:.*&)?v=|\.be/)([A-Za-z0-9_-]{6,})", _lu)
+            if my:
+                hit = [v for v in vents if str(v.get("id") or "") == my.group(1)]
+                if hit: e = hit[0]; matched = "1"
             if m:
                 _abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
                 n = int(m.group(1)); code = ""
@@ -1820,6 +1827,12 @@ elif cmd == "plrescue":
             direct = max(dvs, key=lambda f: ((f.get("acodec") or "").lower() != "none", p_of(f) or 0, tbr(f))).get("url") if dvs else ""
             mans = [str(f.get("manifest_url") or "") for f in efm if f.get("manifest_url")]
             manifest = mans[0] if mans else ""
+            # a YouTube entry goes back as its own watch page, never a bare googlevideo file:
+            # the bare file is the one combined 360p copy, and without the page challenge
+            # answer YouTube throttles it to a crawl (0.1 MB/s, 11.4.26). The page gives
+            # yt-dlp the whole ladder and the fast lane.
+            if "youtube" in str(e.get("extractor_key") or "").lower() and e.get("webpage_url"):
+                direct = str(e.get("webpage_url")); manifest = ""
             eid = str(e.get("id") or "")
             if len(eid) > 16: eid = ""   # CNN ids are 42-char hashes — junk in a filename; the log keeps the url
             others = " | ".join((v.get("title") or "?")[:70] for v in [v for v in vents if v is not e][:2])
@@ -2417,6 +2430,32 @@ hls_master_hunt() {   # may rewrite $URL to the master playlist
   HLS_RENDITION="$_kind"
   note "that link is $_kind of the stream — no master playlist found beside it; ripping just this rendition"
 }
+# ---- a YouTube link that names one video AND its playlist (11.4.26) ----------
+# watch?v=ID&list=…&index=N is what YouTube hands out from inside a playlist. Left
+# alone, the probe dumps the WHOLE playlist (every entry, a minute of reading, one
+# upcoming entry fails the dump) and the lead-clip rescue below then rips the
+# playlist's FIRST video — not the one the link names — as its only combined file
+# (360p, a bare googlevideo URL that YouTube throttles). The link names one video:
+# cut it to that video (its id, and a start time if one rides along) before anyone
+# reads it. A bare playlist link (no v=) is left alone — it names the list.
+yt_one_video() {   # may rewrite $URL to the one video a playlist link names
+  case "$URL" in *youtube.com/watch*|*youtu.be/*|*youtube.com/live/*|*youtube.com/shorts/*) : ;; *) return 0 ;; esac
+  case "$URL" in *\?list=*|*\&list=*) : ;; *) return 0 ;; esac
+  _q="${URL#*\?}"; [ "$_q" = "$URL" ] && _q=""
+  _id=""; _t=""
+  for _kv in $(printf '%s' "$_q" | tr '&#' '  '); do
+    case "$_kv" in v=*) _id="${_kv#v=}" ;; t=*) _t="${_kv#t=}" ;; esac
+  done
+  if [ -z "$_id" ]; then   # youtu.be/ID?list= · /live/ID?list= · /shorts/ID?list=
+    _p="${URL%%\?*}"; _p="${_p%/}"; _id="${_p##*/}"
+    case "$_id" in watch|''|*.*) return 0 ;; esac
+  fi
+  case "$_id" in *[!A-Za-z0-9_-]*) return 0 ;; esac
+  _new="https://www.youtube.com/watch?v=$_id"; [ -n "$_t" ] && _new="$_new&t=$_t"
+  ok "that link names one video inside a playlist — ripping that video, not the list"
+  logln "  one video: $URL -> $_new"
+  URL="$_new"
+}
 # ---- a Newsmax show page (10.13.26): no sniffer needed ------------------------
 # An episode page (`newsmaxtv.com/Shows/<show>/vid/<uuid>`, `…/vod?ooid=<uuid>`)
 # carries no stream in its HTML — the player asks Newsmax's own service for it:
@@ -2838,6 +2877,7 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
     ( sleep 15; note "still reading — if this happens on every YouTube link, the bgutil token helper likely needs an update (it slows ALL probes when Google changes things)." ) &
     PROBE_NPID=$!
   fi
+  yt_one_video   # no-op unless a YouTube link that names one video and its playlist; cuts it to the video
   vimeo_unlock   # no-op unless a vimeo URL (player or bare); may fill $INFO, set $REFARGS, rewrite $URL
   nmx_show_hunt     # no-op unless a Newsmax SHOW page (no episode id); picks an episode → its page URL
   nmx_page_hunt     # no-op unless a Newsmax episode page; rewrites $URL to its master playlist (title + date kept)

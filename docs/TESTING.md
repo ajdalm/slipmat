@@ -432,6 +432,24 @@ Hand test: an episode link at `480 auto` — the three lines above and a file
 named `<ROW> <m.d.yy> [NMX].mp4` with no naming window. `slipmat smoke` 3a6
 unit-tests the id, date and row matchers.
 
+## A YouTube link that names one video and its playlist (11.4.26)
+
+`watch?v=ID&list=…&index=N` is what YouTube hands out when a video is opened from
+inside a playlist. Left alone, `yt-dlp -J` dumps the whole playlist: every entry
+is read (a minute on a 19-entry list), one upcoming entry can fail the dump, and
+the lead-clip rescue then ripped the list's FIRST video, not the one the link
+names, as its only combined file (itag 18, 360p) over a bare googlevideo URL that
+YouTube throttles once the page's challenge answer is gone (0.1 MB/s, 11.4.26 log).
+
+The engine (`yt_one_video`, before any probe) cuts such a link to the one video it
+names: `watch?v=ID` (a `t=` start time rides along), said once as "that link names
+one video inside a playlist — ripping that video, not the list". A bare playlist
+link (no `v=`) is left alone — it names the list and rips its lead video as before.
+Under it, the playlist rescue (`plrescue`) picks the entry whose id the link names
+when a `v=` survives, and hands a YouTube entry back as its watch page, never a
+bare file, so yt-dlp sees the whole size ladder and the fast lane. Smoke 3i proves
+the cut on four link shapes and both rescue answers on a two-entry fixture.
+
 ## A rendition playlist from a sniffer (10.13.26, Newsmax)
 
 A network sniffer hands over whatever the player fetched last. For an HLS

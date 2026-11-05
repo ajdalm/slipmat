@@ -397,6 +397,24 @@ if [ "$_r" = "X (720)|X (2)|Y (240)" ] && [ -s "$S/u/Y (240).mp4" ]; then
   pass "a second copy at another size is X (720), at the same size X (2); a (720) that landed at 240 is placed as Y (240)"
 else fail "size suffix: '$_r'"; fi
 
+# ---- 3i. a YouTube link that names one video and its playlist is cut to that video (11.4.26); a playlist dump
+# of YouTube entries hands back the page of the entry the link names, never a bare googlevideo file.
+_yo=$(sed -n '/^yt_one_video() {/,/^}/p' "$ENGINE")
+_r=""
+for _u in 'https://www.youtube.com/watch?v=GhZZojpNOB4&list=PLToGD5c9nKsY&index=5' 'https://youtu.be/GhZZojpNOB4?list=PLx&t=90' 'https://www.youtube.com/playlist?list=PLx' 'https://www.youtube.com/watch?v=Sz1u2twE4n4'; do
+  _r="$_r$(URL="$_u" bash -c "ok() { :; }; logln() { :; }; $_yo; yt_one_video; printf '%s' \"\$URL\"" 2>&1)|"
+done
+mkdir -p "$S/pl"
+printf '%s' '{"_type":"playlist","extractor_key":"YoutubeTab","entries":[{"id":"LEAD0000001","title":"Lead","extractor_key":"Youtube","webpage_url":"https://www.youtube.com/watch?v=LEAD0000001","formats":[{"format_id":"18","vcodec":"avc1","acodec":"mp4a","height":360,"width":640,"protocol":"https","url":"https://rr5.googlevideo.com/videoplayback?itag=18"}]},{"id":"NAMED000001","title":"Named","extractor_key":"Youtube","webpage_url":"https://www.youtube.com/watch?v=NAMED000001","formats":[{"format_id":"18","vcodec":"avc1","acodec":"mp4a","height":360,"width":640,"protocol":"https","url":"https://rr5.googlevideo.com/videoplayback?itag=18"}]}]}' > "$S/pl/list.json"
+_p1=$(python3 -c "$_vrpy" plrescue 'https://www.youtube.com/watch?v=NAMED000001&list=PLx&index=2' < "$S/pl/list.json" 2>/dev/null | tr '\037' '|')
+_p2=$(python3 -c "$_vrpy" plrescue 'https://www.youtube.com/playlist?list=PLx' < "$S/pl/list.json" 2>/dev/null | tr '\037' '|')
+if [ "$_r" = "https://www.youtube.com/watch?v=GhZZojpNOB4|https://www.youtube.com/watch?v=GhZZojpNOB4&t=90|https://www.youtube.com/playlist?list=PLx|https://www.youtube.com/watch?v=Sz1u2twE4n4|" ] \
+   && [ "$_p1" = "2|Named|NAMED000001||https://www.youtube.com/watch?v=NAMED000001||Lead||1" ] \
+   && [ "$_p2" = "2|Lead|LEAD0000001||https://www.youtube.com/watch?v=LEAD0000001||Named||" ] \
+   && grep -q '^  yt_one_video ' "$ENGINE"; then
+  pass "a watch?v=…&list= link is cut to its one video (a start time kept; a bare playlist link and a plain watch link untouched); a playlist dump hands back the named YouTube entry as its page, never a bare googlevideo file"
+else fail "one video in a playlist: urls='$_r' · named='$_p1' · lead='$_p2'"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:
