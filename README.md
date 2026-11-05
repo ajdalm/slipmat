@@ -48,7 +48,11 @@ question — `b` best (720p re-encode), `h` high (native 1080p at `NMX_HIGH_Q`),
 `q` quick (480p direct copy, minutes), `s` small (360p), one answer for all or
 one per show in order — and opens a Terminal window per show, each closing
 itself when its rip is done. `slipmat newsmax h b q q` skips the question;
-`slipmat newsmax list` only looks.
+`slipmat newsmax list` only looks. A show whose newest episode is not today's
+is watched for: the window reads the site every 10 minutes for up to 3 hours
+(`NMX_WAIT_H`; `--wait 2` on the line, `now` = no watch) and rips each show the
+moment it drops; `x` ends the watch. A show that is ripping in another window is
+left alone.
 `slipmat hello` can add it to the menu bar as `[SLIPMAT VIDEO] NEWSMAX`
 (`shortcuts/make-shortcuts.sh -n`).
 

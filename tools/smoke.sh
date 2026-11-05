@@ -367,8 +367,10 @@ _c1=$(NMX_HIGH_Q=50 bash "$_nt" --answer-cmd high "1080 720 480 360"); _c2=$(bas
 _ld=$(printf '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\na.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360\nb.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720\nc.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480\nd.m3u8\n' | bash "$_nt" --parse-ladder | tr '\n' ' ')
 if [ "$_p1" = "best high quick quick " ] && [ "$_p2" = "high high high high " ] && [ "$_p3" = "row1 row2 row4 row3 " ] && [ "$_p4" = "high@55 480 best best " ] && [ "$_p5" = "best best " ] \
    && [ "$_c1" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=50 best" ] && [ "$_c2" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=55 best" ] && [ "$_c3" = "480 auto" ] && [ "$_c4" = "720 auto" ] && [ "$_c5" = "best" ] && [ "$_c6" = "360 auto" ] \
-   && [ "$_ld" = "1080 720 480 360 " ] && grep -q '^  newsmax)' "$REPO/slipmat" && grep -q 'SLIPMAT_KEEP_NATIVE' "$ENGINE"; then
-  pass "slipmat newsmax: 'b h q q' → one answer per show, 'h' covers every show, rows and heights read, high = native 1080 at the dial, a master's ladder reads 1080 720 480 360"
+   && [ "$_ld" = "1080 720 480 360 " ] && grep -q '^  newsmax)' "$REPO/slipmat" && grep -q 'SLIPMAT_KEEP_NATIVE' "$ENGINE" \
+   && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'h b b b --wait 2' | tr '\t' '|')" = "2|h b b b" ] && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'b now' | tr '\t' '|')" = "0|b" ] \
+   && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'h b' | tr '\t' '|')" = "3|h b" ] && grep -q 'mp4.claim' "$_nt" && grep -q 'today_mdy' "$_nt"; then
+  pass "slipmat newsmax: 'b h q q' → one answer per show, 'h' covers every show, rows and heights read, high = native 1080 at the dial, a master's ladder reads 1080 720 480 360; --wait 2 / now / the 3 h default parse, a running rip's reservation counts as taken, the watch keys on today's date"
 else fail "slipmat newsmax parsing: '$_p1' / '$_p2' / '$_p3' / '$_p4' / '$_p5' · cmds '$_c1' / '$_c2' / '$_c3' / '$_c4' / '$_c5' / '$_c6' · ladder '$_ld'"; fi
 
 # ---- 3f. the silent-file rule (11.2.26): a file without audio says WHICH kind of silent it is —

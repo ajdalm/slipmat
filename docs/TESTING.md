@@ -432,6 +432,24 @@ Hand test: an episode link at `480 auto` — the three lines above and a file
 named `<ROW> <m.d.yy> [NMX].mp4` with no naming window. `slipmat smoke` 3a6
 unit-tests the id, date and row matchers.
 
+## The Newsmax door waits for the shows not posted yet (11.4.26)
+
+The four daily shows drop over the evening; the early ones are up while the late
+ones still show yesterday's episode. `slipmat newsmax h b b b` rips what is there
+and, for every show whose newest episode is not dated today, keeps watching: the
+site is read again every 10 min (NMX_WAIT_EVERY seconds overrides, for a test),
+and the moment a show's newest episode carries today's date it is ripped with its
+own answer (its window opens, or it runs in place under `--here`). The watch ends
+when every show is in or after NMX_WAIT_H hours (3; `--wait 2` on the line, `now`
+or `--wait 0` = no watch), and the closing line says how many were picked up and
+which never posted. `x` ends the watch early (asked once); rips already running
+are not touched. A running rip counts as taken: its reservation in the
+`_in progress` folder (`<name>.mp4.claim`) reads as "ripping now in its own
+window", so a second run of the door never opens a second window on the same show.
+Proven 11.4.26 19:17 live, non-tty, `NMX_WAIT_EVERY=5 --wait 0.003`: Higbie and
+Schmitt (ripping) left alone, Kelly and Finnerty (11.3 newest) watched, two polls,
+"never posted in the 0.003 h". Smoke 3f parses `--wait`.
+
 ## A YouTube link that names one video and its playlist (11.4.26)
 
 `watch?v=ID&list=…&index=N` is what YouTube hands out when a video is opened from

@@ -5,6 +5,8 @@
 #   slipmat newsmax <picks>           the same with the answer given: `b` · `h` · `q q b h` · `1080,480`
 #   slipmat newsmax list              newest episode + sizes per show, no rip
 #   slipmat newsmax --here <picks>    rip in this window, one after another (no Terminal windows)
+#   slipmat newsmax <picks> --wait 3  keep watching up to 3 h for the shows not posted yet (the default
+#                                     when a show's newest episode is not today's: NMX_WAIT_H, 3; 0 = no wait)
 #
 # NMX_DAILY in ~/.slipmat/config names the shows by their newsmaxtv.com/Shows/<slug>
 # and each one's usual answer — pipe-separated `slug=answer`:
@@ -32,9 +34,11 @@ set -u
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ENGINE="$HERE/engine/slipmat-video"
 _envq="${NMX_HIGH_Q:-}"   # the environment outranks the config, as the engine's switches do
-NMX_DAILY=""; NMX_SHOWS=""; NMX_HIGH_Q=""; OUTDIR="$HOME/SLIPMAT Downloads"
+_envw="${NMX_WAIT_H:-}"
+NMX_DAILY=""; NMX_SHOWS=""; NMX_HIGH_Q=""; NMX_WAIT_H=""; OUTDIR="$HOME/SLIPMAT Downloads"
 [ -f "$HOME/.slipmat/config" ] && . "$HOME/.slipmat/config"
-OUTDIR="${OUTDIR%/}"; NMX_HIGH_Q="${_envq:-${NMX_HIGH_Q:-45}}"
+OUTDIR="${OUTDIR%/}"; NMX_HIGH_Q="${_envq:-${NMX_HIGH_Q:-45}}"; NMX_WAIT_H="${_envw:-${NMX_WAIT_H:-3}}"
+CAPDIR="$OUTDIR/_in progress"   # the engine's reservations (.mp4.claim) and growing files live here
 PY=$(command -v python3 2>/dev/null)
 NMX_SHOWS_LEARNED="$HOME/.slipmat/nmx_shows_learned"
 # the engine's own colors, so the screen reads as one tool
@@ -60,6 +64,19 @@ show_match() {   # $1 = official title → the first menu row whose every word i
 }
 title_date() {   # "Show (10/08/26)" → 10.8.26
   printf '%s' "$1" | sed -n -E 's/.*\(([0-9]{1,2})\/([0-9]{1,2})\/([0-9]{2})\).*/\1.\2.\3/p' | sed 's/\.0\([0-9]\)/.\1/g; s/^0//'
+}
+today_mdy() { date +%m.%d.%y | sed 's/\.0\([0-9]\)/.\1/g; s/^0//'; }   # the same shape: 11.4.26
+have_name() {   # $1 = the file stem → 0 when the finished file OR a running rip's reservation exists
+  [ -n "$1" ] && { [ -e "$OUTDIR/$1.mp4" ] || [ -e "$CAPDIR/$1.mp4.claim" ]; }
+}
+# wait_args "<args>" → "<hours>\t<the rest>": pulls `--wait [N]` / `--wait=N` out of the picks (pure; smoke-tested)
+wait_args() {
+  _w="${NMX_WAIT_H:-3}"; _rest=""; _grab=0
+  for _a in $1; do
+    if [ "$_grab" = "1" ]; then _grab=0; case "$_a" in [0-9]*) _w="$_a"; continue ;; esac; fi
+    case "$_a" in --wait=*) _w="${_a#--wait=}" ;; --wait) _grab=1 ;; --now|now) _w=0 ;; *) _rest="$_rest $_a" ;; esac
+  done
+  printf '%s\t%s' "$_w" "${_rest# }"
 }
 
 # ---- reading one show -----------------------------------------------------------
@@ -153,18 +170,22 @@ case "${1:-}" in
   --parse-picks)  picks_parse "${2:-}" "${3:-4}"; exit 0 ;;      # smoke hooks (pure)
   --parse-ladder) ladder_parse; exit 0 ;;
   --answer-cmd)   answer_cmd "${2:-best}" "${3:-}"; exit 0 ;;
+  --parse-wait)   wait_args "${2:-}"; exit 0 ;;
 esac
 
 WHERE="windows"; [ "${NMX_WINDOWS:-1}" = "0" ] && WHERE="here"
 case "${1:-}" in --here) WHERE="here"; shift ;; esac
 MODE="go"; PICKS="${*:-}"
 case "${1:-}" in list) MODE="list" ;; esac
+_wa=$(wait_args "$PICKS"); WAIT_H=$(printf '%s' "$_wa" | cut -f1); PICKS=$(printf '%s' "$_wa" | cut -f2)
+case "$WAIT_H" in ''|*[!0-9.]*) WAIT_H=3 ;; esac
+TODAY=$(today_mdy)
 [ -n "$PY" ] || die "python3 is needed to read the show pages"
 [ -n "$NMX_DAILY" ] || die "no shows set — put NMX_DAILY=\"Show-Slug=best|Other-Show=quick\" in ~/.slipmat/config (the slug is the one in newsmaxtv.com/Shows/<slug>)"
 command -v osascript >/dev/null 2>&1 || WHERE="here"
 
 # ---- read every show first ---------------------------------------------------------
-SLUGS=""; USUAL=""; IDS=""; NAMES=""; LADDERS=""; HAVE=""; NSHOWS=0
+SLUGS=""; USUAL=""; IDS=""; NAMES=""; LADDERS=""; HAVE=""; LATE=""; NSHOWS=0
 say ""
 say "${C_B}NEWSMAX TODAY${C_Z}"
 _i=0
@@ -182,11 +203,16 @@ for _row in "$@"; do
   _rowname=$(show_match "$_title")
   _name=""; [ -n "$_rowname" ] && [ -n "$_date" ] && _name="$_rowname $_date [NMX]"
   _lad=$(ladder "$_src" | tr '\n' ' ')
-  _have=0; [ -n "$_name" ] && [ -e "$OUTDIR/$_name.mp4" ] && _have=1
+  _have=0; have_name "$_name" && _have=1   # finished, or a window is ripping it right now
+  [ "$_have" = "1" ] && [ ! -e "$OUTDIR/$_name.mp4" ] && _have=2   # 2 = a rip is running on it now
+  # the newest episode is not today's: the show is not posted yet (the wait below watches for it)
+  _late=0; [ -n "$_date" ] && [ "$_date" != "$TODAY" ] && [ "$WAIT_H" != "0" ] && _late=1
   SLUGS="$SLUGS $_slug"; USUAL="$USUAL $_usual"; IDS="$IDS $_eid"; NSHOWS=$((NSHOWS+1))
-  NAMES="$NAMES|${_name:-$_elabel}"; LADDERS="$LADDERS|$_lad"; HAVE="$HAVE $_have"
+  NAMES="$NAMES|${_name:-$_elabel}"; LADDERS="$LADDERS|$_lad"; HAVE="$HAVE $_have"; LATE="$LATE $_late"
   _ladw=""; _k=0; for _h in $_lad; do _k=$((_k+1)); _ladw="$_ladw  ${C_B}$_k${C_Z}) ${_h}p"; done
-  if [ "$_have" = "1" ]; then _tag="${C_G}already in the folder${C_Z}"
+  if [ "$_late" = "1" ]; then _tag="${C_Y}today's episode is not posted yet${C_Z}"; [ "$_have" != "0" ] && _tag="$_tag ${C_D}(the $_date one is in the folder)${C_Z}"
+  elif [ "$_have" = "2" ]; then _tag="${C_G}ripping now in its own window${C_Z}"
+  elif [ "$_have" = "1" ]; then _tag="${C_G}already in the folder${C_Z}"
   else _tag="${C_D}usually $(answer_words "$_usual")${C_Z}"; fi
   say "  ${C_B}$_i)${C_Z} ${_name:-$_elabel}   $_tag"
   [ "$MODE" = "list" ] && say "     ${C_D}sizes${C_Z}$_ladw"
@@ -219,7 +245,22 @@ on run argv
 end run
 AS
 }
-_i=0; _ran=0; _skipped=0
+rip_one() {   # <n> <slug> <episode id> <name> <ladder> <answer> <clock or ""> — a window, or here
+  _url="https://www.newsmaxtv.com/Shows/$2/vid/$3"
+  _tail=$(answer_cmd "$6" "$5")
+  _env=""; _args="$_tail"
+  case "$_tail" in *" best"|*" auto") case "$_tail" in SLIPMAT_*|SLIPMAT_Q=*) _env="${_tail% best}"; _args="best" ;; esac ;; esac
+  if [ "$WHERE" = "windows" ]; then
+    _cmd="$_env $(printf '%q' "$ENGINE") $(printf '%q' "$_url") $_args"
+    open_window "${_cmd# }"
+    say "  ${C_B}$1)${C_Z} $4 — $(answer_words "$6") · its window is open${7:+ · $7}"
+  else
+    say ""
+    say "${C_B}── $1 of $NSHOWS · $4 · $(answer_words "$6")${7:+ · $7} ──${C_Z}"
+    env $_env "$ENGINE" "$_url" $_args
+  fi
+}
+_i=0; _ran=0; _skipped=0; _waiting=""
 say ""
 for _slug in $SLUGS; do
   _i=$((_i+1))
@@ -228,25 +269,63 @@ for _slug in $SLUGS; do
   _name=$(printf '%s' "$NAMES" | cut -d'|' -f$((_i+1)))
   _lad=$(printf '%s' "$LADDERS" | cut -d'|' -f$((_i+1)))
   _a=$(printf '%s' "$PICKSET" | awk -v n="$_i" '{print $n}'); [ -n "$_a" ] || _a="best"
+  _late=$(printf '%s' "$LATE" | awk -v n="$_i" '{print $n}')
+  if [ "$_late" = "1" ]; then _waiting="$_waiting $_i"; say "  ${C_Y}$_i) $_slug — today's episode is not posted yet; watching for it${C_Z}"; continue; fi
+  if [ "$_have" = "2" ]; then _skipped=$((_skipped+1)); say "  ${C_D}$_i) $_name — ripping now in its own window, left alone${C_Z}"; continue; fi
   if [ "$_have" = "1" ]; then _skipped=$((_skipped+1)); say "  ${C_D}$_i) $_name — already in the folder, skipped${C_Z}"; continue; fi
-  _url="https://www.newsmaxtv.com/Shows/$_slug/vid/$_eid"
-  _tail=$(answer_cmd "$_a" "$_lad")
-  _env=""; _args="$_tail"
-  case "$_tail" in *" best"|*" auto") case "$_tail" in SLIPMAT_*|SLIPMAT_Q=*) _env="${_tail% best}"; _args="best" ;; esac ;; esac
-  if [ "$WHERE" = "windows" ]; then
-    _cmd="$_env $(printf '%q' "$ENGINE") $(printf '%q' "$_url") $_args"
-    open_window "${_cmd# }"
-    say "  ${C_B}$_i)${C_Z} $_name — $(answer_words "$_a") · its window is open"
-  else
-    say ""
-    say "${C_B}── $_i of $NSHOWS · $_name · $(answer_words "$_a") ──${C_Z}"
-    env $_env "$ENGINE" "$_url" $_args
-  fi
+  rip_one "$_i" "$_slug" "$_eid" "$_name" "$_lad" "$_a" ""
   _ran=$((_ran+1))
 done
+# ---- the wait: the shows not posted yet are read again every few minutes ------------------
+# A show counts as posted the moment its newest episode carries today's date; it is ripped
+# then with its own answer (its window opens, or it runs here). The watch ends when every
+# show is in, or after NMX_WAIT_H hours (3), and says which never came. x ends the watch
+# early (asked once); the rips already running are not touched.
+_never=""; _late_n=0
+if [ -n "$_waiting" ]; then
+  _late_n=$(printf '%s' "$_waiting" | wc -w | tr -d ' ')
+  _end=$(( $(date +%s) + $(printf '%s' "$WAIT_H" | awk '{printf "%d", $1*3600}') ))
+  _every=600; [ "${NMX_WAIT_EVERY:-}" != "" ] && _every="$NMX_WAIT_EVERY"
+  say ""
+  say "${C_B}WATCHING${C_Z} for $_late_n show(s) not posted yet — reading the site every $([ "$_every" -ge 60 ] && printf '%s min' "$((_every/60))" || printf '%s s' "$_every") until $(date -r "$_end" +%-I:%M%p | tr A-Z a-z), ripping each when it drops · ${C_B}x${C_Z} ends the watch"
+  _asked=0
+  while [ -n "$_waiting" ] && [ "$(date +%s)" -lt "$_end" ]; do
+    _k=""
+    if [ -t 0 ]; then IFS= read -r -t "$_every" -n 1 _k 2>/dev/null; else sleep "$_every"; fi
+    case "$_k" in
+      x|X) if [ "$_asked" = "0" ]; then _asked=1; say "  ${C_Q}end the watch?${C_Z}  ${C_B}x${C_Z} ends it · any other key keeps watching"; continue
+           else say "  watch ended — $(printf '%s' "$_waiting" | wc -w | tr -d ' ') show(s) left unwatched"; _waiting=""; break; fi ;;
+      '') : ;;
+      *) _asked=0; continue ;;
+    esac
+    _asked=0
+    _still=""
+    for _i in $_waiting; do
+      _slug=$(printf '%s' "$SLUGS" | awk -v n="$_i" '{print $n}')
+      _a=$(printf '%s' "$PICKSET" | awk -v n="$_i" '{print $n}'); [ -n "$_a" ] || _a="best"
+      _ep=$(newest_episode "$_slug") || { _still="$_still $_i"; continue; }
+      _eid=$(printf '%s' "$_ep" | cut -f1); _elabel=$(printf '%s' "$_ep" | cut -f2)
+      _st=$(episode_stream "$_eid") || { _still="$_still $_i"; continue; }
+      _title=$(printf '%s' "$_st" | cut -f1); _src=$(printf '%s' "$_st" | cut -f2)
+      _date=$(title_date "$_title")
+      [ "$_date" = "$TODAY" ] || { _still="$_still $_i"; continue; }
+      _rowname=$(show_match "$_title"); _name=""; [ -n "$_rowname" ] && _name="$_rowname $_date [NMX]"
+      _clock=$(date +%-I:%M%p | tr A-Z a-z)
+      if have_name "$_name"; then say "  ${C_D}$_i) $_name — posted, and already in the folder · $_clock${C_Z}"; continue; fi
+      _lad=$(ladder "$_src" | tr '\n' ' ')
+      say "  ${C_G}$_i) ${_name:-$_elabel} — posted · $_clock${C_Z}"
+      rip_one "$_i" "$_slug" "$_eid" "${_name:-$_elabel}" "$_lad" "$_a" "$_clock"
+      _ran=$((_ran+1))
+    done
+    _waiting="${_still# }"
+  done
+  for _i in $_waiting; do _never="$_never $(printf '%s' "$SLUGS" | awk -v n="$_i" '{print $n}')"; done
+fi
 say ""
-if [ "$WHERE" = "windows" ]; then say "${C_B}NEWSMAX TODAY${C_Z} — $_ran window(s) opened · $_skipped already there · each window closes itself when its rip is done (x stops it, ↓ steps a slow download down)"
-else say "${C_B}NEWSMAX TODAY${C_Z} — $_ran ripped · $_skipped already there"; fi
+_w=""; [ "$_late_n" -gt 0 ] && _w=" · $((_late_n - $(printf '%s' "$_never" | wc -w | tr -d ' '))) picked up while watching"
+[ -n "$_never" ] && _w="$_w · never posted in the ${WAIT_H} h:${_never}"
+if [ "$WHERE" = "windows" ]; then say "${C_B}NEWSMAX TODAY${C_Z} — $_ran window(s) opened · $_skipped already there$_w · each window closes itself when its rip is done (x stops it, ↓ steps a slow download down)"
+else say "${C_B}NEWSMAX TODAY${C_Z} — $_ran ripped · $_skipped already there$_w"; fi
 # a menu-bar window (SLIPMAT_WINDOW=1) closes itself once the shows are off in their own windows
 [ "${SLIPMAT_WINDOW:-0}" = "1" ] && [ "$WHERE" = "windows" ] && [ -t 0 ] && [ -f "$HERE/tools/window-close.sh" ] \
   && /bin/bash "$HERE/tools/window-close.sh" 45 "This window closes itself in 45 s — the shows run in their own windows"
