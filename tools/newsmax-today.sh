@@ -5,8 +5,13 @@
 #   slipmat newsmax <picks>           the same with the answer given: `b` · `h` · `q q b h` · `1080,480`
 #   slipmat newsmax list              newest episode + sizes per show, no rip
 #   slipmat newsmax --here <picks>    rip in this window, one after another (no Terminal windows)
-#   slipmat newsmax <picks> --wait 3  keep watching up to 3 h for the shows not posted yet (the default
-#                                     when a show's newest episode is not today's: NMX_WAIT_H, 3; 0 = no wait)
+#   slipmat newsmax <picks> --wait 3  keep watching up to 3 h for the shows whose episode today is due
+#                                     but not posted yet (the default: NMX_WAIT_H, 3; 0 = no wait)
+#
+# "Today's episode" goes by each show's own rhythm, read from its episode list: the weekdays it
+# posts and the time of day it usually posts. Before that time (the morning after, a weekend, a
+# day the show is off) the newest episode IS the current one: it is ripped like any other, nothing
+# is watched. A show is watched only when its usual posting time falls inside the watch.
 #
 # NMX_DAILY in ~/.slipmat/config names the shows by their newsmaxtv.com/Shows/<slug>
 # and each one's usual answer — pipe-separated `slug=answer`:
@@ -79,14 +84,32 @@ wait_args() {
   printf '%s\t%s' "$_w" "${_rest# }"
 }
 
+# due_rule <weekday 1-7> <minute now> <weekdays> <usual minute> <watch hours> → 1 when today's episode
+# is due before the watch ends: today is one of the show's days and its usual time, with half an hour
+# of room, falls before now + the watch (a watch that would end before the show usually posts is no
+# watch). An unknown rhythm counts as every day at noon. (pure; smoke-tested)
+due_rule() {
+  _wd="$1"; _now="$2"; _days="${3:-1234567}"; _med="${4:-720}"; _wh="$5"
+  case "$_days" in *"$_wd"*) : ;; *) printf 0; return 0 ;; esac
+  awk -v n="$_now" -v m="$_med" -v w="$_wh" 'BEGIN{ print (w>0 && m+30 <= n+w*60) ? 1 : 0 }'
+}
+clock_of() {   # minute of day → 4:58pm
+  [ -n "$1" ] || return 0
+  _h=$(( $1 / 60 )); _m=$(( $1 % 60 )); _ap=am; [ "$_h" -ge 12 ] && _ap=pm; _h=$(( _h % 12 )); [ "$_h" = 0 ] && _h=12
+  printf '%d:%02d%s' "$_h" "$_m" "$_ap"
+}
+
 # ---- reading one show -----------------------------------------------------------
-# newest_episode <slug> → "<id>\t<label>" (the show page's listing call, newest first)
+# newest_episode <slug> → "<id>\t<label>\t<usual minute of day>\t<weekdays 1-7>" (the show page's
+# listing call, newest first). The rhythm comes from the episodes posted on their own date: the
+# median time of day they went up, and the weekdays they went up on (1 = Monday); empty when
+# fewer than three episodes say it.
 newest_episode() {
   _url="https://www.newsmaxtv.com/Shows/$1"
   _cat=$(curl -s -m 20 "$_url" 2>/dev/null | head -c 400000 | grep -o 'category_ids=[A-Za-z0-9]*' | head -1 | sed 's/category_ids=//')
   [ -n "$_cat" ] || return 1
   curl -s -m 20 "https://www.newsmaxtv.com/api/v1/_24iService/GetPlaylist?category_ids=$_cat" 2>/dev/null | head -c 2000000 | "$PY" -c '
-import json,sys,re,html
+import json,sys,re,html,datetime
 raw=sys.stdin.read()
 m=re.search(r"<string[^>]*>(.*)</string>", raw, re.S)
 body=html.unescape(m.group(1)) if m else raw
@@ -98,8 +121,18 @@ items=d.get("items",[]) if isinstance(d,dict) else d
 items=[i for i in items if i.get("id") and not i.get("isHidden")]
 items.sort(key=lambda i: i.get("createdAt") or 0, reverse=True)
 if not items: raise SystemExit(1)
+mins=[]; days=set()
+for e in items[:20]:
+    m2=re.search(r"\((\d{1,2})/(\d{1,2})/(\d{2})\)", e.get("label") or "")
+    try: t=datetime.datetime.fromtimestamp(int(e.get("createdAt") or 0))
+    except Exception: continue
+    if not m2 or (t.month,t.day,t.year%100)!=tuple(int(x) for x in m2.groups()): continue
+    mins.append(t.hour*60+t.minute); days.add(t.isoweekday())
+mins.sort()
+med=str(mins[len(mins)//2]) if len(mins)>=3 else ""
+dd="".join(str(x) for x in sorted(days)) if len(mins)>=3 else ""
 i=items[0]
-print("%s\t%s" % (i["id"], (i.get("label") or i.get("seriesName") or "").replace("\t"," ").replace("\n"," ")))'
+print("%s\t%s\t%s\t%s" % (i["id"], (i.get("label") or i.get("seriesName") or "").replace("\t"," ").replace("\n"," "), med, dd))'
 }
 # episode_stream <id> → "<title>\t<master url>" (Newsmax's own service)
 episode_stream() {
@@ -171,6 +204,7 @@ case "${1:-}" in
   --parse-ladder) ladder_parse; exit 0 ;;
   --answer-cmd)   answer_cmd "${2:-best}" "${3:-}"; exit 0 ;;
   --parse-wait)   wait_args "${2:-}"; exit 0 ;;
+  --due)          due_rule "${2:-1}" "${3:-0}" "${4:-}" "${5:-}" "${6:-3}"; exit 0 ;;
 esac
 
 WHERE="windows"; [ "${NMX_WINDOWS:-1}" = "0" ] && WHERE="here"
@@ -180,7 +214,7 @@ case "${1:-}" in list) MODE="list" ;; esac
 _wa=$(wait_args "$PICKS"); WAIT_H=$(printf '%s' "$_wa" | cut -f1); PICKS=$(printf '%s' "$_wa" | cut -f2)
 case "$WAIT_H" in ''|*[!0-9.]*) WAIT_H=3 ;; esac
 [ "$(printf '%s' "$WAIT_H" | awk '{print ($1>0)?1:0}')" = "1" ] || WAIT_H=0
-TODAY=$(today_mdy)
+TODAY=$(today_mdy); WDAY=$(date +%u); NOWMIN=$(( 10#$(date +%H) * 60 + 10#$(date +%M) ))
 [ -n "$PY" ] || die "python3 is needed to read the show pages"
 [ -n "$NMX_DAILY" ] || die "no shows set — put NMX_DAILY=\"Show-Slug=best|Other-Show=quick\" in ~/.slipmat/config (the slug is the one in newsmaxtv.com/Shows/<slug>)"
 command -v osascript >/dev/null 2>&1 || WHERE="here"
@@ -198,6 +232,7 @@ for _row in "$@"; do
   _i=$((_i+1))
   _ep=$(newest_episode "$_slug") || { say "  ${C_Y}$_i) $_slug — no episode list answered; skipped${C_Z}"; continue; }
   _eid=$(printf '%s' "$_ep" | cut -f1); _elabel=$(printf '%s' "$_ep" | cut -f2)
+  _med=$(printf '%s' "$_ep" | cut -f3); _days=$(printf '%s' "$_ep" | cut -f4)
   _st=$(episode_stream "$_eid") || { say "  ${C_Y}$_i) $_slug — Newsmax's service lists no stream for the newest episode ($_elabel); skipped${C_Z}"; continue; }
   _title=$(printf '%s' "$_st" | cut -f1); _src=$(printf '%s' "$_st" | cut -f2)
   _date=$(title_date "$_title")
@@ -206,12 +241,14 @@ for _row in "$@"; do
   _lad=$(ladder "$_src" | tr '\n' ' ')
   _have=0; have_name "$_name" && _have=1   # finished, or a window is ripping it right now
   [ "$_have" = "1" ] && [ ! -e "$OUTDIR/$_name.mp4" ] && _have=2   # 2 = a rip is running on it now
-  # the newest episode is not today's: the show is not posted yet (the wait below watches for it)
-  _late=0; [ -n "$_date" ] && [ "$_date" != "$TODAY" ] && [ "$WAIT_H" != "0" ] && _late=1
+  # the newest episode is not today's AND today's is due inside the watch: late (the wait below watches
+  # for it). Before its usual time (the morning after, a weekend) the newest one is simply the current one.
+  _late=0; [ -n "$_date" ] && [ "$_date" != "$TODAY" ] && [ "$(due_rule "$WDAY" "$NOWMIN" "$_days" "$_med" "$WAIT_H")" = "1" ] && _late=1
+  _when=""; [ -n "$_med" ] && _when="usually about $(clock_of "$_med")"
   SLUGS="$SLUGS $_slug"; USUAL="$USUAL $_usual"; IDS="$IDS $_eid"; NSHOWS=$((NSHOWS+1))
   NAMES="$NAMES|${_name:-$_elabel}"; LADDERS="$LADDERS|$_lad"; HAVE="$HAVE $_have"; LATE="$LATE $_late"
   _ladw=""; _k=0; for _h in $_lad; do _k=$((_k+1)); _ladw="$_ladw  ${C_B}$_k${C_Z}) ${_h}p"; done
-  if [ "$_late" = "1" ]; then _tag="${C_Y}today's episode is not posted yet${C_Z}"; [ "$_have" != "0" ] && _tag="$_tag ${C_D}(the $_date one is in the folder)${C_Z}"
+  if [ "$_late" = "1" ]; then _tag="${C_Y}today's episode is not posted yet${C_Z}${_when:+ ${C_D}($_when)${C_Z}}"; [ "$_have" != "0" ] && _tag="$_tag ${C_D}(the $_date one is in the folder)${C_Z}"
   elif [ "$_have" = "2" ]; then _tag="${C_G}ripping now in its own window${C_Z}"
   elif [ "$_have" = "1" ]; then _tag="${C_G}already in the folder${C_Z}"
   else _tag="${C_D}usually $(answer_words "$_usual")${C_Z}"; fi

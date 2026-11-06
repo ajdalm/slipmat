@@ -450,6 +450,22 @@ Proven 11.4.26 19:17 live, non-tty, `NMX_WAIT_EVERY=5 --wait 0.003`: Higbie and
 Schmitt (ripping) left alone, Kelly and Finnerty (11.3 newest) watched, two polls,
 "never posted in the 0.003 h". Smoke 3f parses `--wait`.
 
+## The Newsmax door knows each show's day (11.6.26)
+
+"Today's episode" is read from each show's own episode list, not the calendar
+alone: the weekdays it posts and the median time of day it goes up (the episodes
+posted on their own date, the last 20). A show is watched only when today is one
+of its days and its usual time, with half an hour of room, falls inside the watch.
+Before that — the morning after, a weekend, a day it is off — the newest episode
+is the current one: ripped if it is not in the folder, nothing watched. The 4.26
+door on the morning of 11.6 called all four 11.5 shows "not posted yet" and
+would have watched three hours for episodes due that evening. The four shows'
+lists (11.6): Mon–Fri, Higbie about 5:02pm, Schmitt 6:02pm, Finnerty 7:05pm,
+Kelly 7:58pm (Pacific). A late show's line names its usual time. Proven 11.6.26
+13:37 `slipmat newsmax list`: all four read 11.5.26 as current, none watched.
+Smoke 3e: Friday 1:36pm = no watch, 3pm = the 5pm show watched, a Saturday = none,
+`--wait 0` = none, an unknown rhythm = every day at noon.
+
 ## A YouTube link that names one video and its playlist (11.4.26)
 
 `watch?v=ID&list=…&index=N` is what YouTube hands out when a video is opened from
