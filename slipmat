@@ -8,7 +8,7 @@
 #   slipmat spotify <url>                         a Spotify playlist, album or track URL
 #                                                 → the same AAC-320 m4a
 #   slipmat spotify --login                       log in to Spotify (once)
-#   slipmat newsmax [custom [1,2,4,3] | list]     the day's Newsmax shows (NMX_DAILY in
+#   slipmat newsmax [today|yesterday|both|back N] [picks|list]   the Newsmax shows (NMX_DAILY in
 #                                                 ~/.slipmat/config), newest episode each
 #   slipmat z-batch [opts] <folder>               unattended zoom-crop / re-encode batch
 #   slipmat compare <file> <q> <q> [...]          measure quality dials on your file first

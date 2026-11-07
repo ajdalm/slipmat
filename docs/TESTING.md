@@ -450,6 +450,29 @@ Proven 11.4.26 19:17 live, non-tty, `NMX_WAIT_EVERY=5 --wait 0.003`: Higbie and
 Schmitt (ripping) left alone, Kelly and Finnerty (11.3 newest) watched, two polls,
 "never posted in the 0.003 h". Smoke 3f parses `--wait`.
 
+## The Newsmax door asks which day (11.6.26, 4.28)
+
+The door's first question is the day, not the quality: `t` today's · `y`
+yesterday's (the last episode before today's, so Friday's on a Monday) · `b` both
+· `c` custom (how many days back, then every episode of today and those days,
+numbered, picked by hand: `2h 3 7q`, `2-5` for a span, `all` / `all h`, a number
+alone = that show's usual, Enter = every one not in the folder). Each show's
+episode list is read once (`show_list`: every episode the page lists, with its
+date and how many days back it is, plus the show's rhythm); the stream is asked
+for when a rip starts. The overview above the question says, per show, today's
+state (posted · not posted yet with the usual time) and the one before it, with
+"in the folder" / "ripping now" where that holds. A day with nothing left to rip
+says so and asks the day again (a tty) instead of ending. On the line the day word
+leads (`yesterday h b` · `both` · `back 5 2h 3` · `c` = back 7; `b h q q` is no
+day word, so the old picks lines still work); no day word in a non-tty run = today.
+Proven 11.6.26 20:50–21:05 against a fake engine and a fake output folder (one
+11.5 file, one 11.6 reservation): `list`, `yesterday` (3 ripped, 1 skipped),
+`today h` (Kelly 11.6 not up at 8:53pm → watched), `both b h --wait 0.003` (5
+ripped, 2 there, Kelly never posted), `back 3 2h 5 8-9q now`, `today now` (Kelly
+"outside the watch, left for later"); through a pty: Enter·Enter, `c`·`1`·`1h 3`,
+`y`·Enter, and the all-in-the-folder re-ask (`Enter` → "today's episodes are all in
+the folder" → `y` → `q`). Smoke 3e: `--parse-day`, `--custom-picks`.
+
 ## The Newsmax door knows each show's day (11.6.26)
 
 "Today's episode" is read from each show's own episode list, not the calendar

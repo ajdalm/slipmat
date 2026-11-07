@@ -370,10 +370,13 @@ if [ "$_p1" = "best high quick quick " ] && [ "$_p2" = "high high high high " ] 
    && [ "$_ld" = "1080 720 480 360 " ] && grep -q '^  newsmax)' "$REPO/slipmat" && grep -q 'SLIPMAT_KEEP_NATIVE' "$ENGINE" \
    && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'h b b b --wait 2' | tr '\t' '|')" = "2|h b b b" ] && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'b now' | tr '\t' '|')" = "0|b" ] \
    && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'h b' | tr '\t' '|')" = "3|h b" ] && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'b --wait 1080,480' | tr '\t' '|')" = "3|b 1080,480" ] \
-   && grep -q 'mp4.claim' "$_nt" && grep -q 'today_mdy' "$_nt" \
+   && grep -q 'mp4.claim' "$_nt" && grep -q 'due_rule' "$_nt" \
    && [ "$(bash "$_nt" --due 5 816 12345 1018 3)" = "0" ] && [ "$(bash "$_nt" --due 5 900 12345 1018 3)" = "1" ] && [ "$(bash "$_nt" --due 3 1140 12345 1198 3)" = "1" ] \
-   && [ "$(bash "$_nt" --due 6 1140 12345 1018 3)" = "0" ] && [ "$(bash "$_nt" --due 5 1100 12345 1018 0)" = "0" ] && [ "$(bash "$_nt" --due 5 400 '' '' 3)" = "0" ]; then
-  pass "slipmat newsmax: 'b h q q' → one answer per show, 'h' covers every show, rows and heights read, high = native 1080 at the dial, a master's ladder reads 1080 720 480 360; --wait 2 / now / the 3 h default parse, a running rip's reservation counts as taken, the watch keys on today's date; today's episode is due only on the show's own weekdays when its usual posting time fits inside the watch (1:36pm on a Friday = yesterday's shows, no watch; 3pm = the 5pm show watched; a Saturday = none)"
+   && [ "$(bash "$_nt" --due 6 1140 12345 1018 3)" = "0" ] && [ "$(bash "$_nt" --due 5 1100 12345 1018 0)" = "0" ] && [ "$(bash "$_nt" --due 5 400 '' '' 3)" = "0" ] \
+   && [ "$(bash "$_nt" --parse-day 'yesterday h b' | tr '\t' '|')" = "yesterday||h b" ] && [ "$(bash "$_nt" --parse-day 'b h q q' | tr '\t' '|')" = "||b h q q" ] \
+   && [ "$(bash "$_nt" --parse-day 'back 5 2h 3' | tr '\t' '|')" = "back|5|2h 3" ] && [ "$(bash "$_nt" --parse-day 'c' | tr '\t' '|')" = "back|7|" ] && [ "$(bash "$_nt" --parse-day 'both' | tr '\t' '|')" = "both||" ] \
+   && [ "$(bash "$_nt" --custom-picks '2h 5 8-9q' 10)" = "- high - - u - - quick quick -" ] && [ "$(bash "$_nt" --custom-picks 'all h' 3)" = "high high high" ] && [ "$(bash "$_nt" --custom-picks '' 3)" = "- - -" ] && [ "$(bash "$_nt" --custom-picks '99 x 3' 4)" = "- - u -" ]; then
+  pass "slipmat newsmax: 'b h q q' → one answer per show, 'h' covers every show, rows and heights read, high = native 1080 at the dial, a master's ladder reads 1080 720 480 360; --wait 2 / now / the 3 h default parse, a running rip's reservation counts as taken, the watch keys on today's date; today's episode is due only on the show's own weekdays when its usual posting time fits inside the watch (3pm = the 5pm show watched; 1:36pm, a Saturday, --wait 0 = none); the day word leads the line (yesterday · both · back N · c = back 7; 'b h q q' is no day), custom picks read '2h 5 8-9q' / 'all h' / nothing"
 else fail "slipmat newsmax parsing: '$_p1' / '$_p2' / '$_p3' / '$_p4' / '$_p5' · cmds '$_c1' / '$_c2' / '$_c3' / '$_c4' / '$_c5' / '$_c6' · ladder '$_ld'"; fi
 
 # ---- 3f. the silent-file rule (11.2.26): a file without audio says WHICH kind of silent it is —

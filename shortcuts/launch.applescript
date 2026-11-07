@@ -14,7 +14,7 @@
 --   live-start  a YouTube livestream from its beginning (best quality, no questions)
 --   live-2h     the same, from 2 hours back        (other sites: from now, says so)
 --   live-1h     the same, from 1 hour back
---   newsmax     the day's Newsmax shows (slipmat newsmax): one question, a window per show
+--   newsmax     the Newsmax shows (slipmat newsmax): which day, how, a window per show
 --
 -- Clipboard rule: read TEXT first and let it win whenever it
 -- looks like a URL — AppleScript happily coerces URL *text* to a file
