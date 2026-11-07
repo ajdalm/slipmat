@@ -61,7 +61,8 @@ SLIPMAT_LOCAL_MKV=/tmp/fix.mkv ./engine/slipmat-video "https://example.test/x" m
 ## Rotated phone video (ffprobe 8 trailing-comma regression, 10.5.26)
 
 (`slipmat smoke` builds this clip and asserts both the comma fix and the
-rotation-aware dimensions; the recipe stays here for hand checks.)
+rotation-aware dimensions; the recipe stays here for hand checks.) ffprobe 9.0.2, on the
+reference Mac since 11.6.26, prints the same trailing comma; the wrapper stays.
 
 Portrait/rotated phone recordings carry a Display Matrix. ffprobe 8 prints that nested
 section as an EMPTY trailing csv field (`h264,` `60/1,`), which once broke every local
@@ -698,7 +699,10 @@ both use it (a smart-named live capture keeps its `[L- date - time]` stamp). A
 second copy of one video at another size is suffixed `(720)` rather than `(2)`
 (`uniquify` takes the picked short side; the same size still bumps to `(2)`), and
 `place_final` corrects that suffix to the size that actually landed (a 1080 pick the
-defect rule brought to 720 reads `(720)`). Own-output recognition reads a smart name
+defect rule brought to 720 reads `(720)`). Since 4.29 the Newsmax names reach the same rule:
+the show-door name passes the pick to `uniquify`, and the naming window's two renames (at the
+finish line, and late from the window itself) read the size that landed before they claim a
+name (`size_suffix`; smoke 3h2). Own-output recognition reads a smart name
 ending in ` - M.D.YY`. `slipmat smoke` 3g runs the engine with a throwaway hook that
 answers `SMART NAME<TAB>10.21.26<TAB>-` and expects `SMART NAME - 10.21.26.mp4`; 3h
 unit-tests the size suffix and the placement correction. The menu-bar door

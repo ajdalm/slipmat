@@ -405,6 +405,19 @@ if [ "$_r" = "X (720)|X (2)|Y (240)" ] && [ -s "$S/u/Y (240).mp4" ]; then
   pass "a second copy at another size is X (720), at the same size X (2); a (720) that landed at 240 is placed as Y (240)"
 else fail "size suffix: '$_r'"; fi
 
+# ---- 3h2. the Newsmax name paths reach the same rule (11.6.26): size_suffix names a second copy of a show by the
+# size that LANDED when a finished file already holds the stem at another size; the show-door name passes the pick
+# to uniquify; the naming window's two renames (finish line, late) run the rule before they claim a name.
+mkdir -p "$S/u2"
+"$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i testsrc=duration=1:size=640x360:rate=10 -c:v libx264 -pix_fmt yuv420p -an "$S/u2/X.mp4" </dev/null 2>/dev/null
+"$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i testsrc=duration=1:size=320x240:rate=10 -c:v libx264 -pix_fmt yuv420p -an "$S/u2/L.mp4" </dev/null 2>/dev/null
+_sx=$(sed -n '/^size_suffix() {/,/^}/p; /^file_short_side() {/,/^}/p' "$ENGINE")
+_r=$(cd "$S/u2" && OUTDIR="$S/u2" FFPROBE="$FFPROBE" bash -c "$_sx; printf '%s|%s|%s|%s|%s' \"\$(size_suffix X L.mp4)\" \"\$(size_suffix X 240)\" \"\$(size_suffix X 360)\" \"\$(size_suffix X '')\" \"\$(size_suffix NOFILE L.mp4)\"" 2>&1)
+if [ "$_r" = "X (240)|X (240)|X|X|NOFILE" ] && grep -q 'uniquify "\$_nrow \$_ndate \[NMX\]" "\$_pick_h"' "$ENGINE" \
+   && grep -q '_qnew=\$(size_suffix "\$_qnew" "\$OUT")' "$ENGINE" && grep -q 'NEW="\\\$NEW (\\\$NH)"' "$ENGINE"; then
+  pass "a Newsmax second copy at another size is named by the size that landed (X (240)); the same size, no pick or no first copy leave the stem; the show-door name, the finish-line rename and the late rename all run the rule"
+else fail "newsmax size suffix: '$_r'"; fi
+
 # ---- 3i. a YouTube link that names one video and its playlist is cut to that video (11.4.26); a playlist dump
 # of YouTube entries hands back the page of the entry the link names, never a bare googlevideo file.
 _yo=$(sed -n '/^yt_one_video() {/,/^}/p' "$ENGINE")
