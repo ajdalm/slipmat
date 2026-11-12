@@ -138,6 +138,10 @@ question appears on any other site whose live playlist keeps its history
 has been on air, the capture begins at the piece you asked for, downloads up to
 live and keeps recording, and a line under the REC clock says how far behind
 live it still is. A stream with no history is recorded from now and says so.
+A live playlist whose pieces are listed under addresses with no media file
+ending (some station channels list a tracking address per piece) is recorded
+too: ffmpeg refuses it once, the capture runs again with that one check off
+and says so in a line.
 From the command line the window can be given up front and
 the question is skipped: `slipmat video <url> max best from-start`,
 `… last-2h`, `… last-90m` — and on a stream that already ended, `last-2h`

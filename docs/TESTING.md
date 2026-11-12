@@ -268,6 +268,31 @@ HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/r3.raw 120 -- '<24/7 rumble 
 `slipmat smoke` 3c6 runs `hls_history` offline on three written playlists (whole,
 sliding, ended) and asserts each answer.
 
+**A playlist whose pieces carry no media file ending (4.33, 11.12.26).** ffmpeg
+7.1.1 and later check every piece address of an HLS playlist against a list of
+media endings and refuse the playlist before a byte lands:
+`URL … is not in allowed_segment_extensions`, then yt-dlp's
+`ffmpeg exited with code 183`. A station's linear channel on amagi.tv lists each
+piece as a tracking address that redirects to the `.ts` (`…/beacon/…/1920x1080_5129264?…&redirect_url=…playlist1080p_4614745.ts`),
+so every capture of it died in about three seconds. `live_refused_ending` reads
+that sentence in the capture's own stderr log; when nothing landed and no stop
+was asked, `live_capture` runs the capture once more with `-extension_picky 0`
+on every ffmpeg input (the plain `ffmpeg_i` words and the rewind's
+`ffmpeg_i1`/`ffmpeg_i2`) and says
+`! ffmpeg refused this stream: its pieces are listed under addresses with no media file ending — recording with that one check off`.
+A capture that already has a file is never restarted; every other capture keeps
+the check.
+
+```
+# the sniffed master playlist of a linear channel, 360p, x x after 40 s:
+# the refusal line, then REC; 0:53 in the file (h264/aac, start_time 0)
+HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/p1.raw 120 -- '<channel playlist.m3u8>' 360 auto -- KEY@40:x KEY@2:x
+```
+
+`slipmat smoke` 3c7 runs `live_refused_ending` on written logs and folders and
+asks the installed ffmpeg for the refusal sentence on a written playlist (a
+piece named without an ending), with and without the check.
+
 A capture grows in the `_in progress` folder inside the output folder and is
 placed beside the finished files when it ends (10.29.26); the folder stays (it is
 permanent, so the list never gains or loses that row). Every VOD rip reserves its

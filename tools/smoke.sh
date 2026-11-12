@@ -476,6 +476,37 @@ if [ "$_h1" = "600 1 0 0 600" ] && [ "$_h2" = "600 1 0 0 600" ] && [ "$_h3" = "6
   pass "a live playlist that keeps its history is rewound on any site: from-start begins at the oldest piece, last-2m at 66 pieces from the end, a sliding window three pieces in; an ended playlist and a pick that is not a playlist are left to record from now; the capture hands ffmpeg the start piece and the driver reads its progress"
 else fail "playlist rewind: measure='$_h1' · start='$_h2' · last-2m='$_h3' · last-15m='$_h4' · sliding='$_h5' · ended='$_h6' · not a playlist='$_h7'"; fi
 
+# ---- 3c7. ffmpeg refuses a live playlist whose pieces carry no media file ending (11.12.26, a station's linear
+# channel: each piece is a tracking address that redirects to the .ts). The refusal is ffmpeg's own sentence;
+# with nothing landed the capture runs once more with that one check off. A capture that has a file, or one
+# that died of anything else, is never restarted. The sentence the engine reads is asked of this ffmpeg too.
+_lr=$(sed -n '/^live_refused_ending() {/,/^}/p' "$ENGINE")
+mkdir -p "$S/picky/none" "$S/picky/some" "$S/picky/ff"
+: > "$S/picky/none/A [id].mp4.part"; : > "$S/picky/none/A [id].mp4.claim"; printf 'x' > "$S/picky/none/B other.mp4"
+printf 'x' > "$S/picky/some/A [id].mp4.part"
+printf '[in#0 @ 0x1] URL https://example.com/beacon/640x360_1?seg_id=1 is not in allowed_segment_extensions, consider updating hls.c\n' > "$S/picky/refused.log"
+printf 'ERROR: unable to download video data: HTTP Error 403: Forbidden\n' > "$S/picky/other.log"
+_lre() { bash -c "$_lr; live_refused_ending \"\$1\" \"\$2\" \"\$3\"" _ "$1" "$2" "$3" 2>/dev/null; echo $?; }
+_p1=$(_lre "$S/picky/refused.log" "$S/picky/none" "A [id]"); _p2=$(_lre "$S/picky/refused.log" "$S/picky/some" "A [id]")
+_p3=$(_lre "$S/picky/other.log" "$S/picky/none" "A [id]");   _p4=$(_lre "$S/picky/missing.log" "$S/picky/none" "A [id]")
+_p5="no such check in this ffmpeg"
+if "$FFMPEG" -hide_banner -h demuxer=hls 2>/dev/null | grep -q 'extension_picky'; then
+  "$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i testsrc=duration=1:size=160x90:rate=10 -c:v libx264 -pix_fmt yuv420p -an -f mpegts "$S/picky/ff/seg_0" </dev/null 2>/dev/null
+  printf '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:1.000,\nseg_0\n#EXT-X-ENDLIST\n' > "$S/picky/ff/p.m3u8"
+  _pa=$("$FFMPEG" -hide_banner -loglevel error -y -i "$S/picky/ff/p.m3u8" -c copy "$S/picky/ff/a.mp4" </dev/null 2>&1)
+  _pb=$("$FFMPEG" -hide_banner -loglevel error -y -extension_picky 0 -i "$S/picky/ff/p.m3u8" -c copy "$S/picky/ff/b.mp4" </dev/null 2>&1)
+  case "$_pa" in
+    *allowed_segment_extensions*) case "$_pb" in *allowed_segment_extensions*) _p5="the check stayed on with -extension_picky 0" ;; *) _p5=ok ;; esac ;;
+    *) _p5="this ffmpeg words the refusal another way" ;;
+  esac
+fi
+if [ "$_p1" = "0" ] && [ "$_p2" = "1" ] && [ "$_p3" = "1" ] && [ "$_p4" = "1" ] \
+   && { [ "$_p5" = "ok" ] || [ "$_p5" = "no such check in this ffmpeg" ]; } \
+   && [ "$(grep -c 'ffmpeg_i:-loglevel error\$LIVE_XARG' "$ENGINE")" = "2" ] && grep -q 'LIVE_XARG=" -extension_picky 0"' "$ENGINE" \
+   && grep -q 'LIVE_HLS_DA\[@\]/-loglevel error/-loglevel error -extension_picky 0' "$ENGINE"; then
+  pass "a live playlist whose pieces carry no media file ending: ffmpeg's refusal with nothing landed is read from the capture's log and the capture runs once more with that one check off, on every input; a capture that has a file, or any other death, is never restarted ($_p5)"
+else fail "piece-address refusal: refused+nothing='$_p1' (0) · refused+a file='$_p2' (1) · another death='$_p3' (1) · no log='$_p4' (1) · this ffmpeg: $_p5"; fi
+
 # ---- 3j. a cbs.com video page is read by the engine itself (11.12.26): yt-dlp's CBS extractor answers empty,
 # the page's own player data gives the manifest, the title, the id, the air date and the length; a page that
 # marks its video protected, or one on another site, is never taken by this reader.
