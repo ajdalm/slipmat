@@ -585,6 +585,29 @@ not). 3a4b runs `imp_hungup` on a fake curl close under a fingerprint with an
 empty scratch (must match), and on a plain fetch, a segment 503 and a close with
 2 MB in hand (must not).
 
+## A cbs.com video page (11.12.26): read from the page's own player data
+
+yt-dlp's CBS extractor asks an endpoint that answers empty on every fingerprint
+(`Failed to parse XML … no element found`), so the probe and the browser ladder
+both come back with nothing. The page itself carries what its player needs, in
+`player.apiMetadata`: the manifest (`streamingUrl`), the title, the content id,
+the air date and the length. The page hunt reads that and the rip continues on
+the manifest:
+
+- `✓ the page embeds a video (CBS clip) — ripping that`, then a normal receipt
+  named `TITLE [content id] - air date`, with `Duration` in the SOURCE box and a
+  `got: … of …` line in the log (the length is the page's; a bare manifest's
+  dump has none).
+- only a page that says `"isProtected":false` is taken. A protected video plays
+  only in the site's player; the run ends on the usual `nothing could be read
+  from this page` sentence.
+- the size is whatever the manifest lists (576p on the clip this was built on).
+
+Hand test (network): `slipmat 'https://www.cbs.com/shows/video/<content id>/' best`
+on a free clip. `slipmat smoke` 3j runs the page reader offline on a saved page
+(`SLIPMAT_HUNT_PAGE=<file>` stands in for the fetch): a free page gives the five
+values, a protected page and another site's address give nothing.
+
 ## The keys (10.6.26): one key language — x stops, ↓ steps down, Ctrl-C is the exit
 
 Every key a user may press is printed before it can be pressed (a rail block

@@ -454,6 +454,24 @@ if [ "$_r" = "https://www.youtube.com/watch?v=GhZZojpNOB4|https://www.youtube.co
   pass "a watch?v=…&list= link is cut to its one video (a start time kept; a bare playlist link and a plain watch link untouched); a playlist dump hands back the named YouTube entry as its page, never a bare googlevideo file"
 else fail "one video in a playlist: urls='$_r' · named='$_p1' · lead='$_p2'"; fi
 
+# ---- 3j. a cbs.com video page is read by the engine itself (11.12.26): yt-dlp's CBS extractor answers empty,
+# the page's own player data gives the manifest, the title, the id, the air date and the length; a page that
+# marks its video protected, or one on another site, is never taken by this reader.
+_eh=$(sed -n '/^embed_hunt() {/,/^}/p' "$ENGINE")
+mkdir -p "$S/cbs"
+_cbsmd='{"label":"A label","title":"A  clip title","contentId":"ALVE0000000000000000000000TEST","_airDate":"10\/22\/26 08:38 EDT","_airDateISO":"2026-10-22T05:38:00-07:00","duration":381,"fullEpisode":false,"streamingUrl":"https:\/\/clips.example.com\/2026\/10\/22\/x\/stream.mpd","isProtected":false,"thumbnailSet":[{"height":360}]}'
+printf '<html><script>\n  player.apiMetadata = %s;\n  player.drm = null;\n</script></html>\n' "$_cbsmd" > "$S/cbs/free.html"
+sed 's/"isProtected":false/"isProtected":true/' "$S/cbs/free.html" > "$S/cbs/protected.html"
+_hunt() { SLIPMAT_HUNT_PAGE="$1" ZPYTHON="$(command -v python3)" bash -c "$_eh; embed_hunt '$2'" 2>/dev/null | tr '\037' '|'; }
+_c1=$(_hunt "$S/cbs/free.html" 'https://www.cbs.com/shows/video/ALVE0000000000000000000000TEST/')
+_c2=$(_hunt "$S/cbs/protected.html" 'https://www.cbs.com/shows/video/ALVE0000000000000000000000TEST/')
+_c3=$(_hunt "$S/cbs/free.html" 'https://www.example.com/shows/video/ALVE0000000000000000000000TEST/')
+if [ "$_c1" = "CBS clip|https://clips.example.com/2026/10/22/x/stream.mpd|A clip title|ALVE0000000000000000000000TEST|20261022||381" ] \
+   && [ -z "$_c2" ] && [ -z "$_c3" ] \
+   && grep -q 'RESCUE_DUR=.*-f7' "$ENGINE" && grep -q '\*://www.cbs.com/\*|\*://cbs.com/\*) \[ -n "\${RESCUE_DATE' "$ENGINE"; then
+  pass "a cbs.com video page is read from its own player data: manifest, title, id, air date and length; a protected page and another site's page are left alone; the page's date and length reach the name and the receipt"
+else fail "cbs.com page reader: free='$_c1' · protected='$_c2' · other site='$_c3'"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:

@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.30"          # 11.12.26 — a browser fingerprint the site's video server closes the connection on, before anything is downloaded, moves to the next fingerprint on the same rung (Rumble: the page read as chrome, its video server served only safari and a plain fetch); a ladder that ends there says so instead of calling it CDN weather; 4.29: a second copy of a Newsmax show at another size is named by that size, "(720)", on every Newsmax name path (the show-door name, the naming window's answers at the finish line, and its late rename), as the smart and template names already were; ffmpeg 9.0.2 noted as the reference version; 4.28: the Newsmax door asks which day first (today · yesterday · both · custom: today and N days before, every episode numbered and picked by hand), reads each show's list once, says per show what is posted and what is in the folder, and asks again when a day has nothing left to rip; 4.27: the Newsmax door reads each show's own days and usual posting time from its episode list: the morning after, the newest episode is the current one (ripped, nothing watched); a show is watched only when its episode today is due inside the watch; 4.26: the Newsmax watch rips a late show whose newest episode is not in the folder now and still watches for today's, polls in whole seconds only, takes only an hour count after --wait, treats a zero wait of any spelling as none, and names what an early x left unwatched; 4.25: the Newsmax door watches for the shows not posted yet (today's date on the newest episode), reading the site every 10 min for up to NMX_WAIT_H hours and ripping each as it drops, and leaves a show that is ripping in another window alone; 4.24: a YouTube link that names one video and its playlist is cut to that video before the probe (the whole-playlist dump ripped the first video of the list at 360p over a throttled bare file); a playlist dump of YouTube entries hands back the entry as its page, never a bare file, and a watch link id picks its own entry. 4.23: the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.31"          # 11.12.26 — a cbs.com video page whose extractor answers empty is read by the engine itself: the page's own player data gives the manifest, the title, the id, the air date and the length, and only a page that says its video is unprotected is taken; 4.30: a browser fingerprint the site's video server closes the connection on, before anything is downloaded, moves to the next fingerprint on the same rung (Rumble: the page read as chrome, its video server served only safari and a plain fetch); a ladder that ends there says so instead of calling it CDN weather; 4.29: a second copy of a Newsmax show at another size is named by that size, "(720)", on every Newsmax name path (the show-door name, the naming window's answers at the finish line, and its late rename), as the smart and template names already were; ffmpeg 9.0.2 noted as the reference version; 4.28: the Newsmax door asks which day first (today · yesterday · both · custom: today and N days before, every episode numbered and picked by hand), reads each show's list once, says per show what is posted and what is in the folder, and asks again when a day has nothing left to rip; 4.27: the Newsmax door reads each show's own days and usual posting time from its episode list: the morning after, the newest episode is the current one (ripped, nothing watched); a show is watched only when its episode today is due inside the watch; 4.26: the Newsmax watch rips a late show whose newest episode is not in the folder now and still watches for today's, polls in whole seconds only, takes only an hour count after --wait, treats a zero wait of any spelling as none, and names what an early x left unwatched; 4.25: the Newsmax door watches for the shows not posted yet (today's date on the newest episode), reading the site every 10 min for up to NMX_WAIT_H hours and ripping each as it drops, and leaves a show that is ripping in another window alone; 4.24: a YouTube link that names one video and its playlist is cut to that video before the probe (the whole-playlist dump ripped the first video of the list at 360p over a throttled bare file); a playlist dump of YouTube entries hands back the entry as its page, never a bare file, and a watch link id picks its own entry. 4.23: the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -2684,11 +2684,12 @@ embed_hunt() {
   case "$1" in http://*|https://*) : ;; *) return 0 ;; esac
   case "$1" in *.m3u8*|*.mp4*|*.mov*|*.mkv*|*.webm*) return 0 ;; esac   # direct media: nothing to scrape
   "$ZPYTHON" - "$1" <<'PYEMB' 2>/dev/null
-import sys, re, json
+import sys, re, json, os
+_page = os.environ.get("SLIPMAT_HUNT_PAGE", "")   # a saved page read in place of the fetch (the smoke battery's offline door)
 try:
     from curl_cffi import requests
 except Exception:
-    sys.exit(0)
+    if not _page: sys.exit(0)
 url = sys.argv[1]
 def out(label, u):
     if u and u != url:
@@ -2756,10 +2757,14 @@ if m:
                 print(_lbl + "\037" + vids[0]["url"] + "\037" + title + "\037" + str(d.get("id", m.group(1))) + "\037" + date + "\037" + user); sys.exit(0)
     except Exception:
         pass
+r = None
 try:
-    r = requests.get(url, impersonate="chrome", timeout=20)
-    if r.status_code != 200: sys.exit(0)
-    html = r.text[:2000000]
+    if _page:
+        html = open(_page, encoding="utf-8", errors="replace").read()[:2000000]
+    else:
+        r = requests.get(url, impersonate="chrome", timeout=20)
+        if r.status_code != 200: sys.exit(0)
+        html = r.text[:2000000]
 except Exception:
     sys.exit(0)
 # 1) site-specific: Radio-Canada article pages carry idMedia — the dedicated
@@ -2804,6 +2809,32 @@ if "threads." in url:
              or _re.search(r'"username":"([A-Za-z0-9._]+)"', ht)   # post author is the page's first username
         user = um.group(1) if um else ""
         print("Threads post" + (" " + code if code else "") + "\037" + vu + "\037" + title + "\037" + code + "\037" + date + "\037" + user); sys.exit(0)
+# 1c) site-specific: cbs.com video pages (11.12.26). yt-dlp's CBS extractor asks an
+#     endpoint that answers empty ("Failed to parse XML") on every fingerprint; the
+#     page itself carries the player's own data (player.apiMetadata): the manifest,
+#     the title, the content id, the air date, the length. Only a page that SAYS its video is
+#     unprotected is taken; a protected one plays only in the site's player and is
+#     left to the honest "nothing could be read" ending.
+if _re.search(r'//(?:www\.)?cbs\.com/', url):
+    md = {}
+    m = _re.search(r'player\.apiMetadata\s*=\s*(\{)', html)
+    if m:
+        try: md = json.JSONDecoder().raw_decode(html[m.start(1):])[0]
+        except Exception: md = {}
+    if not isinstance(md, dict): md = {}
+    su = str(md.get("streamingUrl") or "")
+    if su.startswith("http") and _re.search(r'\.(?:mpd|m3u8)(?:\?|$)', su) and md.get("isProtected") is False:
+        # the air date as the network writes it (its own wall clock), ISO as the fallback
+        date = ""
+        dm = _re.match(r'(\d{1,2})/(\d{1,2})/(\d{2})\b', str(md.get("_airDate") or ""))
+        if dm: date = "20%s%02d%02d" % (dm.group(3), int(dm.group(1)), int(dm.group(2)))
+        else:
+            dm = _re.match(r'(\d{4})-(\d{2})-(\d{2})', str(md.get("_airDateISO") or ""))
+            if dm: date = dm.group(1) + dm.group(2) + dm.group(3)
+        title = _re.sub(r'\s+', ' ', str(md.get("title") or md.get("label") or "")).strip()
+        print("CBS " + ("episode" if md.get("fullEpisode") else "clip") + "\037" + su + "\037" + title
+              + "\037" + str(md.get("contentId") or "") + "\037" + date + "\037"
+              + "\037" + str(md.get("duration") or "")); sys.exit(0)   # field 7: the length in seconds (a bare manifest's dump has none)
 # 2) og:video / twitter player stream
 for pat in [r'<meta[^>]+property=["\x27]og:video(?::secure_url|:url)?["\x27][^>]+content=["\x27]([^"\x27]+)',
             r'<meta[^>]+content=["\x27]([^"\x27]+)["\x27][^>]+property=["\x27]og:video(?::secure_url|:url)?["\x27]',
@@ -2967,6 +2998,7 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
       RESCUE_ID=$(printf '%s' "$_emb" | cut -d"$(printf '\037')" -f4)
       RESCUE_DATE=$(printf '%s' "$_emb" | cut -d"$(printf '\037')" -f5)
       RESCUE_HANDLE=$(printf '%s' "$_emb" | cut -d"$(printf '\037')" -f6)
+      RESCUE_DUR=$(printf '%s' "$_emb" | cut -d"$(printf '\037')" -f7)
       # V4.5m: the TS hunt saw the status and it carries NO video — say the real thing
       # (the old path marched on to a misleading "expired/private/login" death)
       [ "$_embl" = "TSNOVIDEO" ] && die "no video on this Truth — it looks like a photo/text post."
@@ -3058,11 +3090,14 @@ EOF
   # wins whenever the hunter had it.
   [ -n "${RESCUE_TITLE:-}" ] && M_TITLE="$RESCUE_TITLE"
   [ -n "${RESCUE_ID:-}" ] && M_ID="$RESCUE_ID"
+  # a bare manifest's dump carries no length — the page's own (whole seconds) gives the receipt its "got … of …" line
+  case "${RESCUE_DUR:-}" in ''|*[!0-9]*) : ;; *) [ -z "$M_DUR" ] && M_DUR="$RESCUE_DUR" ;; esac
   [ -n "${RESCUE_DATE:-}" ] && [ -z "$M_UPDATE" ] && M_UPDATE="$RESCUE_DATE"   # V4.5f: a bare CDN mp4 has no date — the page's taken_at does
   [ -n "${NMX_PAGE_YMD:-}" ] && M_UPDATE="$NMX_PAGE_YMD"   # 10.13.26: the Newsmax page's air date, not the feed's packaging date
   # V4.5m: on Truth Social the bare-CDN dump "date" is the file's Last-Modified (UTC) —
   # junk; the status JSON's created_at (localized in the hunt) ALWAYS wins.
-  case "$(lc "${RESCUE_PAGE_URL:-}")" in *truthsocial.com*) [ -n "${RESCUE_DATE:-}" ] && M_UPDATE="$RESCUE_DATE" ;; esac
+  # (cbs.com, 11.12.26: the same junk on a bare manifest — the page's air date wins)
+  case "$(lc "${RESCUE_PAGE_URL:-}")" in *truthsocial.com*|*://www.cbs.com/*|*://cbs.com/*) [ -n "${RESCUE_DATE:-}" ] && M_UPDATE="$RESCUE_DATE" ;; esac
   # V4.5e-2: C-SPAN names carry [CSPAN], not the program number —
   # the [NMX] convention; the program id stays in the log's url line.
   case "$(printf '%s' "${RESCUE_PAGE_URL:-$URL}")" in *c-span.org*|*c-spanvideo.org*) M_ID="CSPAN" ;; esac
