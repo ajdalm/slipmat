@@ -40,6 +40,15 @@
 #    the last two minutes, -1 until 20 s of it exist or while it is not shrinking)
 #    to the file on every fragment. The engine's rewind line reads it. Anything
 #    odd here is logged once and the capture runs without the file.
+#
+# 5. The same file for a playlist rewind (11.12.26, SLIPMAT_LIVE_HLS="<seconds the
+#    start piece was behind the head> <epoch of that measure> <ffmpeg progress
+#    file>"). On a site whose live playlist keeps its history the engine tells
+#    ffmpeg which piece to begin at; ffmpeg downloads up to live and keeps
+#    recording. It is one stream, so one distance: the head has moved on by the
+#    wall time since the measure, the capture holds ffmpeg's out_time, the
+#    difference is how far behind live it is. A thread reads the tail of the
+#    progress file every 2 s and writes the two lines (equal) with the same slope.
 import atexit, os, signal, sys
 
 _fd = -1
@@ -148,7 +157,48 @@ if back > 0:
         sys.exit(86)
 import yt_dlp
 _lag_path = os.environ.get('SLIPMAT_LIVE_LAG', '')
-if _lag_path:
+_hls = os.environ.get('SLIPMAT_LIVE_HLS', '')
+if _lag_path and _hls:
+    try:
+        import threading, time
+        _hb, _ht0, _hprog = _hls.split(' ', 2)
+        _hb, _ht0 = float(_hb), float(_ht0)
+
+        def _hls_lag():
+            hist = []
+            while not _stop.done:          # the stop freezes the last value: the receipt reads it
+                time.sleep(2)
+                try:
+                    with open(_hprog, 'rb') as fh:
+                        fh.seek(0, 2)
+                        fh.seek(max(0, fh.tell() - 800))
+                        tail = fh.read().decode('ascii', 'replace')
+                    got = [ln.split('=', 1)[1] for ln in tail.splitlines() if ln.startswith('out_time_us=')]
+                    got = int(got[-1]) / 1e6
+                except Exception:
+                    continue               # no progress yet (connecting), or a half-written line
+                now = time.time()
+                behind = max(0, int(_hb + (now - _ht0) - got))
+                hist.append((now, behind))
+                while hist and now - hist[0][0] > 120:
+                    hist.pop(0)
+                t0, b0 = hist[0]
+                eta = -1
+                if now - t0 >= 20 and b0 > behind:
+                    eta = int(behind / ((b0 - behind) / (now - t0)))
+                if _stop.done:
+                    break
+                tmp = _lag_path + '.tmp'
+                try:
+                    with open(tmp, 'w') as fh:
+                        fh.write(f'audio {behind} {eta}\nvideo {behind} {eta}\n')
+                    os.replace(tmp, _lag_path)
+                except OSError:
+                    pass
+        threading.Thread(target=_hls_lag, daemon=True).start()
+    except Exception as e:
+        sys.stderr.write(f'live-rewind: no lag file ({e}); the capture runs without it\n')
+elif _lag_path:
     try:
         import threading, time
         from urllib.parse import parse_qs, urlparse

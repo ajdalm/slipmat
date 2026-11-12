@@ -197,7 +197,8 @@ convert its shortcode to the numeric id, rip it — expect `[<that shortcode>]`,
 ## Livestreams (network; hand tests, not in smoke)
 
 A live YouTube URL with no window word asks where the capture should start
-(`ask_live_start`); the words `from-start` / `last-2h` / `last-90m` on the
+(`ask_live_start`; since 4.32 so does any stream whose playlist keeps its
+history, see below); the words `from-start` / `last-2h` / `last-90m` on the
 command line pre-answer it. Both capture paths run through
 `tools/live-rewind.py`: yt-dlp in-process, the rewind window swapped into
 yt-dlp's 120 h constant, and a SIGINT handler that makes the FIRST Ctrl-C the
@@ -221,6 +222,51 @@ HOME=$H slipmat video '<a 3 h replay of an ended stream>' 720 auto last-5m
 #      named "… (last 5m) [id] - …"
 # then LOOK: cat /tmp/l1.raw in a Terminal tab — the question, two aligned chip rows, Enter row
 ```
+
+### A live playlist that keeps its history (11.12.26, Rumble): rewind on any site
+
+A live HLS playlist usually lists its last few pieces. Some sites list far more:
+a Rumble broadcast's playlist starts at sequence 1 and holds every piece since
+the stream began; a 24/7 stream there holds its last 4 hours (a sliding window).
+ffmpeg starts three pieces from the end unless told otherwise, so a capture
+there began at "now". `hls_history` reads the playlist once (a plain fetch with
+the headers the probe recorded) and the capture hands ffmpeg the piece to begin
+at (`-live_start_index`, per input): 0 for from-start, K pieces from the end
+for a last-N window (12 s of margin), three pieces in on a sliding window.
+
+- with no window word, in a terminal, the question appears when the playlist
+  holds 90 s or more: `this is a livestream, on air for 9:34 — where should the
+  capture start?` (a sliding window reads `(its last 3:59:58 can be rewound)`).
+- one stream, so one distance under the REC line, computed by
+  `tools/live-rewind.py` from ffmpeg's own progress file:
+  `↳ catching up · 6:18 behind live, ~2m to go · stop now = the file ends 6:18 short of live`,
+  then `↳ rewind caught up · the capture is live now`.
+- a stop while it is behind is said on the receipt:
+  `stop    stopped 6:08 short of live — video and audio end together`.
+- a window longer than the stream: `this stream has been on air for only … —
+  recording it from its start`. A sliding window asked from the start:
+  `this site keeps the last 3:59:58 of the stream, not its start — the capture
+  begins there`, and the receipt reads `from 3:59:58 back`.
+- no history (a playlist under 90 s, no playlist, an ended one, a picked stream
+  that is not a playlist): one line saying so, and the capture runs from now.
+
+Proofs (11.12.26, two live Rumble streams; the run log carries
+`live playlist history: <s> listed, first sequence <n>` and
+`playlist rewind: format … · start index …`):
+
+```
+# 1. the question answered 0 (from start), x x after 50 s: a 9:34-old stream, 4:25 in
+#    the file, receipt "stopped 6:08 short of live"
+HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/r1.raw 120 -- '<live rumble url>' max best -- \
+  'capture start' '0\n' KEY@50:x KEY@2:x
+# 2. last-5m run until "rewind caught up", x x: 5:13 back + 1:25 of wall clock = 6:33 in the file
+HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/r2.raw 120 -- '<live rumble url>' 360 auto last-5m -- KEY@85:x KEY@2:x
+# 3. a 24/7 stream, from-start: the sliding-window sentence, "from 3:59:58 back"
+HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/r3.raw 120 -- '<24/7 rumble url>' 360 auto from-start -- KEY@28:x KEY@2:x
+```
+
+`slipmat smoke` 3c6 runs `hls_history` offline on three written playlists (whole,
+sliding, ended) and asserts each answer.
 
 A capture grows in the `_in progress` folder inside the output folder and is
 placed beside the finished files when it ends (10.29.26); the folder stays (it is

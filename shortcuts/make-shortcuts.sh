@@ -88,7 +88,7 @@ make_one "[SLIPMAT WEBAUDIO]"             audio   1440408063 || fail=1   # light
 make_one "[SLIPMAT SPOTIFY]"              spotify 4292093695 || fail=1   # green
 [ "$CROP" = "1" ] && { make_one "[SLIPMAT VIDEO] AUTO CROP(PiP)" crop 4274264319 || fail=1; }   # yellow, optional
 [ "$NMX" = "1" ] && { make_one "[SLIPMAT VIDEO] NEWSMAX" newsmax 4274264319 || fail=1; }   # yellow, optional: the day's shows
-if [ "$LIVE" = "1" ]; then   # the livestream doors (optional; YouTube rewinds, other sites record from now)
+if [ "$LIVE" = "1" ]; then   # the livestream doors (optional; YouTube and any live playlist that keeps its history rewind, other streams record from now)
   make_one "[SLIPMAT VIDEO] LIVESTREAM - FROM START" live-start 4274264319 || fail=1
   make_one "[SLIPMAT VIDEO] LIVESTREAM - LAST 2HRS"  live-2h    4274264319 || fail=1
   make_one "[SLIPMAT VIDEO] LIVESTREAM - LAST 1HR"   live-1h    4274264319 || fail=1

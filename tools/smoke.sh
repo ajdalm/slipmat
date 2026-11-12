@@ -454,6 +454,28 @@ if [ "$_r" = "https://www.youtube.com/watch?v=GhZZojpNOB4|https://www.youtube.co
   pass "a watch?v=…&list= link is cut to its one video (a start time kept; a bare playlist link and a plain watch link untouched); a playlist dump hands back the named YouTube entry as its page, never a bare googlevideo file"
 else fail "one video in a playlist: urls='$_r' · named='$_p1' · lead='$_p2'"; fi
 
+# ---- 3c6. a livestream whose playlist keeps its history can be rewound on any site (11.12.26, Rumble): the
+# playlist is read once and ffmpeg is told which piece to begin at: the oldest for from-start, K from the end
+# for a last-N window (12 s of margin), three in on a sliding window; a playlist that ended, a pick that is
+# not a playlist and a window longer than the history are each answered the right way.
+_hf=$(sed -n '/^hls_history() {/,/^}/p' "$ENGINE")
+mkdir -p "$S/hls"
+_mk() { { printf '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:%s\n' "$2"; _i=0; while [ "$_i" -lt 300 ]; do printf '#EXTINF:2.000,\nseg_%s.ts\n' "$_i"; _i=$((_i+1)); done; [ "$3" = "end" ] && printf '#EXT-X-ENDLIST\n'; } > "$S/hls/$1.m3u8"; }
+_mk whole 1 live; _mk slide 5000 live; _mk ended 1 end
+for _n in whole slide ended; do
+  printf '{"formats":[{"format_id":"file-0","protocol":"https","url":"https://example.com/a.mp4","height":720},{"format_id":"hls-1","protocol":"m3u8_native","url":"file://%s/hls/%s.m3u8","height":360,"vcodec":null,"http_headers":{"User-Agent":"smoke"}}]}' "$S" "$_n" > "$S/hls/$_n.json"
+done
+_hh() { PYTHON="$(command -v python3)" bash -c "$_hf; hls_history \"\$1\" \"\$2\" \"\$3\"" _ "$S/hls/$1.json" "$2" "$3" 2>/dev/null; }
+_h1=$(_hh whole -1 ""); _h2=$(_hh whole 0 hls-1); _h3=$(_hh whole 120 hls-1); _h4=$(_hh whole 900 hls-1)
+_h5=$(_hh slide 0 hls-1); _h6=$(_hh ended 0 hls-1); _h7=$(_hh whole 0 file-0)
+if [ "$_h1" = "600 1 0 0 600" ] && [ "$_h2" = "600 1 0 0 600" ] && [ "$_h3" = "600 1 -66 -66 132" ] && [ "$_h4" = "600 1 0 0 600" ] \
+   && [ "$_h5" = "600 5000 3 3 594" ] && [ -z "$_h6" ] && [ -z "$_h7" ] \
+   && grep -q 'live_start_index \$_hi1' "$ENGINE" && grep -q 'LIVE_HLS_DA\[@\]+' "$ENGINE" \
+   && grep -q "SLIPMAT_LIVE_HLS" "$REPO/tools/live-rewind.py" && grep -q 'out_time_us=' "$REPO/tools/live-rewind.py" \
+   && ! grep -q 'only works on YouTube' "$ENGINE"; then
+  pass "a live playlist that keeps its history is rewound on any site: from-start begins at the oldest piece, last-2m at 66 pieces from the end, a sliding window three pieces in; an ended playlist and a pick that is not a playlist are left to record from now; the capture hands ffmpeg the start piece and the driver reads its progress"
+else fail "playlist rewind: measure='$_h1' · start='$_h2' · last-2m='$_h3' · last-15m='$_h4' · sliding='$_h5' · ended='$_h6' · not a playlist='$_h7'"; fi
+
 # ---- 3j. a cbs.com video page is read by the engine itself (11.12.26): yt-dlp's CBS extractor answers empty,
 # the page's own player data gives the manifest, the title, the id, the air date and the length; a page that
 # marks its video protected, or one on another site, is never taken by this reader.

@@ -132,8 +132,13 @@ seconds; PICKER and STUDIO wait. While it records the key is on the
 screen: `x` stops (it asks once; a second `x` seals one playable mp4).
 After the stop every key is off until the file is done. While it records the
 growing file sits in the `_in progress` folder inside the output folder; the
-sealed mp4 is placed beside the finished files when the capture ends. Other sites record
-from now and say so. From the command line the window can be given up front and
+sealed mp4 is placed beside the finished files when the capture ends. The same
+question appears on any other site whose live playlist keeps its history
+(Rumble lists every piece since the stream began): it says how long the stream
+has been on air, the capture begins at the piece you asked for, downloads up to
+live and keeps recording, and a line under the REC clock says how far behind
+live it still is. A stream with no history is recorded from now and says so.
+From the command line the window can be given up front and
 the question is skipped: `slipmat video <url> max best from-start`,
 `… last-2h`, `… last-90m` — and on a stream that already ended, `last-2h`
 takes the last 2 hours of the replay.

@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.31"          # 11.12.26 — a cbs.com video page whose extractor answers empty is read by the engine itself: the page's own player data gives the manifest, the title, the id, the air date and the length, and only a page that says its video is unprotected is taken; 4.30: a browser fingerprint the site's video server closes the connection on, before anything is downloaded, moves to the next fingerprint on the same rung (Rumble: the page read as chrome, its video server served only safari and a plain fetch); a ladder that ends there says so instead of calling it CDN weather; 4.29: a second copy of a Newsmax show at another size is named by that size, "(720)", on every Newsmax name path (the show-door name, the naming window's answers at the finish line, and its late rename), as the smart and template names already were; ffmpeg 9.0.2 noted as the reference version; 4.28: the Newsmax door asks which day first (today · yesterday · both · custom: today and N days before, every episode numbered and picked by hand), reads each show's list once, says per show what is posted and what is in the folder, and asks again when a day has nothing left to rip; 4.27: the Newsmax door reads each show's own days and usual posting time from its episode list: the morning after, the newest episode is the current one (ripped, nothing watched); a show is watched only when its episode today is due inside the watch; 4.26: the Newsmax watch rips a late show whose newest episode is not in the folder now and still watches for today's, polls in whole seconds only, takes only an hour count after --wait, treats a zero wait of any spelling as none, and names what an early x left unwatched; 4.25: the Newsmax door watches for the shows not posted yet (today's date on the newest episode), reading the site every 10 min for up to NMX_WAIT_H hours and ripping each as it drops, and leaves a show that is ripping in another window alone; 4.24: a YouTube link that names one video and its playlist is cut to that video before the probe (the whole-playlist dump ripped the first video of the list at 360p over a throttled bare file); a playlist dump of YouTube entries hands back the entry as its page, never a bare file, and a watch link id picks its own entry. 4.23: the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.32"          # 11.12.26 — a livestream on any site whose live playlist keeps its history (Rumble lists every piece since the start) can be recorded from the start or from N minutes back: the same where-to-start question as on YouTube, saying how far back the stream reaches; the capture begins at that piece, downloads up to live and keeps recording, and the line under REC says how far behind live it is; a stream with no history says so and is recorded from now; 4.31: a cbs.com video page whose extractor answers empty is read by the engine itself: the page's own player data gives the manifest, the title, the id, the air date and the length, and only a page that says its video is unprotected is taken; 4.30: a browser fingerprint the site's video server closes the connection on, before anything is downloaded, moves to the next fingerprint on the same rung (Rumble: the page read as chrome, its video server served only safari and a plain fetch); a ladder that ends there says so instead of calling it CDN weather; 4.29: a second copy of a Newsmax show at another size is named by that size, "(720)", on every Newsmax name path (the show-door name, the naming window's answers at the finish line, and its late rename), as the smart and template names already were; ffmpeg 9.0.2 noted as the reference version; 4.28: the Newsmax door asks which day first (today · yesterday · both · custom: today and N days before, every episode numbered and picked by hand), reads each show's list once, says per show what is posted and what is in the folder, and asks again when a day has nothing left to rip; 4.27: the Newsmax door reads each show's own days and usual posting time from its episode list: the morning after, the newest episode is the current one (ripped, nothing watched); a show is watched only when its episode today is due inside the watch; 4.26: the Newsmax watch rips a late show whose newest episode is not in the folder now and still watches for today's, polls in whole seconds only, takes only an hour count after --wait, treats a zero wait of any spelling as none, and names what an early x left unwatched; 4.25: the Newsmax door watches for the shows not posted yet (today's date on the newest episode), reading the site every 10 min for up to NMX_WAIT_H hours and ripping each as it drops, and leaves a show that is ripping in another window alone; 4.24: a YouTube link that names one video and its playlist is cut to that video before the probe (the whole-playlist dump ripped the first video of the list at 360p over a throttled bare file); a playlist dump of YouTube entries hands back the entry as its page, never a bare file, and a watch link id picks its own entry. 4.23: the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -344,9 +344,11 @@ if [ -z "${3:-}" ]; then
 fi
 # ---- livestream rewind window (10.5.26): extra words after MODE --------------
 # `from-start` records a livestream from its first fragment; `last-2h`, `last-1h`,
-# `last-90m` from that far back. YouTube only: yt-dlp's --live-from-start, with
-# tools/live-rewind.py setting the window (YouTube keeps up to 120 h). Elsewhere
-# the capture runs from now and says so. Env: SLIPMAT_LIVE_FROM_START=1 /
+# `last-90m` from that far back. YouTube: yt-dlp's --live-from-start, with
+# tools/live-rewind.py setting the window (YouTube keeps up to 120 h). Any other
+# site whose live playlist keeps its history (Rumble lists every piece since the
+# start): ffmpeg is told which piece to begin at (hls_history). A stream with no
+# history is recorded from now and says so. Env: SLIPMAT_LIVE_FROM_START=1 /
 # SLIPMAT_LIVE_BACK=<seconds>. Ignored on a video that is not live.
 LIVE_FROM_START="${SLIPMAT_LIVE_FROM_START:-0}"; LIVE_BACK="${SLIPMAT_LIVE_BACK:-0}"
 for _a in "${@:4}"; do
@@ -3245,6 +3247,71 @@ live_rows() {
     LIVE_R2="${LIVE_R2}$(chip "$_kb") $(printf '%-*s' "$_w" "$_lb")$(printf '%*s' "$_gap" '')"
   done
 }
+# ---- a live playlist that keeps its history (11.12.26, a Rumble broadcast) ----
+# A live HLS playlist normally lists the last few pieces; some sites list far
+# more: Rumble's holds every piece since the stream began (its sequence starts
+# at 1), a 24/7 stream there the last 4 hours. ffmpeg starts three pieces from
+# the end unless told otherwise (-live_start_index): 0 = the oldest piece listed,
+# -K = K pieces from the end. This reads the playlist once (a plain fetch, the
+# headers the probe recorded) and prints
+#     <reach s> <first sequence> <index input 1> <index input 2> <start point's distance behind the head, s>
+# or nothing: no playlist format, a pick that is not a playlist, a master, a
+# stream that ended, a failed fetch. Every caller treats nothing as "no rewind".
+#   $1 = the probe dump · $2 = -1 measure only | 0 from the start | N seconds back
+#   $3 = the picked format id(s), "a" or "a+b" ("" = the tallest playlist listed)
+hls_history() {
+  [ -n "${PYTHON:-}" ] && [ -s "${1:-}" ] || return 0
+  "$PYTHON" - "$1" "$2" "${3:-}" <<'PYHLS' 2>/dev/null
+import sys, json, re, urllib.request
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+    back = int(sys.argv[2]); want = [x for x in sys.argv[3].split("+") if x]
+except Exception:
+    sys.exit(0)
+fmts = [f for f in d.get("formats") or [] if isinstance(f, dict)]
+def hls(f):
+    return str(f.get("protocol") or "") in ("m3u8", "m3u8_native") and bool(f.get("url"))
+if want:
+    picked = []
+    for w in want:
+        m = [f for f in fmts if str(f.get("format_id")) == w]
+        if not m or not hls(m[0]): sys.exit(0)   # a pick that is not a playlist: ffmpeg cannot be told where to start
+        picked.append(m[0])
+else:
+    c = [f for f in fmts if hls(f) and f.get("vcodec") != "none"]
+    if not c: sys.exit(0)
+    picked = [max(c, key=lambda f: (f.get("height") or 0, f.get("tbr") or 0))]
+PAD = 12    # seconds added to a last-N window: the playlist grows while the capture connects
+SKIP = 3    # pieces in from the oldest on a sliding window: the oldest expire first
+reach = None; seq0 = None; out = []
+for f in picked[:2]:
+    try:
+        hdr = {k: v for k, v in (f.get("http_headers") or {}).items() if isinstance(k, str) and isinstance(v, str)}
+        txt = urllib.request.urlopen(urllib.request.Request(f["url"], headers=hdr), timeout=15).read(8000000).decode("utf-8", "replace")
+    except Exception:
+        sys.exit(0)
+    if "#EXTINF" not in txt or "#EXT-X-ENDLIST" in txt: sys.exit(0)   # a master playlist, or a stream that ended
+    durs = [float(x) for x in re.findall(r'#EXTINF:\s*([0-9.]+)', txt)]
+    if not durs: sys.exit(0)
+    m = re.search(r'#EXT-X-MEDIA-SEQUENCE:\s*(\d+)', txt)
+    seq = int(m.group(1)) if m else 0
+    total = sum(durs)
+    if back > 0 and back + PAD < total:
+        acc = 0.0; k = 0
+        for x in reversed(durs):
+            acc += x; k += 1
+            if acc >= back + PAD: break
+        idx = -k; behind = acc
+    else:
+        skip = SKIP if seq > 1 and len(durs) > SKIP * 4 else 0
+        idx = skip; behind = sum(durs[skip:])
+    reach = total if reach is None else min(reach, total)
+    if seq0 is None: seq0 = seq
+    out.append((idx, behind))
+i2 = out[1][0] if len(out) > 1 else out[0][0]
+print("%d %d %d %d %d" % (int(reach), seq0, out[0][0], i2, int(out[0][1])))
+PYHLS
+}
 # "25m" · "3h" · "1:30" · "90" (minutes) · "start" → seconds into LIVE_BACK / LIVE_FROM_START; 1 = didn't parse
 parse_live_window() {
   _pw=$(lc "$1"); _pw="${_pw// /}"; LIVE_BACK=0; LIVE_FROM_START=0
@@ -3293,7 +3360,7 @@ ask_live_start() {
     [ $((_w1 + 3)) -le "$_cols" ] && { _fit=1; break; }
   done
   say ""
-  frame_rail "${C_Q}this is a livestream — ${_q}${C_RESET}"
+  frame_rail "${C_Q}this is a livestream${LIVE_REACH_WORDS:-} — ${_q}${C_RESET}"
   say ""
   if [ "$_fit" = "1" ]; then
     frame_rail "$LIVE_R1"; say ""; frame_rail "$LIVE_R2"; say ""
@@ -3609,13 +3676,45 @@ if [ "$IS_LIVE" = "1" ]; then
   [ -z "$LIVE_PY" ] && [ -n "$PYTHON" ] && "$PYTHON" -c 'import yt_dlp' >/dev/null 2>&1 && LIVE_PY="$PYTHON"
   [ -f "$APPDIR/tools/live-rewind.py" ] || LIVE_PY=""
   case "$URL" in *youtube.com/*|*youtu.be/*) LIVE_YT=1 ;; *) LIVE_YT=0 ;; esac
-  # no window word on the command line → the ask (YouTube · a terminal · not a batch)
-  if [ -z "$LIVE_WIN" ] && [ "$LIVE_YT" = "1" ] && [ -n "$LIVE_PY" ] && [ "$IS_TTY" = "1" ] && [ -t 0 ] \
-     && [ "${SLIPMAT_Z_AUTO:-0}" != "1" ] && [ "${SLIPMAT_LIVE_ASK:-1}" != "0" ]; then
+  # no window word on the command line → the ask (a terminal · not a batch):
+  # on YouTube always; on any other site only when its live playlist keeps a
+  # history worth rewinding (11.12.26) — measured once, before the question, and
+  # the question says how far back the stream reaches.
+  LIVE_HLS=0; LIVE_HLS_REACH=0; LIVE_HLS_SEQ=0; LIVE_HLS_BEHIND=0; LIVE_HLS_T0=0; LIVE_PROG=""; LIVE_REACH_WORDS=""; LIVE_HLS_DA=()
+  _lask=0
+  [ -z "$LIVE_WIN" ] && [ "$IS_TTY" = "1" ] && [ -t 0 ] && [ "${SLIPMAT_Z_AUTO:-0}" != "1" ] && [ "${SLIPMAT_LIVE_ASK:-1}" != "0" ] && _lask=1
+  if [ "$LIVE_YT" != "1" ] && { [ -n "$LIVE_WIN" ] || [ "$_lask" = "1" ]; }; then
+    read -r LIVE_HLS_REACH LIVE_HLS_SEQ _hi1 _hi2 _hbh <<EOF
+$(hls_history "${INFO:-}" -1 "")
+EOF
+    case "$LIVE_HLS_REACH" in ''|*[!0-9]*) LIVE_HLS_REACH=0 ;; esac
+    case "$LIVE_HLS_SEQ" in ''|*[!0-9]*) LIVE_HLS_SEQ=0 ;; esac
+    logln "  live playlist history: ${LIVE_HLS_REACH}s listed, first sequence ${LIVE_HLS_SEQ}"
+  fi
+  if [ "$_lask" = "1" ] && [ "$LIVE_YT" = "1" ] && [ -n "$LIVE_PY" ]; then
+    ask_live_start
+  elif [ "$_lask" = "1" ] && [ "$LIVE_YT" != "1" ] && [ "$LIVE_HLS_REACH" -ge 90 ]; then
+    if [ "$LIVE_HLS_SEQ" -le 1 ]; then LIVE_REACH_WORDS=", on air for $(fmt_dur "$LIVE_HLS_REACH")"
+    else LIVE_REACH_WORDS=" (its last $(fmt_dur "$LIVE_HLS_REACH") can be rewound)"; fi
     ask_live_start
   fi
   if [ -n "$LIVE_WIN" ]; then
-    if [ "$LIVE_YT" != "1" ]; then warn "rewind ($LIVE_WIN) only works on YouTube livestreams — this one is recorded from now"; LIVE_WIN=""
+    if [ "$LIVE_YT" != "1" ]; then
+      if [ "$LIVE_HLS_REACH" -ge 90 ]; then
+        LIVE_HLS=1
+        if [ "$LIVE_BACK" -gt 0 ] && [ "$LIVE_BACK" -lt "$LIVE_HLS_REACH" ]; then :   # a last-N inside what the playlist holds
+        elif [ "$LIVE_HLS_SEQ" -le 1 ]; then
+          [ "$LIVE_BACK" -gt 0 ] && note "this stream has been on air for only $(fmt_dur "$LIVE_HLS_REACH") — recording it from its start"
+          LIVE_BACK=0; LIVE_FROM_START=1; LIVE_WIN="from the start"
+        else
+          note "this site keeps the last $(fmt_dur "$LIVE_HLS_REACH") of the stream, not its start — the capture begins there"
+          LIVE_BACK=0; LIVE_FROM_START=1; LIVE_WIN="from $(fmt_dur "$LIVE_HLS_REACH") back"
+        fi
+      elif [ "$LIVE_HLS_REACH" -gt 0 ]; then
+        warn "rewind ($LIVE_WIN) isn't possible here — this stream's playlist holds only its last ${LIVE_HLS_REACH}s; it is recorded from now"; LIVE_WIN=""
+      else
+        warn "rewind ($LIVE_WIN) isn't possible on this stream — it has no playlist that keeps its history; it is recorded from now"; LIVE_WIN=""
+      fi
     elif [ -z "$LIVE_PY" ]; then warn "rewind needs the python behind yt-dlp (not found) — recording from now instead"; LIVE_WIN=""
     else LIVE_REWIND=1; fi
   fi
@@ -3660,6 +3759,28 @@ if [ "$IS_LIVE" = "1" ]; then
       fi
     fi
   fi
+  # 11.12.26: a rewind on a playlist that keeps its history. The selector is final
+  # here: resolve it against the probe's dump (offline), read the picked playlist
+  # once more and hand ffmpeg the piece to begin at, per input. ffmpeg's own
+  # -progress file (in the scratch) is what the catching-up line is computed from.
+  if [ "$LIVE_HLS" = "1" ]; then
+    _hb=0; [ "$LIVE_FROM_START" = "1" ] || _hb="$LIVE_BACK"
+    _hfid=$("$YTDLP" --load-info-json "$INFO" -f "$LIVE_F" --skip-download --no-warnings --print '%(format_id)s' 2>/dev/null | head -1)
+    _hh=""; [ -n "$_hfid" ] && _hh=$(hls_history "$INFO" "$_hb" "$_hfid")
+    if [ -n "$_hh" ]; then
+      read -r _hr _hs _hi1 _hi2 LIVE_HLS_BEHIND <<EOF
+$_hh
+EOF
+      LIVE_HLS_T0=$(date +%s); LIVE_PROG="$WORKDIR/live.progress"; rm -f "$LIVE_PROG" 2>/dev/null
+      LIVE_HLS_DA=(--downloader-args "ffmpeg_i1:-loglevel error -live_start_index $_hi1" \
+                   --downloader-args "ffmpeg_i2:-loglevel error -live_start_index $_hi2" \
+                   --downloader-args "ffmpeg_o:-stats_period 2 -progress '$LIVE_PROG'")
+      logln "  playlist rewind: format $_hfid · ${_hr}s listed from sequence $_hs · start index $_hi1${_hi2:+ / $_hi2} · ${LIVE_HLS_BEHIND}s behind the head"
+    else
+      warn "rewind ($LIVE_WIN) isn't possible on the picked stream — it is not a playlist that keeps its history; it is recorded from now"
+      LIVE_WIN=""; LIVE_HLS=0
+    fi
+  fi
   # the keys while it records — shown, not hidden (10.5.26 night): x = stop, asked
   # once. Ctrl-C (the emergency exit, never printed) still stops at once; both
   # take the same seal path (live-rewind.py).
@@ -3676,6 +3797,7 @@ if [ "$IS_LIVE" = "1" ]; then
   fi
   note "no stutter-test on live: the seal is the whole finish."
   [ "$LIVE_REWIND" = "1" ] && note "rewinding: video and audio arrive as two streams and merge into one mp4 when you stop — the REC clock counts wall time, the file holds more"
+  [ "$LIVE_HLS" = "1" ] && note "rewinding: the capture begins $(fmt_dur "$LIVE_HLS_BEHIND") back, downloads up to live, then records as it airs — the REC clock counts wall time, the file holds more"
   note "$OUT"
   say ""
   # 10.12 (his ask): what is being recorded, bold, right above the REC clock — title · channel · date
@@ -3705,6 +3827,10 @@ if [ "$IS_LIVE" = "1" ]; then
   # stop can be timed — a stop while the video is behind ends the picture there
   # while the sound runs on to the stop. A from-now capture never writes it.
   LIVE_LAG="$WORKDIR/live.lag"; rm -f "$LIVE_LAG" 2>/dev/null
+  # a playlist rewind (11.12.26) is ONE stream, picture and sound together: the
+  # driver turns ffmpeg's progress file into the same two lines (equal), so the
+  # line under REC and the receipt read it the same way
+  LIVE_HLS_ENV=""; [ "$LIVE_HLS" = "1" ] && LIVE_HLS_ENV="$LIVE_HLS_BEHIND $LIVE_HLS_T0 $LIVE_PROG"
   LIVE_QL="${SELNOTE:-best}"; case "$LIVE_QL" in custom*) LIVE_QL="custom" ;; esac
   LIVE_QL="$LIVE_QL${LIVE_WIN:+ · $LIVE_WIN}"
   logln "  live selector: $LIVE_F"
@@ -3754,7 +3880,16 @@ if [ "$IS_LIVE" = "1" ]; then
         # REC row above stays as a finished line; a "keep" redraw reclaims it.
         _l2=""
         if read_live_lag && [ -n "$LIVE_LAG_V" ] && [ -n "$LIVE_LAG_A" ]; then
-          if [ "$LIVE_LAG_V" -le 15 ] && [ "$LIVE_LAG_A" -le 15 ]; then
+          if [ "$LIVE_HLS" = "1" ]; then   # a playlist rewind: one stream, one distance
+            #   ↳ catching up · 41:10 behind live, ~3m to go · stop now = the file ends 41:10 short of live
+            #   ↳ rewind caught up · the capture is live now
+            if [ "$LIVE_LAG_V" -le 15 ]; then _l2="rewind caught up · the capture is live now"
+            else
+              lag_clock _lv "$LIVE_LAG_V"; _ev=""
+              [ -n "$LIVE_ETA_V" ] && { eta_words _ev "$LIVE_ETA_V"; _ev=", $_ev to go"; }
+              _l2="catching up · $_lv behind live$_ev · stop now = the file ends $_lv short of live"
+            fi
+          elif [ "$LIVE_LAG_V" -le 15 ] && [ "$LIVE_LAG_A" -le 15 ]; then
             _l2="rewind caught up · video and audio are both live · a stop now ends them together"
           else
             lag_clock _lv "$LIVE_LAG_V"; lag_clock _la "$LIVE_LAG_A"
@@ -3803,18 +3938,18 @@ if [ "$IS_LIVE" = "1" ]; then
   # TEMPLATE — a title containing "%(" would abort or expand template keys.
   # Escape every % (yt-dlp reads %% as literal %); VOD paths use $WORKSTEM, safe.
   NAME_TMPL=$(printf '%s' "$NAME" | sed 's/%/%%/g')
-  live_capture_now() {   # the proven capture, bit-for-bit: foreground, unpiped
+  live_capture_now() {   # the proven capture: foreground, unpiped (a playlist rewind adds only ffmpeg's start piece and its progress file)
     if [ -n "$LIVE_PY" ]; then   # same yt-dlp, in-process, + the first-Ctrl-C handler (SLIPMAT_LIVE_BACK=0 = no rewind)
-      SLIPMAT_LIVE_BACK=0 SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET"$'\n' "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
+      SLIPMAT_LIVE_BACK=0 SLIPMAT_LIVE_LAG="${LIVE_HLS_ENV:+$LIVE_LAG}" SLIPMAT_LIVE_HLS="$LIVE_HLS_ENV" SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET"$'\n' "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
         $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
         -f "$LIVE_F" \
-        --downloader-args "ffmpeg_i:-loglevel error" \
+        --downloader-args "ffmpeg_i:-loglevel error" ${LIVE_HLS_DA[@]+"${LIVE_HLS_DA[@]}"} \
         --postprocessor-args "ffmpeg:-movflags +faststart" \
         -o "$CAPDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
     else
       "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
         -f "$LIVE_F" \
-        --downloader-args "ffmpeg_i:-loglevel error" \
+        --downloader-args "ffmpeg_i:-loglevel error" ${LIVE_HLS_DA[@]+"${LIVE_HLS_DA[@]}"} \
         --postprocessor-args "ffmpeg:-movflags +faststart" \
         -o "$CAPDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
     fi
