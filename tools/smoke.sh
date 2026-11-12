@@ -117,6 +117,24 @@ if grep -q '^IMP_LADDER="${SLIPMAT_BROWSERS:-chrome firefox safari}"' "$ENGINE" 
   else fail "imp_refused drifted: the page-read 403 must match and a segment 403 must not"; fi
 else fail "browser ladder drifted: IMP_LADDER/imp_probe/imp_rotate missing, a bare firefox probe is back, or the download loops no longer rotate"; fi
 
+# ---- 3a4b. the video server hangs up on a fingerprint (11.12.26, Rumble's CDN): a curl-level close with nothing downloaded moves to the next rung; a close mid-file, a plain fetch and a segment 503 never do
+if grep -q '^imp_hungup()' "$ENGINE" && sed -n '/^imp_rotate()/,/^}/p' "$ENGINE" | grep -q 'elif imp_hungup; then _iw=server' \
+   && grep -q 'elif imp_hungup; then$' "$ENGINE" && grep -q 'closed the connection on every browser fingerprint tried' "$ENGINE"; then
+  eval "$(sed -n '/^imp_hungup()/,/^}/p' "$ENGINE")"
+  mkdir -p "$S/hung"
+  printf 'ERROR: unable to download video data: Failed to perform, curl: (56) Connection closed abruptly. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.\n' > "$S/hung.56"
+  printf 'ERROR: unable to download video data: HTTP Error 503: Service Unavailable\n' > "$S/hung.503"
+  _h1=n; _h2=n; _h3=n; _h4=n
+  ( WORKDIR="$S/hung"; WORKSTEM=vr_t; IMPARGS="--impersonate chrome"; YTERR="$S/hung.56"; imp_hungup ) && _h1=y
+  ( WORKDIR="$S/hung"; WORKSTEM=vr_t; IMPARGS=""; YTERR="$S/hung.56"; imp_hungup ) || _h2=y
+  ( WORKDIR="$S/hung"; WORKSTEM=vr_t; IMPARGS="--impersonate chrome"; YTERR="$S/hung.503"; imp_hungup ) || _h3=y
+  dd if=/dev/zero of="$S/hung/vr_t.f1.mp4.part" bs=1048576 count=2 2>/dev/null
+  ( WORKDIR="$S/hung"; WORKSTEM=vr_t; IMPARGS="--impersonate chrome"; YTERR="$S/hung.56"; imp_hungup ) || _h4=y
+  if [ "$_h1$_h2$_h3$_h4" = "yyyy" ]; then
+    pass "fingerprint hung up on: a curl close with nothing downloaded rotates the ladder; a plain fetch, a segment 503 and a close with 2 MB in hand do not; a spent ladder dies by name"
+  else fail "imp_hungup drifted (empty+fingerprint=$_h1 plain=$_h2 segment503=$_h3 midfile=$_h4; all must be y)"; fi
+else fail "fingerprint hang-up drifted: imp_hungup missing, imp_rotate no longer asks it, or the spent-ladder death line is gone"; fi
+
 # ---- 3a5. a sniffer's rendition playlist (10.13.26, Newsmax): the master beside it is tried first (item id, then playlist/master/index); a .m3u8 link is never a photo post
 eval "$(sed -n '/^hls_master_candidates()/,/^}/p' "$ENGINE")"
 _c1=$(hls_master_candidates 'https://nmxvod24.akamaized.net/hls/account=ab0NPfBJhS8g/item=j5BssrTT1S8E/version=202610090202_7/v2.0-j5BssrTT1S8E-hls-202610090202_7-audio_eng=128000.m3u8' | head -1)

@@ -556,6 +556,17 @@ What the engine does (`IMP_LADDER`, `imp_probe`, `imp_rotate`):
   `! the site refused the page again at the download (chrome) — retrying as firefox …`
   and runs the same attempt again. A segment error (a 503 on a fragment, `unable
   to download video data`) never rotates — those belong to the CDN retry ladder.
+- the fingerprint that reads the page can be one the site's VIDEO server will
+  not talk to (11.12.26, Rumble: five rips in a row died in under 20 seconds with
+  `curl: (56) Connection closed abruptly`; on one rendition playlist chrome and
+  firefox had the connection closed before a byte, safari and a plain fetch were
+  served). When an attempt under a fingerprint ends on a curl-level close (56,
+  35 or 92) with nothing downloaded (under 1 MB in the scratch) the engine says
+  `! their video server hung up on chrome before a byte landed — retrying as firefox …`
+  and runs the same attempt again on the same rung. A close with a partial
+  already in hand is CDN weather and never rotates (`imp_hungup`). A ladder
+  that ends there dies by name (`closed the connection on every browser
+  fingerprint tried`), not as a transient CDN wall.
 - at most three fingerprints per run, each tried once; a rescue that proved a
   rung (C-SPAN, the manifest swap) keeps firefox there.
 - `SLIPMAT_BROWSERS="chrome firefox safari"` in the config reorders the ladder.
@@ -570,7 +581,9 @@ Hand test (network): a Rumble page at the lowest rung, e.g.
 and a normal receipt. The run log carries `impersonation: <rung> refused` for
 every rung that failed. `slipmat smoke` 3a4 asserts the ladder's shape and runs
 `imp_refused` on a fake page-read 403 (must match) and a fake segment 403 (must
-not).
+not). 3a4b runs `imp_hungup` on a fake curl close under a fingerprint with an
+empty scratch (must match), and on a plain fetch, a segment 503 and a close with
+2 MB in hand (must not).
 
 ## The keys (10.6.26): one key language — x stops, ↓ steps down, Ctrl-C is the exit
 
