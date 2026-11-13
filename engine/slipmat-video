@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.36"          # 11.13.26 — the way in that worked is where the next run starts: a site that refuses the plain read, a player link that needs its embed page and a download that lands only from its playlist are written down per site and tried first once they have worked twice running, with the full path as the fallback; the count on the where-to-start question keeps what is typed; a live title drops the minute it was read; a picked size holds after a playlist swap; the picker takes "2s" (that row, then STUDIO) and "2 950mb" (that row, shrunk to land under it); a recording nobody came back for is sealed by the next run; slipmat review reads the run logs back
+VERSION="4.37"          # 11.13.26 — Rumble is read from its own player data: the engine makes one read of the data the site's player loads and takes the files from the video server with a plain client, so the page is never read again at the download and no browser fingerprint meets the video server (that pairing was the five refusals on every Rumble run); every row is a size the site lists with its exact byte count, two copies at one height are two rows, every piece is required and the file that lands is counted against the playlist to the byte; a live stream is captured and rewound from the same data
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -1749,12 +1749,21 @@ elif cmd == "menu":
     # carries its exact download sel so bash needs no second python call.
     # Last field: "WxH orientation" so the picker can say 576x1024 portrait, not
     # a bare "576p" (the user cannot tell width from height otherwise).
+    # 11.13.26: a dump the engine wrote itself may name the SITEs own rows
+    # (slipmat_row): Rumble keeps two copies of a stream replay at 1080 (two
+    # bitrates, a gigabyte apart on an hour) and two at 360. Each is its own row,
+    # and rows that share a height say their bitrate (last field) so they can be
+    # told apart. Every other dump groups by height exactly as before.
     dur = data.get("duration") or 0
     byp = {}
     for f in vids:
-        byp.setdefault(p_of(f), []).append(f)
-    for p in sorted(byp, reverse=True):
-        sel, needreenc, proto, rep, aud = resolve(byp[p])
+        byp.setdefault((p_of(f), str(f.get("slipmat_row") or "")), []).append(f)
+    def _top(k): return max(tbr(f) for f in byp[k])
+    _nper = {}
+    for k in byp: _nper[k[0]] = _nper.get(k[0], 0) + 1
+    for k in sorted(byp, key=lambda k: (k[0], _top(k)), reverse=True):
+        p = k[0]
+        sel, needreenc, proto, rep, aud = resolve(byp[k])
         w = rep.get("width") or 0; h = rep.get("height") or 0
         if w and h:
             orient = "portrait" if h > w else ("square" if h == w else "landscape")
@@ -1772,7 +1781,8 @@ elif cmd == "menu":
             else: mb = fmt_size(vb, False)
         else:
             mb = fmt_size(vb, ve)
-        print(SEP.join([str(p), vc_short(rep), str(fps_of(rep)), mb, str(needreenc), proto, sel, dim]))
+        tag = ("%.1f Mbps" % (tbr(rep) / 1000.0)) if (_nper[p] > 1 and tbr(rep)) else ""
+        print(SEP.join([str(p), vc_short(rep), str(fps_of(rep)), mb, str(needreenc), proto, sel, dim, tag]))
 elif cmd == "select":
     target = sys.argv[2] if len(sys.argv) > 2 else "max"
     if target == "max":
@@ -2015,14 +2025,14 @@ present_formats() {
   MENU_PS=""    # the short-side rungs this menu offered (STUDIO reads it)
   MENU_MBS=""   # "p:size" pairs (STUDIO's bits-aware rung note reads it, V3.8)
   _topqt=""     # first no-convert row (the convert-pick heads-up points at it)
-  while IFS=$'\037' read -r _p _vc _fps _mb _nr _proto _sel _dim; do
+  while IFS=$'\037' read -r _p _vc _fps _mb _nr _proto _sel _dim _vtag; do
     [ -z "$_p" ] && continue
     [ "$_nr" = "1" ] || _allre=0
     _i=$((_i+1))
     # V4.1: orientation word (rule: horizontal/vertical, never landscape/portrait)
     # V4.5: vertical is FLAGGED "(V)", a normal horizontal frame says nothing
     _ow=$(printf '%s' "$_dim" | awk '{print $2}'); case "$_ow" in portrait|square) _ow="(V)" ;; *) _ow="" ;; esac
-    _SEL_ARR[$_i]="$_sel"; _NR_ARR[$_i]="$_nr"; _PROTO_ARR[$_i]="$_proto"; _NOTE_ARR[$_i]="${_p}p${_ow:+ $_ow}$([ "$_vc" != "?" ] && printf ' · %s' "$_vc")"
+    _SEL_ARR[$_i]="$_sel"; _NR_ARR[$_i]="$_nr"; _PROTO_ARR[$_i]="$_proto"; _NOTE_ARR[$_i]="${_p}p${_ow:+ $_ow}$([ "$_vc" != "?" ] && printf ' · %s' "$_vc")${_vtag:+ · $_vtag}"
     [ "$_i" = "1" ] && _ROW1="${_p}p${_ow:+ $_ow} ${_vc} · ${_mb}"   # row 1 as shown — the custom-pick ask names it
     MENU_PS="$MENU_PS $_p"
     MENU_MBS="$MENU_MBS ${_p}:${_mb}"
@@ -2042,9 +2052,9 @@ present_formats() {
     # V4.3 row: resolution+orientation · SIZE (moved left — "the size
     # further to the left") · fps · codec only when codecs differ (say-it-once).
     if [ -n "$_onecodec" ]; then
-      frame_rail "$(printf '%s%s%s)  %-10s ·  %-7s · %-6s%s%s' "$C_BOLD" "$_i" "$C_RESET" "${_p}p${_ow:+ $_ow}" "$_mb" "$_fpss" "$_best" "$_re")"
+      frame_rail "$(printf '%s%s%s)  %-10s ·  %-7s · %-6s%s%s%s' "$C_BOLD" "$_i" "$C_RESET" "${_p}p${_ow:+ $_ow}" "$_mb" "$_fpss" "${_vtag:+ · $_vtag}" "$_best" "$_re")"
     else
-      frame_rail "$(printf '%s%s%s)  %-10s ·  %-7s · %-6s · %-5s%s%s' "$C_BOLD" "$_i" "$C_RESET" "${_p}p${_ow:+ $_ow}" "$_mb" "$_fpss" "$_vc" "$_best" "$_re")"
+      frame_rail "$(printf '%s%s%s)  %-10s ·  %-7s · %-6s · %-5s%s%s%s' "$C_BOLD" "$_i" "$C_RESET" "${_p}p${_ow:+ $_ow}" "$_mb" "$_fpss" "$_vc" "${_vtag:+ · $_vtag}" "$_best" "$_re")"
     fi
   done <<EOF
 $_menu
@@ -2076,7 +2086,10 @@ EOF
       # into $INFO, then rebuild this menu; naming keeps the ORIGINAL metadata.
       frame_rail "${C_DIM}re-reading the source's stream list …${C_RESET}"
       box_bot
-      if "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --no-warnings -J "$URL" > "$INFO.fresh" 2>>"$PROBE_ERR" && info_json_ok "$INFO.fresh"; then
+      if [ "${RUMBLE:-0}" = "1" ] && [ "${DL_FROM_INFO:-0}" = "1" ]; then   # the engine's own dump: read the player data again
+        if [ -n "$(rumble_read "${RUMBLE_PAGE:-$URL}" "$INFO.fresh")" ] && info_json_ok "$INFO.fresh"; then mv -f "$INFO.fresh" "$INFO"
+        else rm -f "$INFO.fresh"; warn "re-read failed — keeping the previous list."; fi
+      elif "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --no-warnings -J "$URL" > "$INFO.fresh" 2>>"$PROBE_ERR" && info_json_ok "$INFO.fresh"; then
         mv -f "$INFO.fresh" "$INFO"
       else
         rm -f "$INFO.fresh"
@@ -3140,6 +3153,161 @@ for hu in _links[:3]:
 sys.exit(0)
 PYEMB
 }
+# ---- Rumble, read from its own player data (11.13.26) --------------------------
+# How Rumble serves a video, measured (the notes are in docs/TESTING.md):
+#   rumble.com (behind a bot challenge)   the page · /api/Media/oembed.json (page →
+#       embed id, title, channel) · /embedJS/u3/?request=video&ver=2&v=<embed id>:
+#       the player's own data — title, channel, date, length, live state, and under
+#       "ua" every size it has, with pixels, bitrate and the exact byte count.
+#   <name>.cdn.rumble.cloud (no challenge)  the media. A replay or an upload is one
+#       archive per size; "<archive>.tar?r_file=chunklist.m3u8" is its playlist and
+#       every piece is a byte range of the same archive. A live stream is a playlist
+#       per size (chunklist_*_DVR.m3u8) of two-second pieces that reaches back four
+#       hours, each line stamped with the wall clock.
+# The two hosts want opposite things: the challenge on rumble.com passes a browser
+# fingerprint and refuses yt-dlp's plain client; the video server hangs up on a
+# browser fingerprint and serves a plain client. yt-dlp wears ONE of the two for
+# the page and the files alike, so every download through its Rumble extractor
+# was refused somewhere (five refusals a run, 36 runs of 36). So the engine reads
+# the player data itself (one read, as a browser), writes the dump every later
+# step works from, and the downloader takes the files from the video server as
+# itself: no fingerprint, no page read at the download, the exact size on every
+# row, the row that was picked is the file that lands.
+#   $1 = the link (a video page or an embed address) · $2 = where the dump goes
+#   prints "<replay|upload|live> · N sizes" when the dump was written, else nothing
+#   (not a video link, the data did not answer, a stream not started, nothing
+#   playable listed): every caller then reads the page the way it did before.
+is_rumble_video() {
+  case "$(lc "$1")" in
+    *://rumble.com/v[0-9a-z]*.html*|*://www.rumble.com/v[0-9a-z]*.html*|*://m.rumble.com/v[0-9a-z]*.html*|*://rumble.com/embed/*|*://www.rumble.com/embed/*) return 0 ;;
+  esac
+  return 1
+}
+rumble_read() {
+  _rpy="${ZPYTHON:-${PYTHON:-}}"   # the python the page reader uses: the one that can wear a browser fingerprint (curl_cffi), else a plain one
+  [ -n "$_rpy" ] || return 0
+  "$_rpy" - "$1" "$2" <<'PYRUM' 2>/dev/null
+import sys, os, re, json, html, datetime, urllib.request, urllib.parse
+url, out = sys.argv[1], sys.argv[2]
+MAP = None   # the smoke battery's offline door: {address: saved file}
+try:
+    if os.environ.get("SLIPMAT_RUMBLE_MAP"): MAP = json.load(open(os.environ["SLIPMAT_RUMBLE_MAP"], encoding="utf-8"))
+except Exception:
+    MAP = {}
+try:
+    from curl_cffi import requests as cr
+except Exception:
+    cr = None
+def get(u):   # rumble.com only: a browser fingerprint first (the challenge), then a plain read
+    if MAP is not None:
+        try: return open(MAP[u], encoding="utf-8", errors="replace").read()
+        except Exception: return None
+    if cr is not None:
+        for who in ("chrome", "safari"):
+            try:
+                r = cr.get(u, impersonate=who, timeout=15)
+                if r.status_code == 200 and r.text: return r.text
+            except Exception:
+                pass
+    try:
+        return urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=15).read(3000000).decode("utf-8", "replace")
+    except Exception:
+        return None
+m = re.search(r'//(?:www\.)?rumble\.com/embed/(?:[a-z0-9]+\.)?(v[0-9a-z]+)', url)
+vid = m.group(1) if m else None
+if not vid:
+    if not re.search(r'//(?:www\.|m\.)?rumble\.com/v[0-9a-z]{3,}(?:-[^/?#]*)?\.html(?:$|[?#])', url): sys.exit(0)
+    page = url.split("#")[0].split("?")[0]
+    t = get("https://rumble.com/api/Media/oembed.json?url=" + urllib.parse.quote(page, safe=""))
+    m = re.search(r'rumble\.com/embed/(v[0-9a-z]+)', t or "")
+    if not m:
+        t = get(page)
+        m = re.search(r'"embedUrl"\s*:\s*"https?:(?:\\?/){2}rumble\.com(?:\\?/)embed(?:\\?/)(v[0-9a-z]+)', t or "") or re.search(r'rumble\.com/embed/(v[0-9a-z]+)', t or "")
+    if not m: sys.exit(0)
+    vid = m.group(1)
+try:
+    d = json.loads(get("https://rumble.com/embedJS/u3/?request=video&ver=2&v=" + vid) or "")
+    ua = d.get("ua") or {}
+except Exception:
+    sys.exit(0)
+if not isinstance(d, dict) or not isinstance(ua, dict): sys.exit(0)
+def num(x):
+    try: return int(float(x))
+    except Exception: return None
+fps = d.get("fps") if isinstance(d.get("fps"), (int, float)) and d.get("fps") else None
+def entries(kind):
+    v = ua.get(kind)
+    return [(str(q), e) for q, e in v.items() if isinstance(e, dict) and e.get("url")] if isinstance(v, dict) else []
+auto = dict(entries("hls")).get("auto", {}).get("url")
+fmts = []; kind = ""
+if d.get("live") == 2:
+    if d.get("live_placeholder") or not auto: sys.exit(0)     # not started yet: the usual read says so
+    txt = get(auto) or ""; L = txt.splitlines(); seen = {}
+    for i, line in enumerate(L):
+        if not line.startswith("#EXT-X-STREAM-INF:"): continue
+        uri = next((x.strip() for x in L[i + 1:] if x.strip() and not x.startswith("#")), None)
+        r = re.search(r'RESOLUTION=(\d+)x(\d+)', line); b = re.search(r'AVERAGE-BANDWIDTH=(\d+)', line) or re.search(r'[:,]BANDWIDTH=(\d+)', line)
+        if not uri or not r: continue
+        w, h = int(r.group(1)), int(r.group(2)); k = "live-%d" % min(w, h); seen[k] = seen.get(k, 0) + 1
+        fmts.append({"format_id": k if seen[k] == 1 else "%s-%d" % (k, seen[k]), "url": urllib.parse.urljoin(auto, uri), "protocol": "m3u8_native",
+                     "ext": "mp4", "width": w, "height": h, "tbr": round(int(b.group(1)) / 1000.0) if b else None,
+                     "vcodec": "avc1", "acodec": "mp4a.40.2", "fps": fps})
+    kind = "live"
+else:
+    for q, e in entries("tar"):       # one archive per size; its playlist is this address, its pieces byte ranges of it
+        mt = e.get("meta") or {}; w, h = num(mt.get("w")), num(mt.get("h"))
+        if not w or not h or "chunklist.m3u8" not in e["url"]: continue
+        fmts.append({"format_id": "hls-" + q, "format_note": q, "slipmat_row": q, "url": e["url"], "protocol": "m3u8_native", "ext": "mp4",
+                     "width": w, "height": h, "tbr": num(mt.get("bitrate")), "filesize": num(mt.get("size")),
+                     "vcodec": "avc1", "acodec": "mp4a.40.2", "fps": fps})
+    for q, e in entries("mp4"):       # an older upload: one whole file per size
+        mt = e.get("meta") or {}; w, h = num(mt.get("w")), num(mt.get("h"))
+        if not w or not h: continue
+        fmts.append({"format_id": "mp4-" + q, "format_note": q, "slipmat_row": q, "url": e["url"], "protocol": "https", "ext": "mp4",
+                     "width": w, "height": h, "tbr": num(mt.get("bitrate")), "filesize": num(mt.get("size")),
+                     "vcodec": "avc1", "acodec": "mp4a.40.2", "fps": fps})
+    kind = "replay" if d.get("livestream_has_dvr") else "upload"
+if not fmts: sys.exit(0)
+fmts.sort(key=lambda f: (min(f["width"], f["height"]), f.get("tbr") or 0))
+up = None; ts = None
+try:
+    dt = datetime.datetime.fromisoformat(str(d.get("pubDate")))
+    if dt.tzinfo is not None: dt = dt.astimezone(datetime.timezone.utc)
+    up = dt.strftime("%Y%m%d"); ts = int(dt.replace(tzinfo=datetime.timezone.utc).timestamp())
+except Exception:
+    pass
+au = d.get("author") if isinstance(d.get("author"), dict) else {}
+name = html.unescape(str(au.get("name") or "")) or None
+info = {"_type": "video", "id": vid, "title": html.unescape(str(d.get("title") or "")) or vid,
+        "channel": name, "uploader": name, "channel_url": au.get("url"), "upload_date": up, "timestamp": ts,
+        "duration": (num(d.get("duration")) or None) if kind != "live" else None,
+        "live_status": "is_live" if kind == "live" else ("was_live" if kind == "replay" else "not_live"),
+        "is_live": kind == "live", "was_live": kind == "replay",
+        "extractor": "Rumble", "extractor_key": "Rumble", "slipmat_reader": "rumble",
+        "manifest_url": auto, "formats": fmts}
+json.dump(info, open(out, "w", encoding="utf-8"))
+print("%s · %d size%s" % (kind, len(fmts), "" if len(fmts) == 1 else "s"))
+PYRUM
+}
+# a Rumble playlist names every piece as a byte range of its archive: the pieces
+# and the bytes the whole video is. $1 = the dump · $2 = the format id that was
+# downloaded → "pieces bytes", or nothing (not that kind of playlist, no answer).
+rumble_count() {
+  [ -n "${PYTHON:-}" ] && [ -s "${1:-}" ] || return 0
+  "$PYTHON" - "$1" "$2" <<'PYRC' 2>/dev/null
+import sys, json, re, urllib.request
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+f = next((x for x in d.get("formats") or [] if str(x.get("format_id")) == sys.argv[2]), None)
+if not f or "chunklist.m3u8" not in str(f.get("url")): sys.exit(0)
+try:
+    txt = urllib.request.urlopen(f["url"], timeout=20).read(20000000).decode("utf-8", "replace")
+except Exception:
+    sys.exit(0)
+rs = re.findall(r'^[^#\s][^\n]*[?&]r_range=(\d+)-(\d+)', txt, re.M)
+if not rs or "#EXT-X-ENDLIST" not in txt or len(rs) != len(re.findall(r'#EXTINF', txt)): sys.exit(0)
+print("%d %d" % (len(rs), sum(int(b) - int(a) + 1 for a, b in rs)))
+PYRC
+}
 # ---- a recording nobody came back for (11.13.26) ------------------------------
 # A live capture is written into the in-progress folder as a growing .mp4.part
 # (a rewind: a video half and an audio half) and becomes a playable mp4 only at
@@ -3368,6 +3536,19 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
   #   look like a bot on the session. Either way a refusal starts the cooldown.
   if is_instagram && [ "$TS_FAST" != "1" ] && ig_cooldown_active; then
     die "Instagram refused a request a little while ago — slipmat is not contacting Instagram until $(ig_cooldown_until), so your login isn't flagged. Run the same link again after that."
+  fi
+  # Rumble is read from its own player data (see rumble_read): the dump is written
+  # here and nothing below reads the page. No answer = everything below, as before.
+  RUMBLE=0; DL_FROM_INFO=0; RUMBLE_STRICT=0; RUMBLE_PAGE=""; RUMBLE_EXACT=""
+  if [ "$TS_FAST" != "1" ] && ! [ -s "$INFO" ] && [ "${SLIPMAT_RUMBLE:-1}" != "0" ] && is_rumble_video "$URL"; then
+    _rr=$(rumble_read "$URL" "$INFO.rumble")
+    if [ -n "$_rr" ] && info_json_ok "$INFO.rumble"; then
+      mv -f "$INFO.rumble" "$INFO"; RUMBLE=1; DL_FROM_INFO=1; RUMBLE_STRICT=1; RUMBLE_PAGE="$URL"; IMPARGS=""; IMP_TARGET=""
+      logln "  rumble: read from its player data (${_rr}) — the files come from its video server with a plain client, no page read at the download"
+    else
+      rm -f "$INFO.rumble" 2>/dev/null
+      logln "  rumble: its player data did not answer — the page is read the usual way"
+    fi
   fi
   # the way in that worked last time (see route_get): a site that refused the plain
   # read and opened to one fingerprint on its last ROUTE_MIN runs is read with that
@@ -4119,7 +4300,8 @@ got_line() {   # $1 = the finished file → prints a receipt line or nothing
   _gsk=0; [ -s "${YTERR:-}" ] && _gsk=$(grep -c -i 'skipping fragment\|fragment not found' "$YTERR" 2>/dev/null); case "$_gsk" in ''|*[!0-9]*) _gsk=0 ;; esac
   _gfr=""; if [ "${YT_PIECES:-0}" = "1" ]; then replay_holes "$1"; _gfr=" · ${HOLE_PCT}% of frames"; [ "$HOLE_PCT" -lt 98 ] && _gmiss=$(( _gmiss > 16 ? _gmiss : 16 )); fi
   if [ "$_gmiss" -le 15 ] && [ "$_gsk" -eq 0 ]; then
-    case "$M_LIVE" in post_live|was_live) box_line "got     $(fmt_dur "$_gg") of $(fmt_dur "$_gx") — complete${_gfr}" ;; esac
+    _gex=""; case "${RUMBLE_EXACT:-}" in all*) _gex=" · $RUMBLE_EXACT" ;; esac   # counted against the site's own playlist (Rumble)
+    case "$M_LIVE${_gex:+|counted}" in post_live*|was_live*|*"|counted") box_line "got     $(fmt_dur "$_gg") of $(fmt_dur "$_gx") — complete${_gfr}${_gex}" ;; esac
     logln "  got: $(fmt_dur "$_gg") of $(fmt_dur "$_gx") (${_gp}%)"
   else
     box_line "${C_YEL}got     $(fmt_dur "$_gg") of $(fmt_dur "$_gx") — $(fmt_dur "$_gmiss") missing$([ "$_gsk" -gt 0 ] && printf ' · %s pieces skipped by the site' "$_gsk")${C_RESET}"
@@ -4440,6 +4622,7 @@ EOF
   # Escape every % (yt-dlp reads %% as literal %); VOD paths use $WORKSTEM, safe.
   NAME_TMPL=$(printf '%s' "$NAME" | sed 's/%/%%/g')
   LIVE_XARG=""   # extra ffmpeg input words: empty on every capture until ffmpeg itself names a refusal (live_capture, below)
+  LIVE_SRC=("$URL"); [ "${DL_FROM_INFO:-0}" = "1" ] && LIVE_SRC=(--load-info-json "$INFO")   # a dump the engine wrote (Rumble): the capture reads its playlists from it, no page
   live_capture_now() {   # the proven capture: foreground, unpiped (a playlist rewind adds only ffmpeg's start piece and its progress file)
     if [ -n "$LIVE_PY" ]; then   # same yt-dlp, in-process, + the first-Ctrl-C handler (SLIPMAT_LIVE_BACK=0 = no rewind)
       SLIPMAT_LIVE_BACK=0 SLIPMAT_LIVE_LAG="${LIVE_HLS_ENV:+$LIVE_LAG}" SLIPMAT_LIVE_HLS="$LIVE_HLS_ENV" SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET"$'\n' "$LIVE_PY" "$APPDIR/tools/live-rewind.py" \
@@ -4447,13 +4630,13 @@ EOF
         -f "$LIVE_F" \
         --downloader-args "ffmpeg_i:-loglevel error$LIVE_XARG" ${LIVE_HLS_DA[@]+"${LIVE_HLS_DA[@]}"} \
         --postprocessor-args "ffmpeg:-movflags +faststart" \
-        -o "$CAPDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+        -o "$CAPDIR/${NAME_TMPL}.%(ext)s" "${LIVE_SRC[@]}" 2>>"$LIVE_ERRLOG"
     else
       "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS --quiet --no-warnings \
         -f "$LIVE_F" \
         --downloader-args "ffmpeg_i:-loglevel error$LIVE_XARG" ${LIVE_HLS_DA[@]+"${LIVE_HLS_DA[@]}"} \
         --postprocessor-args "ffmpeg:-movflags +faststart" \
-        -o "$CAPDIR/${NAME_TMPL}.%(ext)s" "$URL" 2>>"$LIVE_ERRLOG"
+        -o "$CAPDIR/${NAME_TMPL}.%(ext)s" "${LIVE_SRC[@]}" 2>>"$LIVE_ERRLOG"
     fi
   }
   live_capture() {   # the capture; once more, with ffmpeg's piece-address check off, when ffmpeg refused the playlist for it before a byte landed
@@ -5107,6 +5290,17 @@ else
   DL_T0=$SECONDS
   run_download() {   # $1 = the selector chain for this attempt
     : > "$YTERR"       # stderr → a file (not a pipe): errors reach the log + receipt; the bar (stdout) is untouched
+    if [ "${DL_FROM_INFO:-0}" = "1" ]; then
+      # a dump the engine wrote itself (Rumble): the files are named in it, so nothing
+      # reads a page here and no fingerprint rides along. While RUMBLE_STRICT is 1 a
+      # piece that will not come ends the attempt (the resume picks it up) instead of
+      # being left out without a word.
+      "$YTDLP" $COOKIES $PLARGS -f "$1" \
+        --hls-use-mpegts --merge-output-format mkv \
+        $DLPAR --fragment-retries 10 --retries 10 $([ "${RUMBLE_STRICT:-0}" = "1" ] && printf '%s' --abort-on-unavailable-fragments || printf '%s' --skip-unavailable-fragments) $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
+        $DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" --load-info-json "$INFO" 2>>"$YTERR"
+      return $?
+    fi
     "$YTDLP" $COOKIES $PLARGS $REFARGS $IMPARGS -f "$1" \
       --hls-use-mpegts --merge-output-format mkv \
       $DLPAR --fragment-retries 10 --retries 10 --skip-unavailable-fragments $SECT_OPT ${SECT_VAL:+"$SECT_VAL"} \
@@ -5268,7 +5462,7 @@ else
     ) >> "$RUNLOG" 2>/dev/null &
     SPID=$!
   fi
-  CUR_SEL="$DLSEL"; DL_RETRIES=0; BEST_MKV=""; BEST_COV=0; RETRY_NOTE=""; SAME_RETRY=0; MANIFEST_SWAP=0; ROUTE_SWAPPED=0
+  CUR_SEL="$DLSEL"; DL_RETRIES=0; BEST_MKV=""; BEST_COV=0; RETRY_NOTE=""; SAME_RETRY=0; MANIFEST_SWAP=0; ROUTE_SWAPPED=0; RUMBLE_TRIES=0
   # ---- the keys while it downloads: see keys_start. key.next (written before
   # every attempt while a ladder exists) is the rung ↓ would take; empty = floor.
   KEY_NEXT_F="$WORKDIR/key.next"; KEY_LADDER=0; _kn=""
@@ -5282,7 +5476,7 @@ else
   # changes is kept aside: an attempt that lands nothing puts it all back, forgets
   # the route, and the run goes on exactly as it would have before.
   ROUTE_DL=0
-  if [ "$IS_HLS" = "1" ] && [ -n "$PYTHON" ] && [ -s "${INFO:-/nonexistent}" ] && ! route_skip "$ROUTE_HOST"; then
+  if [ "$IS_HLS" = "1" ] && [ "${RUMBLE:-0}" != "1" ] && [ -n "$PYTHON" ] && [ -s "${INFO:-/nonexistent}" ] && ! route_skip "$ROUTE_HOST"; then
     route_get "$ROUTE_HOST" hlsdl
     case "$ROUTE_V" in manifest:*)
       _mf=""; [ "$ROUTE_N" -ge "$ROUTE_MIN" ] && _mf=$(dump_manifest < "$INFO")
@@ -5320,6 +5514,7 @@ else
         warn "$G_DN at ${_from} — stepping down to ${_next}p (${_again}) …"
         rm -f "$WORKDIR/${WORKSTEM}".* 2>/dev/null   # the stopped attempt's .part/.ytdl must not confuse the next format
         CUR_SEL=$(sel_for_rung "$_next"); _att_short="$_next"
+        [ "${RUMBLE:-0}" = "1" ] && [ "${DL_FROM_INFO:-0}" = "1" ] && { RUMBLE_STRICT=1; RUMBLE_TRIES=0; }   # a new size: every piece is required of it again
         DL_RETRIES=$((DL_RETRIES+1)); SAME_RETRY=0; RETRY_NOTE="stepped down to ${_next}p by hand ($G_DN at ${_from})"
         continue
       fi
@@ -5337,6 +5532,20 @@ else
           note "this site's usual way in did not answer this time — taking the long way"
           continue
         fi
+      fi
+      # a dump the engine wrote (Rumble), every piece required: the first stop is run
+      # once more as it is (the downloader keeps what landed), the second takes every
+      # piece that WILL come and the receipt says what is missing. After that the
+      # chain below runs as on any site.
+      if [ "${DL_FROM_INFO:-0}" = "1" ] && [ "${RUMBLE_STRICT:-0}" = "1" ]; then
+        if [ "${RUMBLE_TRIES:-0}" -lt 1 ]; then
+          RUMBLE_TRIES=1; yterr_log
+          logln "  rumble: the attempt stopped before every piece had landed — running it once more (what landed is kept)"
+        else
+          RUMBLE_STRICT=0; yterr_show
+          warn "one piece of this video would not come from the video server — taking every piece that will; the receipt says what is missing"
+        fi
+        continue
       fi
       if pieces_backoff; then continue; fi   # the downloader's own race: fewer pieces, same rung, resumed
       if imp_rotate; then continue; fi       # the page refused the download's re-read, or the video server hung up on this fingerprint: next browser fingerprint, same rung
@@ -5366,11 +5575,12 @@ else
         _mf=$(dump_manifest < "$INFO")
         if [ -n "$_mf" ] && [ "$_mf" != "$URL" ]; then
           yterr_show
-          warn "the page went blank between the read and the download (their site does this) — going straight at its manifest …"
+          if [ "${RUMBLE:-0}" = "1" ]; then warn "the video server did not serve this size from its own address — asking the site's playlist for it …"
+          else warn "the page went blank between the read and the download (their site does this) — going straight at its manifest …"; fi
           logln "  manifest swap: $URL -> $_mf"
           [ -z "$REFARGS" ] && REFARGS="--referer $URL"   # V4.5e: the page vouches for its own manifest
           imp_available && [ -z "$IMPARGS" ] && imp_set firefox
-          URL="$_mf"
+          URL="$_mf"; DL_FROM_INFO=0
           CUR_SEL=$(sel_height_led "$CUR_SEL")
           RETRY_NOTE="page went blank mid-run — ripped via its manifest"; ROUTE_SWAPPED=1
           continue
@@ -5403,6 +5613,28 @@ else
         die_net "download failed (yt-dlp exit $YTRC)$(yterr_said)${VIMEO_LOCKED:+This Vimeo is EMBED-LOCKED and no known host unlocked it — run PICKER and paste the page it is embedded on. }${VIMEO_LOCKED:-${NET_DIE_HINT:-The link may be expired, private, or need a login.}}"
       fi
       fi   # salvage_merge
+    fi
+    # Rumble: its playlist names every piece as a byte range of one archive, so the
+    # file that landed is counted against the playlist's own total, to the byte.
+    RUMBLE_EXACT=""
+    if [ "${RUMBLE:-0}" = "1" ] && [ "${DL_FROM_INFO:-0}" = "1" ] && [ "$YTRC" -eq 0 ] && [ -z "$SECT_OPT" ]; then
+      _rfid=$("$YTDLP" --load-info-json "$INFO" -f "$CUR_SEL" --skip-download --no-warnings --print '%(format_id)s' 2>/dev/null | head -1)
+      _rraw=$(ls -t "$WORKDIR/${WORKSTEM}".* 2>/dev/null | grep -vE '\.(log|err|part|ytdl|temp|json)$|\.part-Frag[0-9]+(\.part)?$' | head -1)
+      _rpn=""; _rpb=""
+      read -r _rpn _rpb <<EOF
+$(rumble_count "$INFO" "$_rfid")
+EOF
+      _rgot=$(stat -f %z "${_rraw:-/nonexistent}" 2>/dev/null)
+      if [ -n "${_rpb:-}" ] && [ -n "${_rgot:-}" ]; then
+        if [ "$_rgot" = "$_rpb" ]; then
+          RUMBLE_EXACT="all $_rpn pieces, to the byte"
+          logln "  rumble: every piece landed — $_rpn pieces, $_rpb bytes, the playlist's own count"
+        else
+          RUMBLE_EXACT="short"
+          logln "  ! rumble: landed $_rgot bytes of the playlist's $_rpb ($_rpn pieces)"
+          [ -z "$RETRY_NOTE" ] && RETRY_NOTE="landed $(fmt_bytes $(( _rpb - _rgot ))) short of the playlist's own count"
+        fi
+      fi
     fi
     stage_mkv || die "download reported success but left no usable file (unexpected)."
     # fragment-loss coverage check (HLS with a known duration only): one skipped
@@ -5451,7 +5683,7 @@ else
   # the way in that worked: a page download that landed only from its playlist is
   # written down (one more run in a row); one that landed from the page itself
   # ends the row
-  if [ "$IS_HLS" = "1" ] && ! route_skip "$ROUTE_HOST"; then
+  if [ "$IS_HLS" = "1" ] && [ "${RUMBLE:-0}" != "1" ] && ! route_skip "$ROUTE_HOST"; then
     if [ "$ROUTE_DL" != "0" ] || [ "${ROUTE_SWAPPED:-0}" = "1" ]; then route_put "$ROUTE_HOST" hlsdl "manifest:${IMP_TARGET:-plain}"
     elif [ "$MANIFEST_SWAP" = "0" ]; then route_get "$ROUTE_HOST" hlsdl; [ -n "$ROUTE_V" ] && route_drop "$ROUTE_HOST" hlsdl; fi
   fi

@@ -688,6 +688,70 @@ if command -v python3 >/dev/null 2>&1 && [ -f "$REPO/tools/review.py" ]; then
   else fail "slipmat review on the fixture tree (exit $_rrc), or the wrapper does not route 'review'" ; [ "$VERB" = "1" ] && printf '%s\n' "$_ro" | head -30; fi
 else skip "slipmat review (python3 + tools/review.py)"; fi
 
+# ---- 3q. Rumble is read from its own player data (11.13.26) ------------------------
+# The reader turns the player's data into the dump every later step works from: one
+# row per size the site lists with its exact byte count (a stream replay keeps two
+# copies at 1080 and two at 360: each is its own row and says its bitrate), a live
+# stream's playlists from its master, the id, title, channel and UTC date the name is
+# built from. A link that is no video page, a stream not started and data that is not
+# what it should be give nothing, and the page is then read the way it was before.
+if command -v python3 >/dev/null 2>&1; then
+  _rq="$S/rumble"; mkdir -p "$_rq"
+  python3 - "$_rq" <<'RQEOF'
+import json, sys, urllib.parse
+d = sys.argv[1]; m = {}
+def tar(q, w, h, br, size): return {"url": "https://x1.cdn.example.net/video/a/b/Abc.%s.tar?r_file=chunklist.m3u8&r_type=application%%2Fvnd.apple.mpegurl&r_range=1-2" % q, "meta": {"bitrate": br, "size": size, "w": w, "h": h}}
+replay = {"title": "A Show: Thursday &amp; Friday", "author": {"name": "Smoke Channel", "url": "https://rumble.com/c/Smoke"}, "pubDate": "2020-01-02T23:30:00-05:00",
+          "duration": 3600, "live": 0, "livestream_has_dvr": True, "fps": 30,
+          "ua": {"tar": {"360": tar("baa", 640, 360, 681, 288215040), "720": tar("gaa", 1280, 720, 2145, 907704320), "1080": tar("haa", 1920, 1080, 4118, 1742653440),
+                         "240": tar("oaa", 640, 360, 223, 94412800), "1081": tar("Eaa", 1920, 1080, 6578, 2783160320)},
+                 "timeline": {"180": {"url": "https://x1.cdn.example.net/t.mp4", "meta": {"w": 320, "h": 180}}},
+                 "hls": {"auto": {"url": "https://rumble.com/hls-vod/tok/playlist.m3u8"}}}}
+live = {"title": "Channel 24/7", "author": {"name": "Smoke Channel"}, "pubDate": "2020-01-02T03:04:05+00:00", "duration": 0, "live": 2, "live_placeholder": False, "fps": 29.97,
+        "ua": {"mp4": [], "hls": {"auto": {"url": "https://rumble.com/live-hls-dvr/tok/playlist.m3u8"}}}}
+soon = dict(live, live_placeholder=True)
+master = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=6972416,AVERAGE-BANDWIDTH=6338560,RESOLUTION=1920x1080\nhttps://x1.cdn.example.net/live/a/chunklist_i0_DVR.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1460800,AVERAGE-BANDWIDTH=1328000,RESOLUTION=640x360\nchunklist_360p_i0_DVR.m3u8\n"
+def put(name, text): open("%s/%s" % (d, name), "w", encoding="utf-8").write(text); return "%s/%s" % (d, name)
+for vid, page, data in (("v0emb01", "https://rumble.com/v0page1-a-show.html", replay), ("v0emb02", "https://rumble.com/v0page2-live.html", live),
+                        ("v0emb03", "https://rumble.com/v0page3-soon.html", soon), ("v0emb04", "https://rumble.com/v0page4-odd.html", ["not", "a", "dict"])):
+    m["https://rumble.com/api/Media/oembed.json?url=" + urllib.parse.quote(page, safe="")] = put("oe_%s.json" % vid, json.dumps({"html": '<iframe src="https://rumble.com/embed/%s/"></iframe>' % vid}))
+    m["https://rumble.com/embedJS/u3/?request=video&ver=2&v=" + vid] = put("ej_%s.json" % vid, json.dumps(data))
+m["https://rumble.com/live-hls-dvr/tok/playlist.m3u8"] = put("master.m3u8", master)
+json.dump(m, open(d + "/map.json", "w"))
+RQEOF
+  (
+    PYTHON=python3; ZPYTHON=python3; lc() { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
+    eval "$(sed -n '/^is_rumble_video()/,/^}/p; /^rumble_read()/,/^}/p' "$ENGINE")"
+    VR_PY=$(sed -n "/^VR_PY='/,/^'\$/p" "$ENGINE" | sed "1s/^VR_PY='//; \$d")
+    export SLIPMAT_RUMBLE_MAP="$_rq/map.json"; U=$(printf '\037')
+    r1=$(rumble_read 'https://rumble.com/v0page1-a-show.html?e9s=src_v1' "$_rq/o1.json")
+    meta=$(python3 -c "$VR_PY" meta < "$_rq/o1.json" | tr "$U" '|')
+    rows=$(python3 -c "$VR_PY" menu < "$_rq/o1.json" | awk -F"$U" '{ printf "%s:%s:%s:%s:%s;", $1, $4, $3, $7, $9 }')
+    pick=$(python3 -c "$VR_PY" select max < "$_rq/o1.json" | cut -d"$U" -f1),$(python3 -c "$VR_PY" select 720 < "$_rq/o1.json" | cut -d"$U" -f1),$(python3 -c "$VR_PY" select 360 < "$_rq/o1.json" | cut -d"$U" -f1)
+    r1e=$(rumble_read 'https://rumble.com/embed/v0emb01/?pub=4' "$_rq/o1e.json")
+    r2=$(rumble_read 'https://rumble.com/v0page2-live.html' "$_rq/o2.json")
+    lv=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["live_status"], d["duration"], ",".join("%s=%s" % (f["format_id"], f["url"]) for f in d["formats"]))' "$_rq/o2.json")
+    r3=$(rumble_read 'https://rumble.com/v0page3-soon.html' "$_rq/o3.json"); r4=$(rumble_read 'https://rumble.com/v0page4-odd.html' "$_rq/o4.json"); r5=$(rumble_read 'https://rumble.com/c/Smoke' "$_rq/o5.json")
+    v=""; for u in 'https://rumble.com/v7abc-x.html' 'https://www.rumble.com/embed/v7abc/' 'https://rumble.com/c/Smoke' 'https://rumble.com/videos?sort=views' 'https://example.org/v7abc-x.html'; do is_rumble_video "$u" && v="${v}y" || v="${v}n"; done
+    printf '%s\n' "$r1" "$meta" "$rows" "$pick" "$r1e" "$r2" "$lv" "[$r3$r4$r5]" "$v" > "$S/rumble.out"
+  )
+  _rw="replay · 5 sizes
+v0emb01|A Show: Thursday & Friday||Smoke Channel|Smoke Channel|20200103|was_live|3600
+1080:2654MB:30:hls-1081:6.6 Mbps;1080:1662MB:30:hls-1080:4.1 Mbps;720:866MB:30:hls-720:;360:275MB:30:hls-360:0.7 Mbps;360:90MB:30:hls-240:0.2 Mbps;
+hls-1081,hls-720,hls-360
+replay · 5 sizes
+live · 2 sizes
+is_live None live-360=https://rumble.com/live-hls-dvr/tok/chunklist_360p_i0_DVR.m3u8,live-1080=https://x1.cdn.example.net/live/a/chunklist_i0_DVR.m3u8
+[]
+yynnn"
+  if [ "$(cat "$S/rumble.out" 2>/dev/null)" = "$_rw" ] \
+     && grep -q '$DLPROG -o "$WORKDIR/${WORKSTEM}.%(ext)s" --load-info-json "$INFO" 2>>"$YTERR"' "$ENGINE" && grep -q -- '--abort-on-unavailable-fragments' "$ENGINE" \
+     && [ "$(grep -c '"${LIVE_SRC\[@\]}" 2>>"$LIVE_ERRLOG"' "$ENGINE")" = "2" ] && grep -q 'URL="$_mf"; DL_FROM_INFO=0' "$ENGINE" \
+     && [ "$(grep -c '\[ "${RUMBLE:-0}" != "1" \] &&' "$ENGINE")" -ge 2 ] && grep -q 'RUMBLE_EXACT="all $_rpn pieces, to the byte"' "$ENGINE"; then
+    pass "Rumble is read from its own player data: one row per size the site lists with its exact size (two copies at one height are two rows that say their bitrate), id · title · channel · UTC date for the name, an embed address reads the same, a live stream's playlists come from its master; no video page, a stream not started and odd data give nothing; downloads and captures read the dump, every piece is required, the landed file is counted to the byte"
+  else fail "Rumble reader: got '$(tr '\n' '~' < "$S/rumble.out" 2>/dev/null)' · or the dump is not what the download, the capture, the swap, the routes guard or the count read" ; fi
+else skip "the Rumble reader (python3)"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:
@@ -774,6 +838,68 @@ if [ -s "$_d5" ] && [ "$(vcodec "$_d5")" = "h264" ] && [ -s "$_h5" ] && [ "$("$F
    && [ "$(grep -c 'a recording left unfinished was sealed' "$S/run5c.txt")" = "2" ]; then
   pass "a recording nobody came back for is sealed by the next run: a combined capture whose run is gone and a rewind's two halves become playable mp4s under their reserved names and their raw files go; a capture whose run is alive is left alone"
 else fail "abandoned captures: dead='$(ls "$OUT2" 2>/dev/null | tr '\n' '|')' · still in progress='$(ls "$CAP2" 2>/dev/null | tr '\n' '|')'" "$S/run5c.txt"; fi
+
+# ---- 5d. a Rumble rip end to end against a stand-in video server (11.13.26) -------
+# A local server answers the way Rumble's does: one archive per size, its playlist and
+# every piece a byte range of it (r_file / r_range). The engine reads the saved player
+# data, downloads from the stand-in with the real downloader and counts the file
+# against the playlist. A second archive refuses one piece: the attempt is run once
+# more, then every piece that will come is taken and the receipt says it landed short.
+if command -v python3 >/dev/null 2>&1; then
+  _rs="$S/rsrv"; mkdir -p "$_rs"
+  "$FFMPEG" -hide_banner -loglevel error -y -i "$FX/cfr.mp4" -c copy -f segment -segment_time 2 -segment_format mpegts "$_rs/media-%d.ts" 2>/dev/null
+  cat > "$_rs/srv.py" <<'RSEOF'
+import sys, os, http.server, socketserver, urllib.parse
+root, portfile = sys.argv[1], sys.argv[2]
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def do_GET(self):
+        u = urllib.parse.urlparse(self.path); q = urllib.parse.parse_qs(u.query); name = os.path.basename(u.path)
+        try:
+            if name.startswith("bad") and q["r_file"][0] == "media-1.ts": raise IOError("refused")
+            a, b = (int(x) for x in q["r_range"][0].split("-"))
+            with open(os.path.join(root, name), "rb") as fh:
+                fh.seek(a); data = fh.read(b - a + 1)
+        except Exception:
+            self.send_response(404); self.end_headers(); return
+        self.send_response(200); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+socketserver.TCPServer.allow_reuse_address = True
+with socketserver.TCPServer(("127.0.0.1", 0), H) as srv:
+    open(portfile, "w").write(str(srv.server_address[1])); srv.serve_forever()
+RSEOF
+  python3 "$_rs/srv.py" "$_rs" "$_rs/port" >/dev/null 2>&1 & _rsp=$!
+  _w=0; while [ ! -s "$_rs/port" ] && [ "$_w" -lt 50 ]; do sleep 0.1; _w=$((_w+1)); done
+  python3 - "$_rs" "$(cat "$_rs/port" 2>/dev/null)" <<'RBEOF'
+import sys, os, json, glob, re, urllib.parse
+d, port = sys.argv[1], sys.argv[2]; m = {}
+pieces = sorted(glob.glob(d + "/media-*.ts"), key=lambda p: int(re.search(r'(\d+)\.ts$', p).group(1)))
+def build(name):
+    blob = bytearray(); lines = ["#EXTM3U", "#EXT-X-VERSION:3", "#EXT-X-TARGETDURATION:3", "#EXT-X-MEDIA-SEQUENCE:0", "#EXT-X-PLAYLIST-TYPE:VOD"]
+    for p in pieces:
+        blob += b"\0" * 512; a = len(blob); blob += open(p, "rb").read(); b = len(blob) - 1; blob += b"\0" * (-len(blob) % 512)
+        lines += ["#EXTINF:2.000000,", "%s?r_file=%s&r_type=video%%2Fmp2t&r_range=%d-%d" % (name, os.path.basename(p), a, b)]
+    text = ("\n".join(lines) + "\n#EXT-X-ENDLIST\n").encode(); blob += b"\0" * 512; a = len(blob); blob += text
+    open(os.path.join(d, name), "wb").write(blob)
+    return "http://127.0.0.1:%s/%s?r_file=chunklist.m3u8&r_type=application%%2Fvnd.apple.mpegurl&r_range=%d-%d" % (port, name, a, len(blob) - 1), len(blob)
+for vid, page, name, title in (("v0fix01", "https://rumble.com/v0fixa-a-whole-one.html", "good.tar", "A Whole One"), ("v0fix02", "https://rumble.com/v0fixb-a-short-one.html", "bad.tar", "A Short One")):
+    u, size = build(name)
+    data = {"title": title, "author": {"name": "Smoke Channel"}, "pubDate": "2020-01-02T03:04:05+00:00", "duration": 6, "live": 0, "fps": 30,
+            "ua": {"tar": {"360": {"url": u, "meta": {"bitrate": 700, "size": size, "w": 640, "h": 360}}}, "hls": {}}}
+    for key, body in (("https://rumble.com/api/Media/oembed.json?url=" + urllib.parse.quote(page, safe=""), {"html": '<iframe src="https://rumble.com/embed/%s/">' % vid}),
+                      ("https://rumble.com/embedJS/u3/?request=video&ver=2&v=" + vid, data)):
+        f = "%s/%s_%d.json" % (d, vid, len(m)); open(f, "w").write(json.dumps(body)); m[key] = f
+json.dump(m, open(d + "/map.json", "w"))
+RBEOF
+  HOME="$FH2" SLIPMAT_RUMBLE_MAP="$_rs/map.json" "$ENGINE" "https://rumble.com/v0fixa-a-whole-one.html" 360 auto </dev/null > "$S/run5d.txt" 2>&1; _rc1=$?
+  HOME="$FH2" SLIPMAT_RUMBLE_MAP="$_rs/map.json" "$ENGINE" "https://rumble.com/v0fixb-a-short-one.html" 360 auto </dev/null > "$S/run5e.txt" 2>&1; _rc2=$?
+  kill "$_rsp" 2>/dev/null; wait "$_rsp" 2>/dev/null
+  _r1="$OUT2/A Whole One [v0fix01] - Rumble@Smoke Channel - 1.2.20.mp4"; _r2=$(ls "$OUT2"/"A Short One [v0fix02] - Rumble@Smoke Channel - 1.2.20"*.mp4 2>/dev/null | head -1)
+  if [ "$_rc1" -eq 0 ] && [ -s "$_r1" ] && [ "$(vcodec "$_r1")" = "h264" ] && grep -q 'rumble: every piece landed' "$FH2/.slipmat/logs/$DAY/"*"A Whole One"*.log 2>/dev/null \
+     && ! grep -q 'refused the probe\|hung up\|went blank' "$S/run5d.txt" \
+     && [ "$_rc2" -eq 0 ] && [ -s "${_r2:-/nonexistent}" ] && grep -q 'one piece of this video would not come' "$S/run5e.txt" && grep -q "short of the playlist's own count" "$S/run5e.txt"; then
+    pass "a Rumble rip against a stand-in video server: the dump from the saved player data, the download from the archive's playlist, the file counted against the playlist to the byte, no refusal on the way; an archive that refuses one piece is run once more, then lands with every piece that came and says how far short"
+  else fail "Rumble end to end: whole one exit $_rc1 ($(ls "$OUT2" 2>/dev/null | grep -c 'Whole One') file) · short one exit $_rc2" "$S/run5e.txt"; fi
+else skip "a Rumble rip against a stand-in server (python3)"; fi
 
 # ---- 5b. the title hook (11.3.26): it gets title · channel · source tag and may answer NAME <TAB> date <TAB> tag;
 # "-" as the tag writes no bracket, its date outranks the upload date; the menu-bar door for the day's shows exists.

@@ -1012,3 +1012,71 @@ capture; too little free space waits; a failed seal leaves `NAME.unsealable` and
 is not tried again. Smoke 5c: a dead capture and a pair of halves are sealed, a
 capture whose run is alive is left alone. Real size: a 12.4 GB six-hour raw file
 sealed in 20 s to 5:56:24, byte for byte the size of the hand seal.
+
+## Rumble, read from its own player data (11.13.26, 4.37)
+
+How the site serves a video, measured 11.13.26 (one replay, four uploads, two
+24/7 streams):
+
+- `rumble.com` sits behind a bot challenge. The page id (`v7i9902-…html`) is not
+  the embed id (`v7g2w2k`); `/api/Media/oembed.json?url=<page>` maps one to the
+  other. `/embedJS/u3/?request=video&ver=2&v=<embed id>` is the player's data:
+  `title`, `author{name,url}`, `pubDate`, `duration`, `fps`, `live` (2 = on air),
+  `live_placeholder` (not started), `livestream_has_dvr`, and `ua`.
+- `ua.tar` (replays and uploads): one entry per size, `meta{w,h,bitrate,size}`,
+  the size in bytes. A stream replay lists `1081` beside `1080` (the same 1920x1080
+  at 6.6 against 4.1 Mbps) and `240` beside `360` (both 640x360). `ua.hls` holds
+  the same sizes as playlists on rumble.com; `ua.audio.192` is an AAC of the sound
+  alone; `ua.timeline` is the scrubber strip. No `ua.mp4` on anything posted in 2026.
+- The media is on `<name>.cdn.rumble.cloud`, no challenge. One archive per size;
+  `<archive>.tar?r_file=chunklist.m3u8&r_range=a-b` is its playlist and each line
+  of it is `r_file=media-N.ts&r_range=a-b`, a byte range of the same archive.
+- Live: `ua.hls.auto` is a master on rumble.com; its renditions are
+  `…/live-hls/<key>/chunklist[_720p|_360p]_i0_DVR.m3u8` on the video server:
+  two-second pieces `media_<x>_<sequence>.ts`, 7,199 of them (3:59:58), every
+  playlist stamped with `EXT-X-PROGRAM-DATE-TIME`.
+- Who is served: the player data answers a chrome or safari fingerprint and
+  refuses firefox and a plain client; the video server answers a plain client and
+  closes the connection on a browser fingerprint. yt-dlp wears one of the two for
+  everything, which is where "hung up on chrome … refused firefox … refused safari
+  … the page went blank" came from, on 36 runs of 36.
+
+What the engine does (`rumble_read`, before any probe): embed id from the link or
+oEmbed (the page itself as a second way), the player data as chrome then safari
+(the interpreter the page reader uses), and a dump in yt-dlp's own shape written
+to the scratch: one format per `ua.tar` entry (`hls-<label>`, the archive's
+playlist, exact `filesize`, `slipmat_row` = the site's label) or, on air, one per
+rendition of the master (`live-<height>`). Then:
+
+- every yt-dlp call for that run reads the dump (`--load-info-json`), with no
+  fingerprint and no referer: `run_download`, the live capture (`LIVE_SRC`), the
+  picker's `r` (the reader again);
+- the menu lists one row per `slipmat_row`; rows that share a height say their
+  bitrate; BEST and a numeric size take the higher-bitrate copy at their height;
+- `RUMBLE_STRICT`: `--abort-on-unavailable-fragments`. A stop is run once more
+  (logged, not said), a second stop switches to every piece that will come and
+  says so; after that the usual chain runs, and its playlist swap goes to
+  rumble.com's own playlist and re-reads the address from there;
+- `rumble_count` sums the `r_range` lengths of the downloaded playlist; the landed
+  file must be that many bytes: `got 56:25 of 56:24 — complete · all 339 pieces,
+  to the byte`, or a `note` saying how far short;
+- nothing from the reader (no fingerprint library, the data refused, a stream not
+  started, odd data) = the page is read as before, routes and ladder included.
+  `SLIPMAT_RUMBLE=0` forces that.
+
+Smoke 3q (the reader on saved data: rows, sizes, ids, a live master, the links
+that are not videos) and 5d (a local server that answers `r_file` / `r_range`
+like the video server: a whole rip counted to the byte, and an archive that
+refuses one piece). Live proofs, throwaway HOME: an upload at the 720 row (0:11
+in all, 28.7 MB/s, 82 pieces to the byte) · BEST on it (1080, 389M) · a replay's
+lighter 360 copy (row 6 of 6, 83M, 338 pieces) · the 720 door with a step down
+to 480 after 4 s (339 pieces, note on the receipt) · x x on BEST (nothing kept) ·
+the 24/7 stream, `1` under the count (5:36 at 1920x1080) and the 360 row from
+now (0:22 at 640x360). The same upload with the reader's interpreter lacking the
+fingerprint library took the old path: five refusals, landed.
+
+Found and not built: the archive itself is one file whose size the player data
+states, served to a client that does not name a browser. Taking it whole would be
+one request instead of one per piece. Left alone: the playlist door lands the same
+bytes and is the one the site's own player uses.
+

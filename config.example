@@ -47,6 +47,11 @@
 # The full path stays the fallback. Kept in ~/.slipmat/routes; 0 turns it off.
 #SLIPMAT_ROUTES=1
 
+# Rumble links are read from the data the site's own player loads (every size with
+# its exact byte count) and the files come from its video server with a plain
+# client. 0 reads a Rumble page through yt-dlp's extractor, as before 4.37.
+#SLIPMAT_RUMBLE=1
+
 # A live recording whose window was closed before its stop is left as a raw file
 # in the "_in progress" folder. The next run seals it into a playable mp4 beside
 # your finished files before it starts its own work. 0 leaves such files alone.

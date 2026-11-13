@@ -184,6 +184,12 @@ browser cookies, quality, naming style, your own embed-page hosts.
   file itself instead of trusting the site's metadata.
 - A stutter detector that checks real frame timestamps (container metadata
   often reports a broken stream as fine).
+- Rumble is read the way its own player reads it. One request for the player's
+  data gives every size the site holds with its exact byte count (a stream
+  replay keeps two copies at 1080; both are rows), and the files come from the
+  video server with a plain client. Every piece is required, and the file that
+  lands is counted against the site's playlist to the byte. A live stream is
+  recorded and rewound from the same data.
 - It remembers the way in. A site that refuses the first read and opens to a
   browser fingerprint, a player link that needs its embed page, a download
   that only lands from the playlist itself: once that has worked twice running
