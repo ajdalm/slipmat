@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.34"          # 11.12.26 — the Newsmax command reads its whole line before anything is fetched: a word it does not know (a typo, another tool's flag, --help once) is an error with nothing started, never a pick; words in any order, `help`, `again` (rip one already in the folder), wrong answers asked again and x to leave at its questions; a window that did not open, a show that did not answer and a rip that did not finish are said and exit 1; two runs a moment apart never open two windows on one show; a reservation whose engine is gone is cleared and said; 1080 reads as high; the watch reads the site on the clock only; 4.33: a live playlist whose pieces are listed under addresses with no media file ending (a station's linear channel: each piece is a tracking address that redirects to the .ts) is recorded: ffmpeg 7.1.1 and later refuse such a playlist before a byte lands, the engine reads that refusal in the capture's own log and runs the capture once more with that single check off, said in one line; a capture that already has a file, and every other capture, keeps the check; 4.32: a livestream on any site whose live playlist keeps its history (Rumble lists every piece since the start) can be recorded from the start or from N minutes back: the same where-to-start question as on YouTube, saying how far back the stream reaches; the capture begins at that piece, downloads up to live and keeps recording, and the line under REC says how far behind live it is; a stream with no history says so and is recorded from now; 4.31: a cbs.com video page whose extractor answers empty is read by the engine itself: the page's own player data gives the manifest, the title, the id, the air date and the length, and only a page that says its video is unprotected is taken; 4.30: a browser fingerprint the site's video server closes the connection on, before anything is downloaded, moves to the next fingerprint on the same rung (Rumble: the page read as chrome, its video server served only safari and a plain fetch); a ladder that ends there says so instead of calling it CDN weather; 4.29: a second copy of a Newsmax show at another size is named by that size, "(720)", on every Newsmax name path (the show-door name, the naming window's answers at the finish line, and its late rename), as the smart and template names already were; ffmpeg 9.0.2 noted as the reference version; 4.28: the Newsmax door asks which day first (today · yesterday · both · custom: today and N days before, every episode numbered and picked by hand), reads each show's list once, says per show what is posted and what is in the folder, and asks again when a day has nothing left to rip; 4.27: the Newsmax door reads each show's own days and usual posting time from its episode list: the morning after, the newest episode is the current one (ripped, nothing watched); a show is watched only when its episode today is due inside the watch; 4.26: the Newsmax watch rips a late show whose newest episode is not in the folder now and still watches for today's, polls in whole seconds only, takes only an hour count after --wait, treats a zero wait of any spelling as none, and names what an early x left unwatched; 4.25: the Newsmax door watches for the shows not posted yet (today's date on the newest episode), reading the site every 10 min for up to NMX_WAIT_H hours and ripping each as it drops, and leaves a show that is ripping in another window alone; 4.24: a YouTube link that names one video and its playlist is cut to that video before the probe (the whole-playlist dump ripped the first video of the list at 360p over a throttled bare file); a playlist dump of YouTube entries hands back the entry as its page, never a bare file, and a watch link id picks its own entry. 4.23: the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.35"          # 11.12.26 — a page copied from the address bar that holds no stream address is followed to its stream: the page reader walks what the page loads (its frames, its player scripts, the player addresses those scripts spell from their own constants, and one step along the page's same-site watch or live links) until a playlist answers, inside 12 fetches and 25 seconds, and never takes one that names a DRM key system; a bare playlist found in a page or by following it is named by the page's title with no bracket, where its file name ("master", "playlist") used to be the name; 4.34: the Newsmax command reads its whole line before anything is fetched: a word it does not know (a typo, another tool's flag, --help once) is an error with nothing started, never a pick; words in any order, `help`, `again` (rip one already in the folder), wrong answers asked again and x to leave at its questions; a window that did not open, a show that did not answer and a rip that did not finish are said and exit 1; two runs a moment apart never open two windows on one show; a reservation whose engine is gone is cleared and said; 1080 reads as high; the watch reads the site on the clock only; 4.33: a live playlist whose pieces are listed under addresses with no media file ending (a station's linear channel: each piece is a tracking address that redirects to the .ts) is recorded: ffmpeg 7.1.1 and later refuse such a playlist before a byte lands, the engine reads that refusal in the capture's own log and runs the capture once more with that single check off, said in one line; a capture that already has a file, and every other capture, keeps the check; 4.32: a livestream on any site whose live playlist keeps its history (Rumble lists every piece since the start) can be recorded from the start or from N minutes back: the same where-to-start question as on YouTube, saying how far back the stream reaches; the capture begins at that piece, downloads up to live and keeps recording, and the line under REC says how far behind live it is; a stream with no history says so and is recorded from now; 4.31: a cbs.com video page whose extractor answers empty is read by the engine itself: the page's own player data gives the manifest, the title, the id, the air date and the length, and only a page that says its video is unprotected is taken; 4.30: a browser fingerprint the site's video server closes the connection on, before anything is downloaded, moves to the next fingerprint on the same rung (Rumble: the page read as chrome, its video server served only safari and a plain fetch); a ladder that ends there says so instead of calling it CDN weather; 4.29: a second copy of a Newsmax show at another size is named by that size, "(720)", on every Newsmax name path (the show-door name, the naming window's answers at the finish line, and its late rename), as the smart and template names already were; ffmpeg 9.0.2 noted as the reference version; 4.28: the Newsmax door asks which day first (today · yesterday · both · custom: today and N days before, every episode numbered and picked by hand), reads each show's list once, says per show what is posted and what is in the folder, and asks again when a day has nothing left to rip; 4.27: the Newsmax door reads each show's own days and usual posting time from its episode list: the morning after, the newest episode is the current one (ripped, nothing watched); a show is watched only when its episode today is due inside the watch; 4.26: the Newsmax watch rips a late show whose newest episode is not in the folder now and still watches for today's, polls in whole seconds only, takes only an hour count after --wait, treats a zero wait of any spelling as none, and names what an early x left unwatched; 4.25: the Newsmax door watches for the shows not posted yet (today's date on the newest episode), reading the site every 10 min for up to NMX_WAIT_H hours and ripping each as it drops, and leaves a show that is ripping in another window alone; 4.24: a YouTube link that names one video and its playlist is cut to that video before the probe (the whole-playlist dump ripped the first video of the list at 360p over a throttled bare file); a playlist dump of YouTube entries hands back the entry as its page, never a bare file, and a watch link id picks its own entry. 4.23: the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -2863,7 +2863,133 @@ m = re.search(r'<iframe[^>]+src=["\x27](https?://(?:www\.)?(?:youtube(?:-nocooki
 if m: out("embedded player", m.group(1))
 # 5) a raw manifest in the page
 m = re.search(r'https?://[^"\x27\s\\]+\.m3u8[^"\x27\s\\]*', html)
-if m: out("manifest in page", m.group(0))
+def _title_of(t, u=""):   # the page's own title: the longer of og:title and <title>; a title under 12 characters (a station's "Watch") gets the site's name beside it
+    import html as _h
+    c = [k.group(1) for k in (re.search(r'<meta[^>]+property=["\x27]og:title["\x27][^>]+content=["\x27]([^"\x27]{3,200})', t, re.I), re.search(r'<title[^>]*>([^<]{3,200})', t, re.I)) if k]
+    c = [re.sub(r'\s+', ' ', _h.unescape(x)).strip()[:150] for x in c]
+    ttl = max(c, key=len) if c else ""
+    if ttl and len(ttl) < 12 and u:
+        import urllib.parse as _u5
+        ttl = ttl + " - " + _u5.urlsplit(u).netloc.lower().replace("www.", "", 1)
+    return ttl
+if m and m.group(0) != url:   # field 3: the page's own title — the caller uses it only when the playlist turns out to be a bare one (its name would be "master")
+    print("manifest in page\037" + m.group(0) + "\037" + _title_of(html, url) + "\037\037\037\037"); sys.exit(0)
+# 6) nothing in the page as written: follow the page's player (11.12.26, a radio
+#    show's site). The page a person copies from the address bar often holds no
+#    stream address at all: it loads a player script, the script builds another
+#    player's address from its own constants, and only that answer names the
+#    playlist (there: page -> /watch-the-show -> embed-player.js -> a Zype embed
+#    -> the channel's master playlist). A browser's sniffer sees the end of that
+#    chain; this walks it. From each text it reads: a playlist address (plain or
+#    JSON-escaped), the frames and player scripts it loads, and the player
+#    addresses its strings spell once ${NAME} is filled in from the script's own
+#    const NAME = '...'. Bounded: 12 fetches, 25 seconds, three steps deep; a
+#    playlist is taken only when it answers #EXTM3U and names no DRM key system.
+#    When the page's own player leads nowhere, its same-site "watch" / "live"
+#    links get one step (a home page whose player sits on its watch page).
+#    cbs.com is left out: a page 1c did not take is a protected one.
+if _re.search(r'//(?:www\.)?cbs\.com/', url): sys.exit(0)
+import time as _time6, html as _html6, urllib.parse as _up
+_T0 = _time6.time(); _n = [0]; _seen = set([url])
+_map = None   # the smoke battery's offline door: {address: saved file}; an address it does not hold cannot be read
+try:
+    if os.environ.get("SLIPMAT_HUNT_MAP"): _map = json.load(open(os.environ["SLIPMAT_HUNT_MAP"], encoding="utf-8"))
+except Exception:
+    _map = {}
+if _page and _map is None: _map = {}
+def fetch(u, ref):
+    if u in _seen or _n[0] >= 12 or _time6.time() - _T0 > 25: return None
+    _seen.add(u); _n[0] += 1
+    if _map is not None:
+        try: return open(_map[u], encoding="utf-8", errors="replace").read()[:2000000]
+        except Exception: return None
+    try:
+        rr = requests.get(u, impersonate="chrome", timeout=10, headers={"Referer": ref})
+        return rr.text[:2000000] if rr.status_code == 200 else None
+    except Exception:
+        pass
+    try:   # a server that hangs up on the fingerprint may still answer a plain fetch
+        import urllib.request
+        rq = urllib.request.Request(u, headers={"Referer": ref, "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"})
+        return urllib.request.urlopen(rq, timeout=10).read(2000000).decode("utf-8", "replace")
+    except Exception:
+        return None
+def plain(t):   # JSON-escaped and HTML-escaped addresses read as written; ${NAME} filled in from the text's own string constants
+    t = t.replace("\\/", "/").replace("\\u002F", "/").replace("\\u002f", "/").replace("\\u0026", "&").replace("&amp;", "&")
+    consts = dict(re.findall(r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*["\x27]([^"\x27\n]{1,300})["\x27]', t))
+    if consts: t = re.sub(r'\$\{([A-Za-z_$][\w$]*)\}', lambda k: consts.get(k.group(1), k.group(0)), t)
+    return t
+def page_title(t, u=""): return _title_of(t, u)
+_NOISE = re.compile(r'googletagmanager|google-analytics|googlesyndication|doubleclick|gstatic\.|adsrvr|osano|facebook\.(?:net|com/(?:tr|plugins/like))|fbcdn|platform\.twitter|linkedin|pinterest|amazon-adsystem|scorecardresearch|chartbeat|quantserve|taboola|outbrain|onetrust|cookielaw|recaptcha|hotjar|newrelic|nr-data|sentry|optimizely|pushly|p-n\.io|liadm|simpli\.fi|jquery|bootstrap|fontawesome|typekit|fonts\.g|wp-includes|polyfill|cloudflareinsights|disqus|gravatar|addthis|sharethis|mailchimp|hubspot|intercom|zendesk|piano\.io|tinypass|permutive|krxd|moatads|adnxs|rubiconproject|pubmatic|criteo|prebid|securepubads|/gpt\.js|lazyload|consent|cookie|analytics|tracking|pixel', re.I)
+_PLAYERISH = re.compile(r'player|embed|video|live|stream|zype|jwp|jwplatform|brightcove|bitmovin|theoplayer|uplynk|anvato|field59|syncbak|amagi|dacast|wurl|vidgo|hls', re.I)
+def manifests(t):
+    got = []
+    for k in re.finditer(r'https?://[^"\x27\s\\<>`{}$()]+\.m3u8[^"\x27\s\\<>`{}$()]*', t):
+        u = k.group(0).rstrip(".,;")
+        if u not in got: got.append(u)
+    return got[:4]
+def playable(u, ref):   # the playlist answers as a playlist and names no DRM key system
+    t = fetch(u, ref)
+    if not t or not t.lstrip().startswith("#EXTM3U"): return False
+    return not re.search(r'streamingkeydelivery|skd://|widevine|playready', t, re.I)
+def leads(t, base, is_html):   # what this text loads that may hold the player: frames, player scripts, player addresses spelled in its strings
+    got = []
+    def add(u):
+        u = _up.urljoin(base, _html6.unescape(u.strip()))
+        if u.startswith("http") and "${" not in u and u not in got and u not in _seen and not _NOISE.search(u): got.append(u)
+    if is_html:
+        for k in re.finditer(r'<iframe[^>]+src=["\x27]([^"\x27]+)', t, re.I): add(k.group(1))
+        for k in re.finditer(r'<script[^>]+src=["\x27]([^"\x27]+)', t, re.I):
+            if _PLAYERISH.search(k.group(1)): add(k.group(1))
+    for k in re.finditer(r'["\x27`](https?://[^"\x27`\s<>\\]{8,400})["\x27`]', t):
+        u = k.group(1)
+        if re.search(r'(?:embed|player|playlist|manifest|config|stream|live)[^?#]*\.(?:js|json)(?:[?#]|$)', u, re.I) \
+           or re.search(r'//(?:player\.zype\.com|cdn\.jwplayer\.com|content\.jwplatform\.com|players\.brightcove\.net)/', u, re.I): add(u)
+    return got[:6]
+def standard(t):   # the signals of steps 2-4, for a page reached by following
+    for pat in [r'<meta[^>]+property=["\x27]og:video(?::secure_url|:url)?["\x27][^>]+content=["\x27]([^"\x27]+)',
+                r'<meta[^>]+content=["\x27]([^"\x27]+)["\x27][^>]+property=["\x27]og:video(?::secure_url|:url)?["\x27]']:
+        k = re.search(pat, t, re.I)
+        if k and k.group(1).startswith("http"): return _html6.unescape(k.group(1))
+    k = re.search(r'<iframe[^>]+src=["\x27](https?://(?:www\.)?(?:youtube(?:-nocookie)?\.com/embed/|player\.vimeo\.com/video/|(?:www\.)?dailymotion\.com/embed/|rumble\.com/embed/|www\.facebook\.com/plugins/video)[^"\x27]+)', t, re.I)
+    return _html6.unescape(k.group(1)) if k else ""
+def walk(text, base, title, via):   # breadth first from one page; prints the hit and exits, returns on a miss
+    def hit(what, u, ttl):
+        print(what + via + "\037" + u + "\037" + ttl + "\037\037\037\037"); sys.exit(0)
+    t0 = plain(text)
+    for u in manifests(t0):
+        if playable(u, base): hit("the stream its player loads", u, title)
+    queue = [(u, base, 1) for u in leads(t0, base, True)]
+    while queue:
+        u, ref, depth = queue.pop(0)
+        t = fetch(u, ref)
+        if not t: continue
+        is_html = bool(re.search(r'<html|<!doctype html|<body', t[:3000], re.I))
+        ttl = (page_title(t, u) if is_html else "") or title
+        if is_html:
+            e = standard(t)
+            if e and e != url: hit("the player in its frame", e, ttl)
+        t = plain(t)
+        for mu in manifests(t):
+            if playable(mu, u): hit("the stream its player loads", mu, ttl)
+        if depth < 3: queue.extend((x, u, depth + 1) for x in leads(t, u, is_html))
+walk(html, url, page_title(html, url), "")
+# the page's own player led nowhere: one step along its same-site watch / live links
+_host = _up.urlsplit(url).netloc.lower().replace("www.", "", 1)
+_links = []
+for k in re.finditer(r'<a\b[^>]*href=["\x27]([^"\x27#]+)["\x27][^>]*>(.{0,200}?)</a>', html, re.I | re.S):
+    hu = _up.urljoin(url, _html6.unescape(k.group(1).strip())); words = re.sub(r'<[^>]+>', ' ', k.group(2)) + " " + _up.urlsplit(hu).path
+    if _up.urlsplit(hu).netloc.lower().replace("www.", "", 1) != _host or hu in _links or hu.split("#")[0].rstrip("/") == url.split("?")[0].split("#")[0].rstrip("/"): continue
+    if re.search(r'listen|radio|podcast|audio', words, re.I): continue
+    if re.search(r'\bwatch\b|\blive[ -]?stream|\blivestream|\bwatch[ -]?live|/live(?:/|$)|/watch', words, re.I): _links.append(hu)
+for hu in _links[:3]:
+    t = fetch(hu, url)
+    if not t: continue
+    _via = ", found on " + (_up.urlsplit(hu).path or "/")
+    e = standard(t)
+    if e and e != url:
+        print("the player in its frame" + _via + "\037" + e + "\037" + page_title(t, hu) + "\037\037\037\037"); sys.exit(0)
+    walk(t, hu, page_title(t, hu), _via)
 sys.exit(0)
 PYEMB
 }
@@ -3017,6 +3143,15 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
         URL="$_embu"
         "$YTDLP" $COOKIES $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
         if ! info_json_ok "$INFO"; then imp_probe quiet; fi
+        # 11.12.26: a playlist found in the page or by following its player. Read as a
+        # bare playlist (no dedicated extractor) its title and id are its file name
+        # ("master", "playlist", a hex channel id): the page's title names the file and
+        # the bracket is left out. A dedicated extractor's own title and id stand.
+        case "$_embl" in "manifest in page"|"the stream its player loads"*)
+          _gx=""; info_json_ok "$INFO" && [ -n "$PYTHON" ] && _gx=$("$PYTHON" -c 'import sys,json
+d=json.load(sys.stdin); print(str(d.get("extractor_key") or d.get("extractor") or "").lower())' < "$INFO" 2>/dev/null)
+          case "$_gx" in ''|generic) [ -n "$RESCUE_TITLE" ] && RESCUE_NOID=1 ;; *) RESCUE_TITLE="" ;; esac ;;
+        esac
       fi
     fi
   fi
@@ -3092,6 +3227,7 @@ EOF
   # wins whenever the hunter had it.
   [ -n "${RESCUE_TITLE:-}" ] && M_TITLE="$RESCUE_TITLE"
   [ -n "${RESCUE_ID:-}" ] && M_ID="$RESCUE_ID"
+  [ "${RESCUE_NOID:-0}" = "1" ] && [ -z "${RESCUE_ID:-}" ] && M_ID=""
   # a bare manifest's dump carries no length — the page's own (whole seconds) gives the receipt its "got … of …" line
   case "${RESCUE_DUR:-}" in ''|*[!0-9]*) : ;; *) [ -z "$M_DUR" ] && M_DUR="$RESCUE_DUR" ;; esac
   [ -n "${RESCUE_DATE:-}" ] && [ -z "$M_UPDATE" ] && M_UPDATE="$RESCUE_DATE"   # V4.5f: a bare CDN mp4 has no date — the page's taken_at does

@@ -566,6 +566,32 @@ if [ "$_c1" = "CBS clip|https://clips.example.com/2026/10/22/x/stream.mpd|A clip
   pass "a cbs.com video page is read from its own player data: manifest, title, id, air date and length; a protected page and another site's page are left alone; the page's date and length reach the name and the receipt"
 else fail "cbs.com page reader: free='$_c1' · protected='$_c2' · other site='$_c3'"; fi
 
+# ---- 3j2. a page that holds no stream address is followed to its stream (11.12.26, a radio show's site): the
+# page reader walks what the page loads — a same-site watch link, the player script on that page, the player
+# address that script spells from its own constants, the answer that names the playlist — and takes the
+# playlist only when it answers as one and names no DRM key system. A link to the audio stream is never
+# followed, a broken chain gives nothing, and a bare playlist is named by the page's title.
+mkdir -p "$S/follow"
+printf '<html><head><title>A Show</title></head><body><a href="/listenlive">Listen Live</a> <a class="b" href="https://www.example.org/watch-the-show">Watch the <b>Show</b></a></body></html>\n' > "$S/follow/home.html"
+printf '<html><head><title>Watch the Show - A Show</title></head><body><div id="snc-player"></div><script src="https://cdn.example.net/js/gtag-analytics.js"></script><script src="https://player.example.net/js/embed-player.js"></script></body></html>\n' > "$S/follow/watch.html"
+printf "(function () {\n  const LIVE_ID = 'abc123'\n  const KEY = 'k9'\n  let src = \`https://player.zype.com/embed/\${LIVE_ID}.js?api_key=\${KEY}&controls=true\`\n  const other = \`https://api.example.net/v1/shows?host=\${host}\`\n})()\n" > "$S/follow/embed-player.js"
+printf 'var cfg = {"title":"Live TV","sources":[{"file":"https:\\/\\/cdn.example.net\\/linear\\/chan\\/playlist.m3u8?"}]};\n' > "$S/follow/zype.js"
+printf '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=1020588,RESOLUTION=640x360\nhttps://cdn.example.net/linear/chan/360/index.m3u8\n' > "$S/follow/open.m3u8"
+printf '#EXTM3U\n#EXT-X-SESSION-KEY:METHOD=SAMPLE-AES,URI="skd://k",KEYFORMAT="com.apple.streamingkeydelivery"\n#EXT-X-STREAM-INF:BANDWIDTH=1020588\nhttps://cdn.example.net/linear/chan/360/index.m3u8\n' > "$S/follow/drm.m3u8"
+printf '<html><head><title>Watch</title><meta property="og:title" content="Watch"></head><body><script>var s={"hls":"https://cdn.example.net/live/master.m3u8"}</script></body></html>\n' > "$S/follow/raw.html"
+_fmap() { printf '{"https://www.example.org/watch-the-show":"%s/follow/watch.html","https://player.example.net/js/embed-player.js":"%s/follow/embed-player.js"%s,"https://cdn.example.net/linear/chan/playlist.m3u8?":"%s/follow/%s.m3u8"}' "$S" "$S" "$2" "$S" "$1" > "$S/follow/map-$1$3.json"; }
+_fz=",\"https://player.zype.com/embed/abc123.js?api_key=k9&controls=true\":\"$S/follow/zype.js\""
+_fmap open "$_fz" ""; _fmap drm "$_fz" ""; _fmap open "" "-broken"
+_fh() { SLIPMAT_HUNT_MAP="$S/follow/map-$1.json" SLIPMAT_HUNT_PAGE="$S/follow/$2" ZPYTHON="$(command -v python3)" bash -c "$_eh; embed_hunt '$3'" 2>/dev/null | tr '\037' '|'; }
+_f1=$(_fh open home.html 'https://www.example.org/?utm_source=x'); _f2=$(_fh open watch.html 'https://www.example.org/watch-the-show')
+_f3=$(_fh drm home.html 'https://www.example.org/'); _f4=$(_fh open-broken home.html 'https://www.example.org/'); _f5=$(_fh open raw.html 'https://www.example.org/watch')
+if [ "$_f1" = "the stream its player loads, found on /watch-the-show|https://cdn.example.net/linear/chan/playlist.m3u8?|Watch the Show - A Show||||" ] \
+   && [ "$_f2" = "the stream its player loads|https://cdn.example.net/linear/chan/playlist.m3u8?|Watch the Show - A Show||||" ] \
+   && [ -z "$_f3" ] && [ -z "$_f4" ] && [ "$_f5" = "manifest in page|https://cdn.example.net/live/master.m3u8|Watch - example.org||||" ] \
+   && grep -q '"manifest in page"|"the stream its player loads"\*)' "$ENGINE" && grep -q 'RESCUE_NOID:-0}" = "1" \] && \[ -z "\${RESCUE_ID:-}" \] && M_ID=""' "$ENGINE"; then
+  pass "a page with no stream address is followed to its stream: home page → its watch link → the player script → the player address spelled from the script's constants → the playlist; a DRM playlist and a broken chain give nothing; a bare playlist takes the page's title (a one-word title gets the site beside it) and no bracket"
+else fail "follow the player: home='$_f1' · watch page='$_f2' · DRM='$_f3' · broken chain='$_f4' · raw playlist='$_f5'"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:

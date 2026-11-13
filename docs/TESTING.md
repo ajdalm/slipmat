@@ -746,6 +746,55 @@ on a free clip. `slipmat smoke` 3j runs the page reader offline on a saved page
 (`SLIPMAT_HUNT_PAGE=<file>` stands in for the fetch): a free page gives the five
 values, a protected page and another site's address give nothing.
 
+## A page with no stream address (11.12.26, 4.35): the reader follows its player
+
+A show's home page copied from the address bar: no extractor, the browser ladder
+refused, and nothing in the page to find, because the page only loads a player
+script. The chain there: page → its `Watch the Show` link → a script
+(`embed-player.js`) → a player address that script spells from two constants in a
+template string (`https://player.zype.com/embed/${LIVE_VIDEO_ID}.js?api_key=${LIVE_API_KEY}`)
+→ that answer names the channel's master playlist. Step 6 of the page reader
+(`embed_hunt`) walks it:
+
+- from each text it reads: a playlist address (plain or JSON-escaped), the
+  frames and player-named scripts it loads, and the player addresses in its
+  strings once `${NAME}` is filled in from the text's own `const NAME = '…'`;
+- breadth first, three steps deep, 12 fetches, 25 seconds; ad, consent and
+  analytics hosts are never fetched;
+- a playlist is taken only when it answers `#EXTM3U` and names no DRM key system;
+- when the page's own player leads nowhere, up to three same-site links that say
+  watch or live get one step (never one that says listen, radio, podcast or audio);
+- cbs.com is left out (a page its own reader did not take is a protected one).
+
+The screen: `✓ the page embeds a video (the stream its player loads) — ripping that`
+(with `, found on /watch-the-show` when a link was followed). A bare playlist
+found this way, or by the older `manifest in page` step, is named by the page's
+title with no bracket (`master [master]` and a hex channel id were the names
+before); a title under 12 characters gets the site beside it (`Watch - wjla.com`).
+A playlist a dedicated extractor reads keeps that extractor's title and id.
+
+Proofs (11.12.26, ptydrive, fake HOME with `SLIPMAT_PYTHON` set to the python
+that has curl_cffi, `360 auto`, x x):
+
+```
+# the copied home page, tracking words and all: the stream its player loads,
+# the piece-address retry of 4.33, 0:41 in the file, named by the page's title
+HOME=$H PTY_COLS=104 python3 tools/ptydrive.py /tmp/f1.raw 120 -- '<show home page>' 360 auto -- KEY@45:x KEY@2:x
+# station live pages: two recorded live by way of "manifest in page"
+# (0:46 and 0:51), one page's newest newscast downloaded as a replay
+```
+
+The reader alone on twelve station and channel live pages: eight gave a playlist
+in the page as written, one more by following its player. Three gave nothing: two owner
+groups whose players sign each request with a key, and one site that refuses the
+page itself. Each of those needs a reader of its own. One site's page is read by
+yt-dlp's generic extractor before the reader gets a turn and gives a one-minute
+promo clip instead of the live stream.
+
+`slipmat smoke` 3j2 runs the chain offline (`SLIPMAT_HUNT_MAP=<json of address →
+saved file>` stands in for every fetch): home page, watch page, a DRM playlist,
+a broken chain, and the title of a raw playlist.
+
 ## The keys (10.6.26): one key language — x stops, ↓ steps down, Ctrl-C is the exit
 
 Every key a user may press is printed before it can be pressed (a rail block

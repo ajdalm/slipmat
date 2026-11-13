@@ -213,6 +213,11 @@ browser cookies, quality, naming style, your own embed-page hosts.
 - Embed rescue: when a page's video can't be reached the normal way,
   slipmat reads the page itself and finds the embedded video (og:video,
   JSON-LD, iframes, raw manifests, and several site-specific handlers).
+  A page that holds no stream address at all, the kind where a browser's
+  sniffer is the usual answer, is followed: the frames and player scripts it
+  loads, the player addresses those scripts build, and one step along its own
+  watch or live links, until a playlist answers. Copy the address bar; a
+  station's or a show's live page records as is.
 - Auto-crop: finds the actual video inside a screen recording — the
   picture-in-picture box — and crops to exactly that, one file or a whole
   folder unattended.
