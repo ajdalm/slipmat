@@ -376,26 +376,67 @@ done
 if [ -z "$_lmiss" ] && osacompile -o "$S/launch.scpt" "$REPO/shortcuts/launch.applescript" 2>/dev/null; then pass "launcher compiles and handles every builder mode"
 else fail "launcher drift: modes not handled or script does not compile:$_lmiss"; fi
 
-# ---- 3e. the day's Newsmax shows (11.2.26): the answers line, each answer's engine words and a master
-# playlist's ladder read right, and the wrapper knows the verb. One answer = every show; commas or spaces;
-# a short line = best for the rest; `high` = native 1080 at NMX_HIGH_Q, `h55` at that dial, `quick` = 480 direct.
+# ---- 3e. the day's Newsmax shows (11.2.26; the words on the line 11.12.26): the answers line, each answer's
+# engine words, and the wrapper knows the verb. One answer = every show; commas or spaces; a short line =
+# the usual for the rest; more answers than rows is refused; `high` = native 1080 at NMX_HIGH_Q, `h55` at
+# that dial, `quick` = 480 direct, 1080 = high (a plain 1080 rip of this source lands at 720). The line is
+# read whole before anything else: words in any order, and a word that is no day, no switch and no answer
+# is an error, never a pick.
 _nt="$REPO/tools/newsmax-today.sh"
-_p1=$(bash "$_nt" --parse-picks "b h q q" 4); _p2=$(bash "$_nt" --parse-picks "h" 4); _p3=$(bash "$_nt" --parse-picks "1,2,4,3" 4); _p4=$(bash "$_nt" --parse-picks "h55 480" 4); _p5=$(bash "$_nt" --parse-picks "" 2)
-_c1=$(NMX_HIGH_Q=50 bash "$_nt" --answer-cmd high "1080 720 480 360"); _c2=$(bash "$_nt" --answer-cmd high@55 ""); _c3=$(bash "$_nt" --answer-cmd quick ""); _c4=$(bash "$_nt" --answer-cmd row2 "1080 720 480 360"); _c5=$(bash "$_nt" --answer-cmd row1 "1080 720 480 360"); _c6=$(bash "$_nt" --answer-cmd row9 "1080 720 480 360")
-_ld=$(printf '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\na.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360\nb.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720\nc.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480\nd.m3u8\n' | bash "$_nt" --parse-ladder | tr '\n' ' ')
-if [ "$_p1" = "best high quick quick " ] && [ "$_p2" = "high high high high " ] && [ "$_p3" = "row1 row2 row4 row3 " ] && [ "$_p4" = "high@55 480 best best " ] && [ "$_p5" = "best best " ] \
-   && [ "$_c1" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=50 best" ] && [ "$_c2" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=55 best" ] && [ "$_c3" = "480 auto" ] && [ "$_c4" = "720 auto" ] && [ "$_c5" = "best" ] && [ "$_c6" = "360 auto" ] \
-   && [ "$_ld" = "1080 720 480 360 " ] && grep -q '^  newsmax)' "$REPO/slipmat" && grep -q 'SLIPMAT_KEEP_NATIVE' "$ENGINE" \
-   && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'h b b b --wait 2' | tr '\t' '|')" = "2|h b b b" ] && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'b now' | tr '\t' '|')" = "0|b" ] \
-   && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'h b' | tr '\t' '|')" = "3|h b" ] && [ "$(NMX_WAIT_H=3 "$_nt" --parse-wait 'b --wait 1080,480' | tr '\t' '|')" = "3|b 1080,480" ] \
+_pl() { bash "$_nt" --parse-line "$1" | tr '\t' '|'; }
+_p1=$(bash "$_nt" --parse-picks "b h q q" 4); _p2=$(bash "$_nt" --parse-picks "h" 4); _p3=$(bash "$_nt" --parse-picks "h55,480" 4); _p4=$(bash "$_nt" --parse-picks "" 2); _p5=$(bash "$_nt" --parse-picks "1080 720" 2); _p6=$(bash "$_nt" --parse-picks "b h q" 2)
+_c1=$(NMX_HIGH_Q=50 bash "$_nt" --answer-cmd high); _c2=$(bash "$_nt" --answer-cmd high@55); _c3=$(bash "$_nt" --answer-cmd quick); _c4=$(bash "$_nt" --answer-cmd 720); _c5=$(bash "$_nt" --answer-cmd small)
+if [ "$_p1" = "best high quick quick " ] && [ "$_p2" = "high high high high " ] && [ "$_p3" = "high@55 480 u u " ] && [ "$_p4" = "u u " ] && [ "$_p5" = "high 720 " ] && [ "$_p6" = "!many 3" ] \
+   && [ "$_c1" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=50 best" ] && [ "$_c2" = "SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=55 best" ] && [ "$_c3" = "480 auto" ] && [ "$_c4" = "720 auto" ] && [ "$_c5" = "360 auto" ] \
+   && grep -q '^  newsmax)' "$REPO/slipmat" && grep -q 'SLIPMAT_KEEP_NATIVE' "$ENGINE" \
+   && [ "$(_pl 'yesterday h b')" = "ok|go|-|-|yesterday|-|0|h b" ] && [ "$(_pl 'b h q q')" = "ok|go|-|-|-|-|0|b h q q" ] \
+   && [ "$(_pl 'back 5 2h 3')" = "ok|go|-|-|back|5|0|2h 3" ] && [ "$(_pl 'c')" = "ok|go|-|-|back|7|0|" ] && [ "$(_pl 'both')" = "ok|go|-|-|both|-|0|" ] \
+   && [ "$(_pl 'h b TODAY --here --wait 2 again')" = "ok|go|here|2|today|-|1|h b" ] && [ "$(_pl 'b now')" = "ok|go|-|0|-|-|0|b" ] && [ "$(_pl 'list')" = "ok|list|-|-|-|-|0|" ] \
+   && [ "$(_pl '--help' | cut -d'|' -f1,2)" = "ok|help" ] && [ "$(_pl 'today -h' | cut -d'|' -f1,2)" = "ok|help" ] && [ "$(_pl 'help' | cut -d'|' -f1,2)" = "ok|help" ] \
+   && [ "$(_pl '--hlep' | cut -d'|' -f1)" = "err" ] && [ "$(_pl 'lsit' | cut -d'|' -f1)" = "err" ] && [ "$(_pl 'today 1 2' | cut -d'|' -f1)" = "err" ] && [ "$(_pl 'back 3 h' | cut -d'|' -f1)" = "err" ] \
+   && [ "$(_pl 'today yesterday' | cut -d'|' -f1)" = "err" ] && [ "$(_pl 'today --wait' | cut -d'|' -f1)" = "err" ] && [ "$(_pl 'b --wait 1080' | cut -d'|' -f1)" = "err" ] && [ "$(_pl 'today *' | cut -d'|' -f1)" = "err" ] \
    && grep -q 'mp4.claim' "$_nt" && grep -q 'due_rule' "$_nt" \
    && [ "$(bash "$_nt" --due 5 816 12345 1018 3)" = "0" ] && [ "$(bash "$_nt" --due 5 900 12345 1018 3)" = "1" ] && [ "$(bash "$_nt" --due 3 1140 12345 1198 3)" = "1" ] \
    && [ "$(bash "$_nt" --due 6 1140 12345 1018 3)" = "0" ] && [ "$(bash "$_nt" --due 5 1100 12345 1018 0)" = "0" ] && [ "$(bash "$_nt" --due 5 400 '' '' 3)" = "0" ] \
-   && [ "$(bash "$_nt" --parse-day 'yesterday h b' | tr '\t' '|')" = "yesterday||h b" ] && [ "$(bash "$_nt" --parse-day 'b h q q' | tr '\t' '|')" = "||b h q q" ] \
-   && [ "$(bash "$_nt" --parse-day 'back 5 2h 3' | tr '\t' '|')" = "back|5|2h 3" ] && [ "$(bash "$_nt" --parse-day 'c' | tr '\t' '|')" = "back|7|" ] && [ "$(bash "$_nt" --parse-day 'both' | tr '\t' '|')" = "both||" ] \
-   && [ "$(bash "$_nt" --custom-picks '2h 5 8-9q' 10)" = "- high - - u - - quick quick -" ] && [ "$(bash "$_nt" --custom-picks 'all h' 3)" = "high high high" ] && [ "$(bash "$_nt" --custom-picks '' 3)" = "- - -" ] && [ "$(bash "$_nt" --custom-picks '99 x 3' 4)" = "- - u -" ]; then
-  pass "slipmat newsmax: 'b h q q' → one answer per show, 'h' covers every show, rows and heights read, high = native 1080 at the dial, a master's ladder reads 1080 720 480 360; --wait 2 / now / the 3 h default parse, a running rip's reservation counts as taken, the watch keys on today's date; today's episode is due only on the show's own weekdays when its usual posting time fits inside the watch (3pm = the 5pm show watched; 1:36pm, a Saturday, --wait 0 = none); the day word leads the line (yesterday · both · back N · c = back 7; 'b h q q' is no day), custom picks read '2h 5 8-9q' / 'all h' / nothing"
-else fail "slipmat newsmax parsing: '$_p1' / '$_p2' / '$_p3' / '$_p4' / '$_p5' · cmds '$_c1' / '$_c2' / '$_c3' / '$_c4' / '$_c5' / '$_c6' · ladder '$_ld'"; fi
+   && [ "$(bash "$_nt" --custom-picks '2h 5 8-9q' 10)" = "- high - - u - - quick quick -" ] && [ "$(bash "$_nt" --custom-picks 'all h' 3)" = "high high high" ] && [ "$(bash "$_nt" --custom-picks '' 3)" = "- - -" ] \
+   && [ "$(bash "$_nt" --custom-picks '99 3' 4)" = "- - u -" ] && [ "$(bash "$_nt" --custom-picks '2:480' 3)" = "- 480 -" ]; then
+  pass "slipmat newsmax: 'b h q q' → one answer per show, 'h' covers every show, a short line leaves the rest at the usual, more answers than rows is refused, 1080 = high = native at the dial; the line is read whole (words in any order: day · --here · --wait 2 · now · again · list · help) and a word it does not know (--hlep, lsit, a row number without back N, two days, --wait without hours) is an error, never a pick; a running rip's reservation counts as taken; today's episode is due only on the show's own weekdays when its usual posting time fits inside the watch; custom picks read '2h 5 8-9q' / '2:480' / 'all h' / nothing"
+else fail "slipmat newsmax parsing: '$_p1' / '$_p2' / '$_p3' / '$_p4' / '$_p5' / '$_p6' · cmds '$_c1' / '$_c2' / '$_c3' / '$_c4' / '$_c5' · line '$(_pl 'h b TODAY --here --wait 2 again')' / '$(_pl '--hlep')'"; fi
+
+# ---- 3e2. the Newsmax command end to end, offline (11.12.26): a copy of the tool beside a stand-in engine that
+# only writes down how it was called, a throwaway HOME, and two shows' episode lists written here with today's
+# dates (NMX_LISTS_DIR is read in place of the site). The rule that broke in the field: `--help` was read as a
+# pick and started every show's rip. Asking for help, or a word the command does not know, must start nothing.
+_nx="$S/nmx"; _nh="$S/nmxhome"; _nlog="$S/nmx-calls.log"
+mkdir -p "$_nx/tools" "$_nx/engine" "$_nx/lists" "$_nh/.slipmat" "$_nh/out/_in progress"
+cp "$_nt" "$_nx/tools/newsmax-today.sh"
+printf '#!/bin/bash\nprintf "%%s|%%s|%%s\\n" "${SLIPMAT_KEEP_NATIVE:-}" "${SLIPMAT_Q:-}" "$*" >> "$NMX_TEST_LOG"\nexit 0\n' > "$_nx/engine/slipmat-video"; chmod +x "$_nx/engine/slipmat-video"
+printf 'OUTDIR="%s"\nNMX_SHOWS="SHOW ONE|SHOW TWO"\nNMX_DAILY="Show-One=best|Show-Two=quick"\nNMX_HIGH_Q=45\n' "$_nh/out" > "$_nh/.slipmat/config"
+python3 - "$_nx/lists" <<'NMXPY'
+import json,sys,datetime,time
+d=sys.argv[1]; today=datetime.date.today()
+def mk(name,label,first):
+    items=[]
+    for k in range(first, first+5):
+        day=today-datetime.timedelta(days=k)
+        t=datetime.datetime(day.year,day.month,day.day,17,0)
+        items.append({"id":"%s-%d"%(name.lower(),k),"label":"%s (%d/%02d/%02d)"%(label,day.month,day.day,day.year%100),"createdAt":int(time.mktime(t.timetuple())),"isHidden":False})
+    json.dump(json.dumps({"items":items}), open("%s/%s.json"%(d,name),"w"))
+mk("Show-One","Show One",0)   # posted today
+mk("Show-Two","Show Two",1)   # newest is yesterday's
+NMXPY
+_nrun() { HOME="$_nh" NMX_TEST_LOG="$_nlog" NMX_LISTS_DIR="$_nx/lists" NMX_WINDOWS=0 bash "$_nx/tools/newsmax-today.sh" "$@" </dev/null > "$S/nmx-out.txt" 2>&1; }
+: > "$_nlog"
+_nrun --help; _h1=$?; _h1n=$(wc -l < "$_nlog" | tr -d ' '); grep -q 'slipmat newsmax help' "$S/nmx-out.txt" && _h1u=1 || _h1u=0
+_nrun --hlep; _h2=$?; _nrun today 1 2; _h3=$?; _nrun today b h q; _h4=$?; _nrun back 2; _h5=$?; _h5n=$(wc -l < "$_nlog" | tr -d ' ')
+_nrun today now; _g1=$?; _g1l=$(cat "$_nlog")
+_nrun today now; _g2n=$(wc -l < "$_nlog" | tr -d ' '); grep -q 'started a moment ago\|ripping now' "$S/nmx-out.txt" && _g2w=1 || _g2w=0
+: > "$_nlog"; _nrun h yesterday; _g3l=$(tr '\n' ';' < "$_nlog")
+if [ "$_h1" = "0" ] && [ "$_h1n" = "0" ] && [ "$_h1u" = "1" ] && [ "$_h2" = "2" ] && [ "$_h3" = "2" ] && [ "$_h4" = "2" ] && [ "$_h5" = "0" ] && [ "$_h5n" = "0" ] \
+   && [ "$_g1" = "0" ] && [ "$_g1l" = "||https://www.newsmaxtv.com/Shows/Show-One/vid/show-one-0 best" ] && [ "$_g2n" = "1" ] && [ "$_g2w" = "1" ] \
+   && [ "$_g3l" = "1|45|https://www.newsmaxtv.com/Shows/Show-One/vid/show-one-1 best;1|45|https://www.newsmaxtv.com/Shows/Show-Two/vid/show-two-1 best;" ]; then
+  pass "slipmat newsmax end to end: --help prints the words and starts nothing; an unknown word, a row number without back N and more answers than rows end in exit 2 with nothing started; back N with nobody there lists and starts nothing; 'today' rips the one show posted today at its usual and a second run a moment later leaves it alone; 'h yesterday' rips both at native 1080 q45"
+else fail "slipmat newsmax end to end: help rc $_h1 calls $_h1n usage $_h1u · refusals $_h2 $_h3 $_h4 · back rc $_h5 calls $_h5n · today rc $_g1 '$_g1l' · second run calls $_g2n said $_g2w · yesterday '$_g3l'" "$S/nmx-out.txt"; fi
 
 # ---- 3f. the silent-file rule (11.2.26): a file without audio says WHICH kind of silent it is —
 # the source has no audio track, or the source lists one and none could be fetched.

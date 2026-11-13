@@ -543,7 +543,7 @@ Proven 11.6.26 20:50–21:05 against a fake engine and a fake output folder (one
 ripped, 2 there, Kelly never posted), `back 3 2h 5 8-9q now`, `today now` (Kelly
 "outside the watch, left for later"); through a pty: Enter·Enter, `c`·`1`·`1h 3`,
 `y`·Enter, and the all-in-the-folder re-ask (`Enter` → "today's episodes are all in
-the folder" → `y` → `q`). Smoke 3e: `--parse-day`, `--custom-picks`.
+the folder" → `y` → `q`). Smoke 3e: `--parse-line` (`--parse-day` until 4.34), `--custom-picks`.
 
 ## The Newsmax door knows each show's day (11.6.26)
 
@@ -560,6 +560,73 @@ Kelly 7:58pm (Pacific). A late show's line names its usual time. Proven 11.6.26
 13:37 `slipmat newsmax list`: all four read 11.5.26 as current, none watched.
 Smoke 3e: Friday 1:36pm = no watch, 3pm = the 5pm show watched, a Saturday = none,
 `--wait 0` = none, an unknown rhythm = every day at noon.
+
+## The Newsmax command reads its whole line first (11.12.26, 4.34)
+
+What broke: `slipmat newsmax --help`, run with nobody at the keyboard, opened a rip
+window for every show. No word on the line was ever refused — anything that was not a
+day word fell through to the answers, and an answer the command did not know read as
+`best`. A typo (`lsit`, `yesterdy`), a flag from another tool, or `--here` anywhere but
+first did the same.
+
+The rule now: `parse_line` reads every word before a show page is fetched. Words may
+come in any order and any case: a day (`today` `t` · `yesterday` `y` · `both` ·
+`back N` / `custom N` / `c`), `list`, `help` (`-h`, `--help`), `--here`, `--wait N`
+(hours, 0–24; a number is required), `now`, `again`, and the answers. Everything else is
+an error: one sentence naming the word, `nothing was read and nothing was started`,
+exit 2. The answers are checked against the day's grammar — after `back N` they are row
+numbers (`2h 3 7q`, `2-5`, `2:480`, `all`, `all h`), otherwise `b h q s u` or a height —
+and against the rows once the lists are read: more answers than rows is refused, a short
+line leaves the rest at each show's usual. At a question a wrong answer is named and the
+question asked again; `x` (and a closed keyboard) leaves with `nothing started`.
+
+Also in 4.34:
+
+- **1080 = high.** A plain `1080 auto` rip of this source is brought down to 720 by the
+  engine's defect rule, so the answer `1080` promised a size it did not deliver; it now
+  reads as `h` (native at `NMX_HIGH_Q`). The single-digit "row from the sizes list"
+  answers are gone: no screen ever showed that list.
+- **A window that did not open is said.** `osascript`'s result is read; a refusal is a
+  red line per show, named again on the closing line, exit 1. Under `--here` a rip the
+  engine ends non-zero is `did not finish`. A show whose list the site did not give
+  (asked twice, two seconds apart) is named on the closing line too.
+- **Two runs a moment apart.** The engine reserves a name only after its probe; a second
+  run inside that gap used to open a second window per show. Each started episode now
+  leaves an empty mark in `~/.slipmat/nmx-started/` for 3 minutes (created with
+  noclobber, so only one run wins); the other run says `started a moment ago`. The
+  folder is read once more right before each rip.
+- **A reservation whose engine is gone.** A killed rip leaves `<name>.mp4.claim` behind
+  and the show read as "ripping now" until the engine's two-day sweep. The command looks
+  the reservation up in the scratch folders' `claims` ledgers: when one names it and
+  that engine's pid is gone, the empty reservation is removed and said (`a rip that
+  ended without finishing had left this name reserved; cleared`). A reservation no
+  ledger names stands.
+- **`again`** rips an episode that is already in the folder (the morning's quick copy,
+  re-ripped at best in the evening); the engine names the second copy by its size. At
+  the day question it rides on the answer: `t again`.
+- **`back N` with nobody there** lists the rows and starts nothing; `back 7 all` or row
+  picks start them. A span that reaches past what the site lists says how far the lists
+  go (each show lists its last ten episodes).
+- **The watch.** Enter no longer reads the site at once (a held key was a tight loop on
+  the site): the site is read on the clock only. The watch looks for the day it began
+  on, so one that runs past midnight still finds that day's episode. Keys banged after
+  the stop are swallowed. `x` is offered only when there is a keyboard.
+- The shows' lists are read side by side; a date the site garbles skips that entry
+  instead of the show; a usual in `NMX_DAILY` that is no answer is said and read as best;
+  `set -f`, so no word on the line is ever a file pattern.
+
+Proven 11.12.26 23:15–23:25 against a stand-in engine, a stand-in `osascript` and
+written episode lists (`NMX_LISTS_DIR`): the ten refusals; `today` in windows and
+`--here`; per-row answers; a watch that picks a show up when its list gains today's
+episode, one that runs out, and through a pty one where three Enters did not move the
+9-second clock and `x`·`k`·`x`·`xxxxx` ended it; `again`; the three reservation cases
+(owner gone → cleared, owner alive → left alone, no ledger → stands); `yesterday`,
+`both h b`, `back 3` (lists only), `back 3 all`, `back 3 2h 3:480 5-6q`, `back 30 1`;
+a config with a bad usual, a bad slug and a show that does not answer (exit 1); every
+question through a pty with wrong answers first. Live, read-only: `slipmat newsmax list`
+read the four shows and saw the four rips then running as "ripping now in its own
+window". Smoke 3e (`--parse-line`, the answers) and 3e2 (the command end to end,
+offline: `--help` and an unknown word start nothing).
 
 ## A YouTube link that names one video and its playlist (11.4.26)
 
@@ -752,13 +819,13 @@ name the engine will write (`<ROW> <m.d.yy> [NMX]`) and its usual answer, or
 them?` — answered for every show at once or one per show in order: `b` best (720p CFR
 re-encode, the engine's `best`), `h` high (native 1080p CFR re-encode at `NMX_HIGH_Q`,
 default 45 — the engine's `best` under `SLIPMAT_KEEP_NATIVE=1 SLIPMAT_Q=<q>`; `h55` = at
-that dial), `q` quick (`480 auto`, a direct copy), `s` small (`360 auto`), a height, or
-a row number from `list`. Enter = each show's usual. Then a Terminal window per show
+that dial), `q` quick (`480 auto`, a direct copy), `s` small (`360 auto`), or a height
+(since 4.34 `1080` reads as high and the row-number answers are gone). Enter = each show's usual. Then a Terminal window per show
 (the launcher's kind: `SLIPMAT_WINDOW=1`, closes itself after a finished rip; `x`
 stops, `↓` steps a slow download down); `--here` or `NMX_WINDOWS=0` runs them in the
 current window one after another. `slipmat newsmax h b q q` skips the question.
-`slipmat smoke` 3e asserts the answers line, each answer's engine words and the ladder
-parse (pure hooks `--parse-picks`, `--answer-cmd`, `--parse-ladder`). The engine's
+`slipmat smoke` 3e asserts the answers line and each answer's engine words
+(pure hooks `--parse-picks`, `--answer-cmd`). The engine's
 `SLIPMAT_KEEP_NATIVE=1` keeps a defective >720 source at its native size in the
 no-questions modes (the receipt says `kept at 1080p (native asked for) · q50`).
 Live proof 11.2.26 20:34: `slipmat newsmax h b b b` read the four shows, skipped the

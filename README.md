@@ -48,15 +48,22 @@ question — `b` best (720p re-encode), `h` high (native 1080p at `NMX_HIGH_Q`),
 `q` quick (480p direct copy, minutes), `s` small (360p), one answer for all or
 one per show in order — and opens a Terminal window per show, each closing
 itself when its rip is done. `slipmat newsmax h b q q` skips the question;
-`slipmat newsmax list` only looks. The first question is which day: `t` today's
+`slipmat newsmax list` only looks; `slipmat newsmax help` lists every word, and
+a word the command does not know stops it before anything is read or ripped. The
+first question is which day: `t` today's
 (a show not posted yet is watched for when its usual posting time, read from its
 own episode list, falls inside the watch: the window reads the site every 10
 minutes for up to 3 hours, `NMX_WAIT_H`; `--wait 2` on the line, `now` = no
 watch, `x` ends it), `y` yesterday's (the last episode before today's — Friday's
 on a Monday), `b` both, or `c` custom: today and a number of days before it,
 every episode numbered, picked by hand (`2h 3 7q`, `2-5`, `all h`). The day word
-leads the line too: `slipmat newsmax yesterday`, `both h`, `back 7 2h 3`. An
-episode already in the folder, or ripping in another window, is left alone.
+goes on the line too, in any order with the answers: `slipmat newsmax yesterday`,
+`both h`, `back 7 2h 3` (`back 7` alone, with nobody there to answer, lists the
+episodes and starts nothing; `back 7 all` rips every one). A short answers line
+leaves the rest at each show's usual, and `1080` reads as `h`. An episode already
+in the folder, ripping in another window, or started by another run a moment ago
+is left alone; `again` on the line rips one that is in the folder (the second
+copy carries its size in its name).
 `slipmat hello` can add it to the menu bar as `[SLIPMAT VIDEO] NEWSMAX`
 (`shortcuts/make-shortcuts.sh -n`).
 
