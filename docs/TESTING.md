@@ -1080,3 +1080,72 @@ states, served to a client that does not name a browser. Taking it whole would b
 one request instead of one per piece. Left alone: the playlist door lands the same
 bytes and is the one the site's own player uses.
 
+## A rewind's backlog, several pieces at a time (11.13.26, 4.38)
+
+Before: a playlist rewind was ffmpeg told which piece to begin at
+(`-live_start_index`). It reads one piece at a time and re-reads the playlist
+(14,639 lines on a four-hour window) between pieces: about 3x real time at
+1080p, two hours to reach live from four hours back. The pieces themselves come
+at line speed (1.6 MB, two seconds of 1080p, in about a tenth of a second).
+
+`tools/catchup.py` records such a playlist by sequence number. `record()` reads
+the playlist, begins at the asked index (0 = oldest, -K = K from the end, the same
+numbers `hls_history` gives ffmpeg), fetches up to 24 pieces ahead on six
+keep-alive connections, writes them in order into `NAME.mp4.part`, re-reads the
+playlist, and at the live edge keeps going piece by piece. The lag file gets the
+same two lines the REC line already reads. It runs inside `live-rewind.py` in
+place of yt-dlp, so the stop is the same stop (first Ctrl-C or x x arrives as
+KeyboardInterrupt; the file is closed on a whole piece and renamed `NAME.mp4`,
+which `seal_as_mp4` turns into the mp4).
+
+Used when: a playlist rewind (`LIVE_HLS=1`), the pick is ONE playlist, the start
+is `SLIPMAT_CATCHUP_MIN` (240) seconds or more behind, yt-dlp's python is there.
+`SLIPMAT_CATCHUP=0` turns it off.
+
+Its three endings (state file `catchup.state` in the scratch):
+
+- exit 0: stopped, or the stream ended. `NAME.mp4` is the capture.
+- exit 4, declined, nothing written: a master, a key, a byte range, an init
+  section, a piece with no length, or a discontinuity inside the stretch to fetch.
+  `live_capture` runs exactly as before.
+- exit 3, handed over: a piece or the playlist would not come after its retries
+  (four tries a piece, six for the playlist), a listed piece answered "gone" three
+  times, a discontinuity appeared, a piece did not start with the MPEG-TS sync
+  byte, or anything unforeseen. Every whole piece is in `NAME.catchup.part`, the
+  state names the next sequence number, the screen says `the fast catch-up gave the
+  capture back (…) — recording one piece at a time from where it stopped`, ffmpeg
+  begins two pieces before that number (a few seconds twice, never a hole), and at
+  the stop `live_join` makes part two MPEG-TS if it was sealed as mp4 (one list of
+  both kinds fails at the sound), joins the two with the concat demuxer and
+  requires joined video packets = part one + part two. A join that fails keeps
+  both files and says so.
+
+A piece that left a sliding window before it could be fetched: the recording begins
+at the oldest piece still listed; the state counts what was lost and the run log
+says it from ten seconds up. A window closed mid catch-up leaves `NAME.mp4.part`
+(MPEG-TS), which the next run seals (`seal_abandoned`; a `NAME.catchup.part` too).
+
+Smoke 3r: a local server plays the playlist (in order to the byte with shuffled
+arrival, -10 from the end, a forced failure after four pieces, a sliding window
+that loses four, a discontinuity, a master, a key). Live proofs on a 24/7 stream
+with a four-hour window, throwaway HOME:
+
+- 1080p from 30 minutes back: 1.03 GB in 0:37 to live, x x at 1:31 → 31:41,
+  951 pieces x 2 s = 1,902 s, 114,120 video packets, no gap over 0.1 s.
+- 1080p from 2 hours back, x x 12 s in: 11:01 in the file, receipt `stopped
+  1:49:26 short of live`, no gap.
+- 360p from 10 minutes back with `SLIPMAT_CATCHUP_FAIL_AFTER=150`: handed over at
+  piece 150, ffmpeg from two pieces before, x x 25 s after live → one file, 10:53,
+  39,238 packets, no gap; the in-progress folder empty.
+- 360p from the start of the window (3:59:54 back): 2.55 GB, at live after about
+  two minutes, x x at 2:46 → 4:02:37, 7,279 pieces x 2 s = 14,558 s, 873,480
+  video packets, no gap over 0.1 s; the seal took 6 s.
+- 1080p from the start of the window: 11.09 GB, at live after about 5:50, x x
+  at 6:55 → 4:06:47, 7,404 pieces x 2 s, 888,480 video packets, no gap over 0.1 s
+  (the same rewind through ffmpeg ran at 3x real time: about two hours).
+- the recorder alone, last ten minutes at 1080p: 309 pieces, 497 MB, 19.7 s.
+
+Not proven: a real discontinuity on a real stream (the playlist tag is honoured by
+rule and covered offline) · a tail of hours (the longest tail run was 1:31) ·
+a site other than this one.
+

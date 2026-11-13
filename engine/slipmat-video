@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.37"          # 11.13.26 — Rumble is read from its own player data: the engine makes one read of the data the site's player loads and takes the files from the video server with a plain client, so the page is never read again at the download and no browser fingerprint meets the video server (that pairing was the five refusals on every Rumble run); every row is a size the site lists with its exact byte count, two copies at one height are two rows, every piece is required and the file that lands is counted against the playlist to the byte; a live stream is captured and rewound from the same data
+VERSION="4.38"          # 11.13.26 — a playlist rewind is recorded by sequence number: the backlog is fetched several pieces at a time and written in order, then the same recorder keeps going piece by piece at the live edge (thirty minutes of 1080p reach live in under a minute, where ffmpeg, one piece at a time, took ten); it takes only a plain playlist of MPEG-TS pieces, declines anything else before a byte is written, and at the first piece or playlist that will not come hands the capture back to the one-piece-at-a-time recorder, whose part is joined to the first and counted packet for packet
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -3392,6 +3392,13 @@ abandoned_seal() {   # $1 = the name's stem · $2 = video (or the one combined) 
 }
 seal_abandoned() {
   [ "${SLIPMAT_SEAL_ABANDONED:-1}" != "0" ] && [ -d "${CAPDIR:-/nonexistent}" ] && [ "$CAPDIR" != "$OUTDIR" ] || return 0
+  # the first part of a handed-over rewind: NAME.catchup.part (before the tail, so it takes the plain name)
+  for _sa in "$CAPDIR"/*.catchup.part; do
+    [ -s "$_sa" ] || continue
+    _sb=$(basename "$_sa"); _ss="${_sb%.catchup.part}"
+    abandoned_gone "$_sa" "$CAPDIR/$_ss.mp4.claim" || continue
+    abandoned_seal "$_ss" "$_sa" ""
+  done
   # one combined file: NAME.mp4.part
   for _sa in "$CAPDIR"/*.mp4.part; do
     [ -s "$_sa" ] || continue
@@ -4459,6 +4466,23 @@ EOF
                    --downloader-args "ffmpeg_i2:-loglevel error -live_start_index $_hi2" \
                    --downloader-args "ffmpeg_o:-stats_period 2 -progress '$LIVE_PROG'")
       logln "  playlist rewind: format $_hfid · ${_hr}s listed from sequence $_hs · start index $_hi1${_hi2:+ / $_hi2} · ${LIVE_HLS_BEHIND}s behind the head"
+      # 11.13.26: ffmpeg reads a rewind one piece at a time (about 3x real time at 1080p:
+      # two hours to reach live from four hours back). A rewind of one combined playlist
+      # that begins SLIPMAT_CATCHUP_MIN seconds or more behind is recorded by sequence
+      # number instead (tools/catchup.py): the backlog several pieces at a time, then
+      # piece by piece at the live edge. It declines any playlist it does not fully
+      # understand and hands the capture back at the first trouble (live_catchup).
+      LIVE_CATCHUP=0; LIVE_CU_URL=""
+      case "$_hfid" in *+*) : ;; *)
+        if [ "${SLIPMAT_CATCHUP:-1}" != "0" ] && [ -n "$LIVE_PY" ] && [ -n "$PYTHON" ] && [ -f "$APPDIR/tools/catchup.py" ] \
+           && [ "$LIVE_HLS_BEHIND" -ge "${SLIPMAT_CATCHUP_MIN:-240}" ] 2>/dev/null; then
+          LIVE_CU_URL=$("$PYTHON" -c 'import json,sys
+d=json.load(open(sys.argv[1],encoding="utf-8")); f=next((x for x in d.get("formats") or [] if str(x.get("format_id"))==sys.argv[2]),None)
+if f and f.get("url"):
+    json.dump({k:v for k,v in (f.get("http_headers") or {}).items() if isinstance(k,str) and isinstance(v,str)}, open(sys.argv[3],"w",encoding="utf-8")); print(f["url"])' "$INFO" "$_hfid" "$WORKDIR/catchup.hdr" 2>/dev/null)
+          [ -n "$LIVE_CU_URL" ] && { LIVE_CATCHUP=1; LIVE_CU_INDEX="$_hi1"; logln "  playlist rewind: the backlog is fetched several pieces at a time (the catch-up recorder)"; }
+        fi ;;
+      esac
     else
       warn "rewind ($LIVE_WIN) isn't possible on the picked stream — it is not a playlist that keeps its history; it is recorded from now"
       LIVE_WIN=""; LIVE_HLS=0
@@ -4480,7 +4504,8 @@ EOF
   fi
   note "no stutter-test on live: the seal is the whole finish."
   [ "$LIVE_REWIND" = "1" ] && note "rewinding: video and audio arrive as two streams and merge into one mp4 when you stop — the REC clock counts wall time, the file holds more"
-  [ "$LIVE_HLS" = "1" ] && note "rewinding: the capture begins $(fmt_dur "$LIVE_HLS_BEHIND") back, downloads up to live, then records as it airs — the REC clock counts wall time, the file holds more"
+  if [ "$LIVE_HLS" = "1" ] && [ "${LIVE_CATCHUP:-0}" = "1" ]; then note "rewinding: the capture begins $(fmt_dur "$LIVE_HLS_BEHIND") back, downloads up to live several pieces at a time, then records as it airs — the REC clock counts wall time, the file holds more"
+  elif [ "$LIVE_HLS" = "1" ]; then note "rewinding: the capture begins $(fmt_dur "$LIVE_HLS_BEHIND") back, downloads up to live, then records as it airs — the REC clock counts wall time, the file holds more"; fi
   note "$OUT"
   say ""
   # 10.12 (his ask): what is being recorded, bold, right above the REC clock — title · channel · date
@@ -4650,6 +4675,93 @@ EOF
       live_capture_now
     fi
   }
+  # ---- a playlist rewind by sequence number (11.13.26) --------------------------
+  # catchup.py writes $CAP.part and, on a stop or the stream's end, leaves $CAP: an
+  # MPEG-TS under the capture's name, which the seal below turns into the mp4 like
+  # any other. Its other two endings give the capture back to live_capture:
+  #   declined (4)   nothing was written — the capture runs exactly as before;
+  #   handed over (3) every whole piece so far is in NAME.catchup.part and the state
+  #                  names the next sequence number: ffmpeg begins two pieces before
+  #                  it (a few seconds twice, never a hole), and when it stops the
+  #                  two parts are joined, counted packet for packet, into $CAP.
+  cu_state() {   # $1 = a key of the recorder's state file → its value ("" = none)
+    "$PYTHON" -c 'import json,sys
+try: v=json.load(open(sys.argv[1],encoding="utf-8")).get(sys.argv[2],"")
+except Exception: v=""
+print(int(v) if isinstance(v,float) else v)' "$WORKDIR/catchup.state" "$1" 2>/dev/null
+  }
+  live_join() {  # NAME.catchup.part + what the second recorder left → one mp4 at $CAP
+    _ja="$CAPDIR/${NAME}.catchup.part"; [ -s "$_ja" ] || return 0
+    _jb=$(ls -t "$CAPDIR/${NAME}".* 2>/dev/null | grep -vE '\.temp\.[^.]+$|\.part$|\.ytdl$|\.claim$|\.f[0-9]+\.[^.]+$' | head -1)
+    if [ -z "$_jb" ] || [ ! -s "$_jb" ]; then mv -f "$_ja" "$CAP"; logln "  join: the second recorder left nothing — the first part is the capture"; return 0; fi
+    _jl="$WORKDIR/join.txt"; _jo="$CAPDIR/${NAME}.joined.part"; _jt="$CAPDIR/${NAME}.tail.part"
+    [ "$IS_TTY" = "1" ] && live_line "${C_GRN}${G_OK}${C_RESET} joining the two parts of the capture …"
+    # part one is MPEG-TS; part two may have been sealed as an mp4. One list of both
+    # kinds fails at the sound (TS carries each AAC frame with its own header, mp4
+    # does not, and one filter cannot serve both): part two is made MPEG-TS first.
+    _jb2="$_jb"
+    case "$("$FFPROBE" -v error -show_entries format=format_name -of csv=p=0 "$_jb" 2>/dev/null)" in
+      *mpegts*) : ;;
+      *) if "$FFMPEG" -hide_banner -loglevel error -y -i "$_jb" -map 0:v:0 -map 0:a:0? -c copy -f mpegts "$_jt" </dev/null 2>>"$LIVE_ERRLOG"; then _jb2="$_jt"; fi ;;
+    esac
+    printf "file '%s'\nfile '%s'\n" "$(printf '%s' "$_ja" | sed "s/'/'\\\\''/g")" "$(printf '%s' "$_jb2" | sed "s/'/'\\\\''/g")" > "$_jl"
+    "$FFMPEG" -hide_banner -loglevel error -y -f concat -safe 0 -i "$_jl" -map 0:v:0 -map 0:a:0? -c copy -movflags +faststart -f mp4 "$_jo" </dev/null 2>>"$LIVE_ERRLOG"; _jrc=$?
+    [ "$IS_TTY" = "1" ] && live_line_end
+    _jpk() { "$FFPROBE" -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 "$1" 2>/dev/null | head -1 | tr -dc '0-9'; }   # a TS lists its stream twice (program + stream): the first line
+    _jn=$(_jpk "$_jo"); _jna=$(_jpk "$_ja"); _jnb=$(_jpk "$_jb2")
+    logln "  join: part one ${_jna:-?} video packets + part two ${_jnb:-?} → joined ${_jn:-?} (exit $_jrc)"
+    if [ "$_jrc" -eq 0 ] && [ -n "$_jn" ] && [ -n "$_jna" ] && [ -n "$_jnb" ] && [ "$_jn" -eq $(( _jna + _jnb )) ]; then
+      rm -f "$_ja" "$_jb" "$_jt" 2>/dev/null; mv -f "$_jo" "$CAP"
+    else
+      rm -f "$_jo" "$_jt" 2>/dev/null
+      _j1="$OUTDIR/${NAME} (part 1 of 2).ts"; mv -f "$_ja" "$_j1" 2>/dev/null
+      warn "the two parts of this capture could not be joined into one file — both are kept: the first is \"$(basename "$_j1")\", the second follows"
+    fi
+  }
+  live_catchup() {
+    rm -f "$WORKDIR/catchup.state" 2>/dev/null
+    SLIPMAT_CATCHUP_URL="$LIVE_CU_URL" SLIPMAT_CATCHUP_INDEX="$LIVE_CU_INDEX" SLIPMAT_CATCHUP_OUT="$CAP" SLIPMAT_CATCHUP_STATE="$WORKDIR/catchup.state" SLIPMAT_CATCHUP_LAG="$LIVE_LAG" SLIPMAT_CATCHUP_HEADERS="$WORKDIR/catchup.hdr" \
+    SLIPMAT_LIVE_BACK=0 SLIPMAT_LIVE_LAG="" SLIPMAT_LIVE_HLS="" SLIPMAT_LIVE_STOP="$LIVE_STOP" SLIPMAT_LIVE_ASK_FLAG="$LIVE_ASK" SLIPMAT_LIVE_ASK_TEXT="  $LIVE_ASK_TEXT" SLIPMAT_LIVE_STOP_TEXT="  $C_GRN$LIVE_STOP_TEXT$C_RESET"$'\n' \
+      "$LIVE_PY" "$APPDIR/tools/live-rewind.py" 2>>"$LIVE_ERRLOG"
+    _crc=$?
+    _cwhy=$(cu_state why); _cdet=$(cu_state detail); _cnext=$(cu_state next_seq); _cexp=$(cu_state expired_seconds)
+    logln "  catch-up recorder: exit $_crc · ${_cwhy:-no state} · $(cu_state pieces) pieces · $(cu_state seconds)s · next sequence ${_cnext:-?}${_cdet:+ · $_cdet}"
+    case "${_cexp:-0}" in ''|*[!0-9]*|0) : ;; *) [ "$_cexp" -ge 10 ] && logln "  catch-up recorder: ${_cexp}s had left the site's window before it could be fetched — the recording begins after it" ;; esac
+    [ "$_crc" -eq 0 ] && return 0
+    if [ "$_crc" -eq 4 ] && [ ! -s "$CAPDIR/${NAME}.catchup.part" ]; then
+      LIVE_CATCHUP=0; live_capture; return
+    fi
+    if [ -f "$LIVE_STOP" ]; then    # the stop landed as it was giving the capture back: what is whole is the capture
+      [ -s "$CAPDIR/${NAME}.catchup.part" ] && mv -f "$CAPDIR/${NAME}.catchup.part" "$CAP"
+      return 0
+    fi
+    [ -n "$LIVE_RPID" ] && live_line_end
+    warn "the fast catch-up gave the capture back (${_cdet:-it stopped}) — recording one piece at a time from where it stopped"
+    # where that piece is in the playlist now, two pieces early
+    _hx=""
+    case "$_cnext" in ''|*[!0-9]*) : ;; *)
+      _hx=$("$PYTHON" -c 'import json,sys,re,urllib.request
+try: h=json.load(open(sys.argv[2],encoding="utf-8"))
+except Exception: h={}
+t=urllib.request.urlopen(urllib.request.Request(sys.argv[1],headers=h),timeout=15).read(8000000).decode("utf-8","replace")
+d=[float(x) for x in re.findall(r"#EXTINF:\s*([0-9.]+)",t)]; m=re.search(r"#EXT-X-MEDIA-SEQUENCE:\s*(\d+)",t); first=int(m.group(1)) if m else 0
+i=max(0,min(len(d)-1,int(sys.argv[3])-2-first)); print(i, int(sum(d[i:])))' "$LIVE_CU_URL" "$WORKDIR/catchup.hdr" "$_cnext" 2>/dev/null) ;;
+    esac
+    if [ -n "$_hx" ]; then
+      set -- $_hx; LIVE_HLS_BEHIND="$2"; LIVE_HLS_T0=$(date +%s); rm -f "$LIVE_PROG" 2>/dev/null
+      LIVE_HLS_DA=(--downloader-args "ffmpeg_i1:-loglevel error -live_start_index $1" \
+                   --downloader-args "ffmpeg_i2:-loglevel error -live_start_index $1" \
+                   --downloader-args "ffmpeg_o:-stats_period 2 -progress '$LIVE_PROG'")
+      LIVE_HLS_ENV="$LIVE_HLS_BEHIND $LIVE_HLS_T0 $LIVE_PROG"
+      logln "  hand-over: ffmpeg begins at index $1 (${2}s behind the head), two pieces before sequence $_cnext"
+    else
+      LIVE_HLS_DA=(); LIVE_HLS_ENV=""
+      warn "the playlist could not be read for the hand-over — the second part begins at live; what aired in between is not in it"
+    fi
+    LIVE_CATCHUP=0; : > "$LIVE_ERRLOG"; LIVE_T0=$SECONDS
+    live_capture
+    live_join
+  }
   if [ "$LIVE_REWIND" = "1" ]; then
     # same process shape as above (foreground, unpiped, Ctrl-C lands in yt-dlp);
     # the wrapper imports yt-dlp in-process and only moves its 120 h rewind cap.
@@ -4663,6 +4775,8 @@ EOF
       warn "this yt-dlp build moved the rewind hook (see the run log) — recording from now instead"
       LIVE_WIN=""; live_capture
     fi
+  elif [ "${LIVE_CATCHUP:-0}" = "1" ]; then
+    live_catchup
   else
     live_capture
   fi

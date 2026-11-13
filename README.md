@@ -190,6 +190,12 @@ browser cookies, quality, naming style, your own embed-page hosts.
   video server with a plain client. Every piece is required, and the file that
   lands is counted against the site's playlist to the byte. A live stream is
   recorded and rewound from the same data.
+- A livestream can be recorded from earlier than now wherever the site's
+  playlist keeps its history, and the backlog comes at line speed: several
+  pieces at a time, written in order, then piece by piece as it airs. Nothing
+  is skipped (the next piece is always the next sequence number), and at the
+  first sign of trouble the capture goes back to the slower recorder and the
+  two parts are joined and counted.
 - It remembers the way in. A site that refuses the first read and opens to a
   browser fingerprint, a player link that needs its embed page, a download
   that only lands from the playlist itself: once that has worked twice running

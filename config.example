@@ -52,6 +52,13 @@
 # client. 0 reads a Rumble page through yt-dlp's extractor, as before 4.37.
 #SLIPMAT_RUMBLE=1
 
+# A livestream rewind on a site whose playlist keeps its history is fetched several
+# pieces at a time until it reaches live, then recorded as it airs. It applies when
+# the start is at least SLIPMAT_CATCHUP_MIN seconds back; 0 for SLIPMAT_CATCHUP
+# records every rewind one piece at a time, as before 4.38.
+#SLIPMAT_CATCHUP=1
+#SLIPMAT_CATCHUP_MIN=240
+
 # A live recording whose window was closed before its stop is left as a raw file
 # in the "_in progress" folder. The next run seals it into a playable mp4 beside
 # your finished files before it starts its own work. 0 leaves such files alone.

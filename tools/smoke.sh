@@ -752,6 +752,85 @@ yynnn"
   else fail "Rumble reader: got '$(tr '\n' '~' < "$S/rumble.out" 2>/dev/null)' · or the dump is not what the download, the capture, the swap, the routes guard or the count read" ; fi
 else skip "the Rumble reader (python3)"; fi
 
+# ---- 3r. a playlist rewind recorded by sequence number (11.13.26) ------------------
+# tools/catchup.py against a local server that plays a live playlist: the backlog is
+# fetched several pieces at a time and lands IN ORDER, byte for byte; a start K pieces
+# from the end begins there; a piece that will not come hands the capture over with
+# every whole piece kept and the next sequence number named; pieces that left a
+# sliding window before they could be fetched are counted and the recording begins
+# after them; a playlist it does not fully understand (a discontinuity in the
+# stretch, a master, encrypted pieces) is declined with nothing written.
+if command -v python3 >/dev/null 2>&1 && [ -f "$REPO/tools/catchup.py" ]; then
+  _cs="$S/catchup"; mkdir -p "$_cs"
+  cat > "$_cs/srv.py" <<'CSEOF'
+import sys, time, http.server, socketserver, threading
+portfile = sys.argv[1]
+def piece(n): return b"G" + bytes([n % 251]) * (188 * 40 + n)
+def pl(first, last, disc=None, extra=""):
+    out = ["#EXTM3U", "#EXT-X-VERSION:3", "#EXT-X-TARGETDURATION:2", "#EXT-X-MEDIA-SEQUENCE:%d" % first] + ([extra] if extra else [])
+    for n in range(first, last + 1):
+        if disc == n: out.append("#EXT-X-DISCONTINUITY")
+        out += ["#EXTINF:2,", "p%d.ts" % n]
+    return ("\n".join(out) + "\n").encode()
+LISTS = {"plain": [pl(100, 129)], "slide": [pl(0, 9), pl(4, 12)], "disc": [pl(100, 129, disc=110)],
+         "master": [b"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nx.m3u8\n"], "key": [pl(100, 104, extra='#EXT-X-KEY:METHOD=AES-128,URI="k"')]}
+GONE = {"slide": set(range(0, 4))}
+hits = {}; lock = threading.Lock()
+class H(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    def log_message(self, *a): pass
+    def do_GET(self):
+        _, name, leaf = self.path.split("?")[0].split("/", 2)
+        if leaf == "pl.m3u8":
+            with lock:
+                k = hits.get(name, 0); hits[name] = k + 1
+            body = LISTS[name][min(k, len(LISTS[name]) - 1)]; code = 200
+        else:
+            n = int(leaf[1:-3]); time.sleep((n % 3) * 0.02)
+            code = 404 if n in GONE.get(name, ()) else 200; body = piece(n) if code == 200 else b""
+        self.send_response(code); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+class S(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    allow_reuse_address = True; daemon_threads = True
+with S(("127.0.0.1", 0), H) as srv:
+    open(portfile, "w").write(str(srv.server_address[1])); srv.serve_forever()
+CSEOF
+  python3 "$_cs/srv.py" "$_cs/port" >/dev/null 2>&1 & _csp=$!
+  _w=0; while [ ! -s "$_cs/port" ] && [ "$_w" -lt 50 ]; do sleep 0.1; _w=$((_w+1)); done
+  _cb="http://127.0.0.1:$(cat "$_cs/port" 2>/dev/null)"
+  cu() { _n="$1"; shift; ( cd "$_cs" && env "$@" SLIPMAT_CATCHUP_UNTIL=live python3 "$REPO/tools/catchup.py" "$_cb/$_n/pl.m3u8" "$CU_I" "$_cs/$CU_O.mp4" "$_cs/$CU_O.state" "$_cs/$CU_O.lag" >/dev/null 2>&1; printf '%s' "$?" ); }
+  CU_I=0   CU_O=a; _ca=$(cu plain)
+  CU_I=-10 CU_O=b; _cbx=$(cu plain)
+  CU_I=0   CU_O=c; _cc=$(cu plain SLIPMAT_CATCHUP_FAIL_AFTER=4)
+  CU_I=0   CU_O=d; _cd=$(cu disc)
+  CU_I=0   CU_O=e; _ce=$(cu slide)
+  CU_I=0   CU_O=f; _cf=$(cu master); CU_O=g; _cg=$(cu key)
+  kill "$_csp" 2>/dev/null; wait "$_csp" 2>/dev/null
+  _cv=$(python3 - "$_cs" <<'CVEOF'
+import json, os, sys
+d = sys.argv[1]
+def piece(n): return b"G" + bytes([n % 251]) * (188 * 40 + n)
+def cat(a, b): return b"".join(piece(n) for n in range(a, b + 1))
+def rd(f):
+    try: return open(os.path.join(d, f), "rb").read()
+    except OSError: return None
+def st(f): return json.load(open(os.path.join(d, f)))
+r = []
+r.append("a" if rd("a.mp4") == cat(100, 129) and st("a.state")["pieces"] == 30 and st("a.state")["why"] == "live" and rd("a.lag") == b"audio 0 -1\nvideo 0 -1\n" else "A")
+r.append("b" if rd("b.mp4") == cat(120, 129) and st("b.state")["start_seq"] == 120 else "B")
+c = st("c.state"); r.append("c" if rd("c.catchup.part") == cat(100, 103) and rd("c.mp4") is None and c["why"] == "handover" and c["next_seq"] == 104 else "C")
+r.append("d" if rd("d.mp4") is None and rd("d.mp4.part") is None and rd("d.catchup.part") is None and st("d.state")["why"] == "declined" else "D")
+e = st("e.state"); r.append("e" if rd("e.mp4") == cat(4, 12) and e["expired_pieces"] == 4 and e["start_seq"] == 0 else "E")
+r.append("f" if rd("f.mp4") is None and st("f.state")["why"] == "declined" and rd("g.mp4") is None and st("g.state")["why"] == "declined" else "F")
+print("".join(r))
+CVEOF
+)
+  if [ "$_ca$_cbx$_cc$_cd$_ce$_cf$_cg" = "0034044" ] && [ "$_cv" = "abcdef" ] \
+     && grep -q '  elif \[ "${LIVE_CATCHUP:-0}" = "1" \]; then' "$ENGINE" && grep -q 'SLIPMAT_CATCHUP_MIN:-240' "$ENGINE" && grep -q '_catchup.record(_cu' "$REPO/tools/live-rewind.py" \
+     && grep -q 'c copy -f mpegts "$_jt"' "$ENGINE" && grep -q '"$_jn" -eq $(( _jna + _jnb ))' "$ENGINE" && grep -q 'for _sa in "$CAPDIR"/\*.catchup.part; do' "$ENGINE"; then
+    pass "a playlist rewind is recorded by sequence number: the backlog several pieces at a time and in order to the byte, a start K pieces from the end, a piece that will not come = every whole piece kept and the next one named for the hand-over, pieces gone from a sliding window counted and stepped past, a discontinuity · a master · encrypted pieces declined with nothing written; the engine runs it under the same stop, hands back to the one-piece-at-a-time recorder and joins the two parts packet for packet"
+  else fail "catch-up recorder: exits '$_ca$_cbx$_cc$_cd$_ce$_cf$_cg' (want 0034044) · files '$_cv' (want abcdef) · or the engine's call, threshold, hand-back join or abandoned-part loop is missing"; fi
+else skip "the catch-up recorder (python3 + tools/catchup.py)"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:

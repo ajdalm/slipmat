@@ -296,8 +296,29 @@ def _restore_mode():
         pass
 
 
+# 6. A playlist rewind recorded by sequence number (11.13.26, SLIPMAT_CATCHUP_URL =
+#    the picked playlist). tools/catchup.py fetches the backlog several pieces at a
+#    time and keeps recording at the live edge; it runs HERE, in place of yt-dlp,
+#    so the stop above is the same stop: the first Ctrl-C or x x reaches it as
+#    KeyboardInterrupt and it closes the file on a whole piece. Its exit says
+#    whether the capture is done (0), was never begun (4) or is handed back to
+#    the one-piece-at-a-time recorder (3): the engine reads the state file.
+_cu = os.environ.get('SLIPMAT_CATCHUP_URL', '')
 try:
-    rc = yt_dlp.main()
+    if _cu:
+        import json as _json
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import catchup as _catchup
+        try:
+            with open(os.environ.get('SLIPMAT_CATCHUP_HEADERS', ''), encoding='utf-8') as _hf:
+                _hdr = _json.load(_hf)
+        except Exception:
+            _hdr = {}
+        rc = _catchup.record(_cu, int(os.environ.get('SLIPMAT_CATCHUP_INDEX', '0') or 0),
+                             os.environ['SLIPMAT_CATCHUP_OUT'], os.environ['SLIPMAT_CATCHUP_STATE'],
+                             os.environ.get('SLIPMAT_CATCHUP_LAG', ''), headers=_hdr)
+    else:
+        rc = yt_dlp.main()
 except SystemExit as e:
     rc = e.code
 finally:
