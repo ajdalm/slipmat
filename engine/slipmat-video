@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.35"          # 11.12.26 — a page copied from the address bar that holds no stream address is followed to its stream: the page reader walks what the page loads (its frames, its player scripts, the player addresses those scripts spell from their own constants, and one step along the page's same-site watch or live links) until a playlist answers, inside 12 fetches and 25 seconds, and never takes one that names a DRM key system; a bare playlist found in a page or by following it is named by the page's title with no bracket, where its file name ("master", "playlist") used to be the name; 4.34: the Newsmax command reads its whole line before anything is fetched: a word it does not know (a typo, another tool's flag, --help once) is an error with nothing started, never a pick; words in any order, `help`, `again` (rip one already in the folder), wrong answers asked again and x to leave at its questions; a window that did not open, a show that did not answer and a rip that did not finish are said and exit 1; two runs a moment apart never open two windows on one show; a reservation whose engine is gone is cleared and said; 1080 reads as high; the watch reads the site on the clock only; 4.33: a live playlist whose pieces are listed under addresses with no media file ending (a station's linear channel: each piece is a tracking address that redirects to the .ts) is recorded: ffmpeg 7.1.1 and later refuse such a playlist before a byte lands, the engine reads that refusal in the capture's own log and runs the capture once more with that single check off, said in one line; a capture that already has a file, and every other capture, keeps the check; 4.32: a livestream on any site whose live playlist keeps its history (Rumble lists every piece since the start) can be recorded from the start or from N minutes back: the same where-to-start question as on YouTube, saying how far back the stream reaches; the capture begins at that piece, downloads up to live and keeps recording, and the line under REC says how far behind live it is; a stream with no history says so and is recorded from now; 4.31: a cbs.com video page whose extractor answers empty is read by the engine itself: the page's own player data gives the manifest, the title, the id, the air date and the length, and only a page that says its video is unprotected is taken; 4.30: a browser fingerprint the site's video server closes the connection on, before anything is downloaded, moves to the next fingerprint on the same rung (Rumble: the page read as chrome, its video server served only safari and a plain fetch); a ladder that ends there says so instead of calling it CDN weather; 4.29: a second copy of a Newsmax show at another size is named by that size, "(720)", on every Newsmax name path (the show-door name, the naming window's answers at the finish line, and its late rename), as the smart and template names already were; ffmpeg 9.0.2 noted as the reference version; 4.28: the Newsmax door asks which day first (today · yesterday · both · custom: today and N days before, every episode numbered and picked by hand), reads each show's list once, says per show what is posted and what is in the folder, and asks again when a day has nothing left to rip; 4.27: the Newsmax door reads each show's own days and usual posting time from its episode list: the morning after, the newest episode is the current one (ripped, nothing watched); a show is watched only when its episode today is due inside the watch; 4.26: the Newsmax watch rips a late show whose newest episode is not in the folder now and still watches for today's, polls in whole seconds only, takes only an hour count after --wait, treats a zero wait of any spelling as none, and names what an early x left unwatched; 4.25: the Newsmax door watches for the shows not posted yet (today's date on the newest episode), reading the site every 10 min for up to NMX_WAIT_H hours and ripping each as it drops, and leaves a show that is ripping in another window alone; 4.24: a YouTube link that names one video and its playlist is cut to that video before the probe (the whole-playlist dump ripped the first video of the list at 360p over a throttled bare file); a playlist dump of YouTube entries hands back the entry as its page, never a bare file, and a watch link id picks its own entry. 4.23: the title hook names any news source's event (not social clips), may return the event's own date and its tag, and names live captures too; a second copy of one video at another size is suffixed by that size, corrected at placement if the file landed at another; a menu-bar door for the day's Newsmax shows. 4.22: the day's Newsmax shows rip with one command and one question (best · high = native 1080 at a dial · quick = 480 direct · small), a window per show; SLIPMAT_KEEP_NATIVE=1 keeps a defective source at its native size in the no-questions modes; a file that lands silent says which kind of silent it is (no audio track, or an audio track that could not be fetched) after the audio is tried on its own and paired in. 4.21: a YouTube size yt-dlp has not verified (its HLS copy of each DASH file, listed since yt-dlp 2026.10.26) is never picked over the whole file beside it: a whole file wins its size, an unverified rendition is last; a video half written as MPEG-TS whose packets carry no timestamps is merged by way of an mp4; a ladder that ends on a merge death says so instead of blaming the CDN. 4.20: a rewind says on its own line under the REC line how far the video and the audio are behind live, about how long until each reaches live, and what a stop now would cut; the receipt reads the GAP between them (a from-the-start capture stopped hours from live ends both together); 4.19: that readout, and at the stop; a capped live ladder never ends in the cap (a capture lands at what there is, said once in the receipt). 4.18: a picked live row caps every fallback rung (a 360p pick on a rewind came back 1080); a from-now live capture pairs HLS-only audio (YouTube dropped the m4a audio beside its live playlists); a merge that dies after a whole download is merged in the scratch, never fetched again; the blank-page swap fires only when nothing was ever downloaded
+VERSION="4.36"          # 11.13.26 — the way in that worked is where the next run starts: a site that refuses the plain read, a player link that needs its embed page and a download that lands only from its playlist are written down per site and tried first once they have worked twice running, with the full path as the fallback; the count on the where-to-start question keeps what is typed; a live title drops the minute it was read; a picked size holds after a playlist swap; the picker takes "2s" (that row, then STUDIO) and "2 950mb" (that row, shrunk to land under it); a recording nobody came back for is sealed by the next run; slipmat review reads the run logs back
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -402,6 +402,7 @@ say() { printf '%s\n' "$*"; logln "$*"; }
 lc()  { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
 
 cleanup_scratch() {
+  [ -n "${TC_STTY:-}" ] && { stty "$TC_STTY" < /dev/tty 2>/dev/null; TC_STTY=""; }   # a key-at-a-time question left by a signal: the terminal goes back as it was
   # stop detached helpers (speed sampler, REC renderer, probe note) — they must
   # never outlive the run (a sampler orphaned by die() once kept
   # appending to the renamed run log until reboot). Idempotent; normal paths
@@ -462,6 +463,17 @@ clean_field() {
     | sed -e 's/:/：/g' -e 's/?/？/g' -e 's#/#⧸#g' -e 's/"/＂/g' \
           -e 's/</＜/g' -e 's/>/＞/g' -e 's/|/｜/g' -e 's/\*/＊/g' \
           -e 's/  */ /g' -e 's/^[ .]*//' -e 's/[ .]*$//'
+}
+
+# 11.13.26: yt-dlp ends a LIVE stream's title with the minute it read the page
+# ("Channel 24/7 2026-11-12 23:14"). A capture's name already carries its start
+# as the live stamp ("[L- 11.12.26 - 11.14PM]"), so the date and the time stood
+# in the name twice, and on the screen above the REC clock. The read-time stamp
+# comes off a live title here, once, for the screen and the name alike. A title
+# that is nothing but the stamp is left as it is.
+live_title_bare() {   # $1 = a live stream's title → the title without yt-dlp's trailing "YYYY-MM-DD HH:MM" (pure; smoke-tested)
+  _lt=$(printf '%s' "$1" | sed -E 's/ +[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$//')
+  if [ -n "$_lt" ]; then printf '%s' "$_lt"; else printf '%s' "$1"; fi
 }
 
 # Abridge $1 to at most $2 BYTES (UTF-8-safe: emoji-heavy TikTok titles count 4
@@ -1314,6 +1326,20 @@ ask_line() {
   # script (no parallel code path). Non-tty only (the batch looper runs </dev/null);
   # an interactive window keeps its questions. Every answer still logs below —
   # the run log is the overnight witness.
+  # 11.13.26: a size given at the pick ("1 950mb") answers STUDIO's size and
+  # recipe questions — the same asks, answered from what was already said. The
+  # prompt and its answer are printed as if typed, and logged.
+  if [ -n "${PICK_FIT_MB:-}" ]; then
+    case "$_prompt" in
+      *downscale*)  _ans="0" ;;
+      *"recipe "*)  _ans="${PICK_FIT_MB}mb" ;;
+    esac
+    if [ -n "$_ans" ]; then
+      [ "${IS_TTY:-0}" = "1" ] && printf '%s %s\n' "$_prompt" "$_ans" > /dev/tty
+      logln "  ? $(printf '%s' "$_prompt" | sed $'s/\033\[[0-9;]*m//g') → $_ans (the size asked for at the pick)"
+      printf '%s' "$_ans"; return
+    fi
+  fi
   if [ "${SLIPMAT_Z_AUTO:-0}" = "1" ] && ! [ -t 0 ]; then
     case "$_prompt" in
       *downscale*)     _ans="z" ;;
@@ -1373,6 +1399,7 @@ if [ "${MODE:-auto}" = "studio" ]; then
   BOXW=118                                # inner content width for boxes (V4.3: 118 — boxes span the 132-col window)
   WRAPW=110                               # V4.3: prose (advice · ↳ notes · headers) wraps here with a hanging indent — never past the rail
 else
+  TERM_SIZE_STUDIO="${TERM_SIZE:-}"   # the wide window, kept for a pick that hands the run to STUDIO (studio_takeover)
   BOXW=72; WRAPW=66; [ -n "$TERM_SIZE" ] && TERM_SIZE="44x104"; RCOL=32   # V4.4: narrow boxes + a smaller window for BEST/PICKER (long names wrap inside the box); receipt right column at 32
 fi
 # size the window (tty only): rows x cols from TERM_SIZE — nothing else changes
@@ -1923,6 +1950,50 @@ elif cmd == "audioalt":
 # (built entirely from enumerated data) + a Custom escape, then sets the globals
 # the rest of the engine already routes on: SEL NEEDRE SPROTO SELNOTE CUSTOM.
 # Needs $INFO/$PYTHON/$VR_PY (all set before the only call site).
+# ---- a row, and what happens to it next (11.13.26) -----------------------------
+# The picker shows a row's size before anything is downloaded. A row that is the
+# right picture but too big for where it is going used to mean closing the window
+# and starting the same link again as STUDIO. Now the answer can carry it:
+#   2s        row 2, and the rest of the run is STUDIO's (its story block, its
+#             probe, its recipe table) on the file once it lands
+#   2 950mb   row 2, re-encoded to land under 950 MB: STUDIO's own questions are
+#             answered from that size (keep the size, the highest dial whose
+#             measured estimate fits), and a pass that still lands over runs once
+#             more, one step down, sized from what the first pass measured
+# A size can also be typed at STUDIO's recipe prompt. Typed sizes are decimal MB
+# (what Finder and an upload limit count); the estimates are held 10% under.
+size_token_mb() {   # "950mb" · "1g" · "1.5gb" · "under 1g" · "<900m" → whole decimal MB; anything else → nothing (pure; smoke-tested)
+  printf '%s' "$1" | tr 'A-Z' 'a-z' | tr -d ' \t' | awk '
+    { s=$0; sub(/^(under|<)/, "", s)
+      if (s !~ /^[0-9]+(\.[0-9]+)?(mb|m|gb|g)$/) exit
+      n=s; sub(/[a-z]+$/, "", n); u=s; sub(/^[0-9.]+/, "", u)
+      v = (u ~ /^g/) ? n*1000 : n+0
+      if (v >= 5 && v <= 200000) printf "%d", v }'
+}
+pick_words() {   # the picker's answer → PICK_ROW ("" = not this grammar) · PICK_STUDIO · PICK_FIT_MB (pure; smoke-tested)
+  PICK_ROW=""; PICK_STUDIO=0; PICK_FIT_MB=""
+  _pwl=$(printf '%s' "$1" | tr 'A-Z' 'a-z' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]]+/ /g')
+  case "$(printf '%s' "$_pwl" | tr -d ' ')" in
+    s)                   PICK_ROW=1; PICK_STUDIO=1; return ;;
+    [1-9]s|[1-9][0-9]s)  PICK_ROW="${_pwl%%[!0-9]*}"; PICK_STUDIO=1; return ;;
+    s[1-9]|s[1-9][0-9])  PICK_ROW=$(printf '%s' "$_pwl" | tr -dc '0-9'); PICK_STUDIO=1; return ;;
+  esac
+  _pwr=""; _pwx="$_pwl"
+  case "$_pwl" in [1-9]" "*|[1-9][0-9]" "*) _pwr="${_pwl%% *}"; _pwx="${_pwl#* }" ;; esac
+  _pwm=$(size_token_mb "$_pwx")
+  [ -n "$_pwm" ] && { PICK_ROW="${_pwr:-1}"; PICK_STUDIO=1; PICK_FIT_MB="$_pwm"; }
+  return 0
+}
+studio_takeover() {   # the rest of this run is STUDIO's: its box widths, its window, its questions
+  [ "$MODE" = "studio" ] && return 0
+  MODE="studio"; BOXW=118; WRAPW=110; unset RCOL
+  logln "  mode: the pick asked for STUDIO — the rest of this run is STUDIO's${PICK_FIT_MB:+ (to land under ${PICK_FIT_MB}MB)}"
+  if [ "$IS_TTY" = "1" ]; then
+    case "${TERM_SIZE_STUDIO:-}" in
+      [0-9]*x[0-9]*) printf '\033[8;%s;%st' "${TERM_SIZE_STUDIO%x*}" "${TERM_SIZE_STUDIO#*x}" > /dev/tty 2>/dev/null || true ;;
+    esac
+  fi
+}
 present_formats() {
   # --- bright FRAMED picker: one row per REAL resolution, descending, #1 = best ---
   # (The raw formats TABLE is deliberately NOT shown up front — one list, not two.
@@ -1988,7 +2059,16 @@ EOF
   if [ "$_allre" = "1" ]; then
     frame_rail "${C_YEL}every stream here would convert${_onecodec:+ (all ${_onecodec})} — the site may be rotating its manifest; try r${C_RESET}"
   fi
+  if [ "$MODE" != "studio" ]; then
+    if [ "${IS_LIVE:-0}" = "1" ]; then
+      frame_rail "$(printf '%ss%s)  after a number (1s) — STUDIO on the capture once it is sealed' "$C_BOLD" "$C_RESET")"
+    else
+      frame_rail "$(printf '%ss%s)  after a number (1s) — STUDIO on that row once it lands, no restart' "$C_BOLD" "$C_RESET")"
+      frame_rail "    a size after a number (1 950mb) — shrunk to land under it"
+    fi
+  fi
   _c=$(ask_line "$(rail)${C_DIM}number · c=custom · r=re-read source${C_RESET}  ${C_BOLD}[Enter = 1]${C_RESET} ${C_CYAN}${G_ARR}${C_RESET}" 1)
+  pick_words "$_c"; [ -n "$PICK_ROW" ] && _c="$PICK_ROW"
   case "$_c" in
     r|R)
       # Re-read the source's stream list (sites rotate manifests: an Instagram menu
@@ -2083,7 +2163,12 @@ EOF3
   if [ "$NEEDRE" = "1" ] && [ -n "${_topqt:-}" ]; then
     frame_rail "${C_DIM}heads-up: this rung's codec converts to HEVC after download (can't play in QuickTime as-is) — row ${_topqt} is the top no-convert pick${C_RESET}"
   fi
+  if [ "${PICK_STUDIO:-0}" = "1" ] && [ "$MODE" != "studio" ]; then
+    if [ -n "$PICK_FIT_MB" ]; then frame_rail "${C_GRN}${G_OK}${C_RESET} then shrunk to land under ${PICK_FIT_MB}MB — the best quality that fits, measured on the file itself"
+    else frame_rail "${C_GRN}${G_OK}${C_RESET} then STUDIO opens on it — nothing is downloaded twice"; fi
+  fi
   box_bot
+  [ "${PICK_STUDIO:-0}" = "1" ] && studio_takeover
 }
 
 # ---- doctor (8.11.26): `slipmat --doctor` — suite self-check, then exit -----
@@ -2599,6 +2684,67 @@ print((m.get("title") or "").replace("\n"," ")); print(src.get("src") or ""); pr
 # calls garbage a win and the referer ladder below never runs. Real dumps are JSON
 # objects — first byte `{` is the cheap, reliable tell.
 info_json_ok() { [ -s "$1" ] && [ "$(head -c 1 "$1" 2>/dev/null)" = "{" ]; }
+# ---- the way in that worked last time (11.13.26) ------------------------------
+# Every recovery here was built for a site's bad day, and some sites have that day
+# every day: across two months of run logs one site refused the plain read on 36
+# of 36 runs and then took four more refusals before each download; a player
+# host needed its embed page on 586 of 592. The run always arrived, the long way.
+# So the way in that worked is written down per site, and once it has worked
+# ROUTE_MIN times running the next run STARTS there:
+#   probe    the browser fingerprint the page opened to after refusing a plain read
+#   referer  which of the configured embed pages opened a player link (its number)
+#   hlsdl    the download landed only from the playlist itself: manifest:<fingerprint|plain>
+# A route is a starting order, never a restriction: when it does not answer, the
+# run falls back to the full path it would have taken before, says so in the log,
+# and (for a download) forgets the route. A plain read that succeeds forgets a
+# probe route, and every ROUTE_RECHECK-th run tries the plain read first again, so
+# a route never outlives the wall it was learned from. One line per site and
+# stage in ~/.slipmat/routes: host · stage · value · runs in a row · last day.
+# SLIPMAT_ROUTES=0 in the config turns it off. Sites with their own login or
+# token handling are never routed.
+ROUTES="$HOME/.slipmat/routes"; ROUTE_MIN=2; ROUTE_RECHECK=25
+ROUTE_HOST=""; ROUTE_PROBE=""; ROUTE_DL=0; ROUTE_V=""; ROUTE_N=0
+route_on() { [ "${SLIPMAT_ROUTES:-1}" != "0" ]; }
+route_host() {   # an address → its host, lower case, without www. / m. / mobile. (pure; smoke-tested)
+  printf '%s' "$1" | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#[/?\#].*$##; s#^[^@]*@##; s#:[0-9]+$##' | tr 'A-Z' 'a-z' | sed -E 's#^(www|m|mobile)\.##'
+}
+route_skip() {   # 0 = this host is never routed (its own login / token handling decides how it is read)
+  case "$1" in ''|youtube.com|*.youtube.com|youtu.be|instagram.com|*.instagram.com) return 0 ;; esac
+  return 1
+}
+route_get() {   # <host> <stage> → ROUTE_V (the value) and ROUTE_N (runs in a row); empty and 0 = none
+  ROUTE_V=""; ROUTE_N=0
+  route_on && [ -n "$1" ] && [ -f "$ROUTES" ] || return 0
+  _rg=$(awk -F'\t' -v h="$1" -v s="$2" '$1==h && $2==s { print $3 "\t" $4; exit }' "$ROUTES" 2>/dev/null)
+  [ -n "$_rg" ] || return 0
+  ROUTE_V="${_rg%%$'\t'*}"; ROUTE_N="${_rg##*$'\t'}"
+  case "$ROUTE_N" in ''|*[!0-9]*) ROUTE_N=0; ROUTE_V="" ;; esac
+}
+route_put() {   # <host> <stage> <value>: the same value again = one more run in a row · another value starts at 1
+  route_on && [ -n "$1" ] && [ -n "$3" ] || return 0
+  mkdir -p "$(dirname "$ROUTES")" 2>/dev/null || return 0
+  _rsrc="$ROUTES"; [ -f "$_rsrc" ] || _rsrc=/dev/null
+  awk -F'\t' -v OFS='\t' -v h="$1" -v s="$2" -v v="$3" -v d="$(date +%Y-%m-%d)" '
+    $1==h && $2==s { if (!done) { print h, s, v, ($3==v ? $4+1 : 1), d; done=1 } next }
+    NF>=4 { print }
+    END { if (!done) print h, s, v, 1, d }' "$_rsrc" 2>/dev/null > "$ROUTES.$$" && mv -f "$ROUTES.$$" "$ROUTES" 2>/dev/null
+  rm -f "$ROUTES.$$" 2>/dev/null
+}
+route_drop() {  # <host> <stage>
+  route_on && [ -n "$1" ] && [ -f "$ROUTES" ] || return 0
+  awk -F'\t' -v h="$1" -v s="$2" '!($1==h && $2==s) && NF>=4' "$ROUTES" 2>/dev/null > "$ROUTES.$$" && mv -f "$ROUTES.$$" "$ROUTES" 2>/dev/null
+  rm -f "$ROUTES.$$" 2>/dev/null
+}
+dump_manifest() {   # the probe's dump on stdin → the playlist address it names ("" = none)
+  "$PYTHON" -c 'import json,sys
+try: d=json.load(sys.stdin)
+except Exception: raise SystemExit
+u=next((f.get("manifest_url") for f in d.get("formats",[]) if f.get("manifest_url")), None) or d.get("manifest_url")
+if not u:
+    u=d.get("url") or ""
+    if ".m3u8" not in u: u=""
+print(u or "")' 2>/dev/null
+}
 # ---- the browser ladder (10.13.26, Rumble behind a Cloudflare challenge) -----
 # One fingerprint is not enough: the challenge is intermittent PER FINGERPRINT.
 # Measured 10.13 on Rumble's embed endpoint, 21 probes: chrome passed 7 of 7,
@@ -2624,6 +2770,7 @@ imp_probe() {   # walk the ladder on $URL → $INFO; 0 = unlocked (IMPARGS set).
         && info_json_ok "$INFO"; then
       imp_set "$_t"
       if [ "${1:-}" = "quiet" ]; then logln "  + unlocked via browser impersonation ($_t)"; else ok "unlocked via browser impersonation ($_t)"; fi
+      [ "${IMP_LEARN:-0}" = "1" ] && ! route_skip "$ROUTE_HOST" && route_put "$ROUTE_HOST" probe "$_t"
       return 0
     fi
     IMP_TRIED="$IMP_TRIED $_t"; logln "  impersonation: $_t refused"
@@ -2993,6 +3140,118 @@ for hu in _links[:3]:
 sys.exit(0)
 PYEMB
 }
+# ---- a recording nobody came back for (11.13.26) ------------------------------
+# A live capture is written into the in-progress folder as a growing .mp4.part
+# (a rewind: a video half and an audio half) and becomes a playable mp4 only at
+# the stop. A capture whose window was closed, whose terminal died or whose Mac
+# lost power never got its stop: the raw file stayed there, unplayable, and
+# nothing came back for it (a six-hour 12 GB recording was sealed by hand the
+# night this was written). Every run now looks once, before it reads its own
+# source: a capture file that nothing has written for three minutes, whose
+# reservation belongs to a run that is gone (the scratch folder that names it
+# carries a dead process id; with no scratch folder left, twenty quiet minutes),
+# is sealed the way a stop seals it — streams copied, nothing re-encoded — checked
+# against the raw file's own length, placed beside the finished files under the
+# name it had reserved, and only then is the raw file removed. One run at a time
+# seals a given capture (a lock folder); not enough free space, or a seal that
+# fails, leaves the raw file where it is and says so once.
+# SLIPMAT_SEAL_ABANDONED=0 in the config turns it off.
+whole_secs() { "$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$1" 2>/dev/null | awk '{ if ($1+0>0) printf "%.0f", $1+0 }'; }   # a file's length in whole seconds ("" = unreadable)
+abandoned_gone() {   # $1 = the capture's newest file · $2 = its reservation → 0 = no run owns it any more
+  [ -n "$(find "$1" -maxdepth 0 -mmin +3 2>/dev/null)" ] || return 1
+  _ag_named=0
+  for _ag_led in "$WORKROOT"/vr_*/claims; do
+    [ -f "$_ag_led" ] || continue
+    grep -qxF -- "$2" "$_ag_led" 2>/dev/null || continue
+    _ag_named=1; _ag_dir=$(dirname "$_ag_led"); _ag_pid="${_ag_dir##*_}"
+    case "$_ag_pid" in ''|*[!0-9]*) continue ;; esac
+    [ "$_ag_pid" = "$$" ] && return 1
+    if kill -0 "$_ag_pid" 2>/dev/null; then
+      case "$(ps -p "$_ag_pid" -o command= 2>/dev/null)" in *slipmat-video*) return 1 ;; esac
+    fi
+  done
+  [ "$_ag_named" = "1" ] && return 0
+  [ -n "$(find "$1" -maxdepth 0 -mmin +20 2>/dev/null)" ]
+}
+abandoned_seal() {   # $1 = the name's stem · $2 = video (or the one combined) file · $3 = audio half ("" = none)
+  _as_stem="$1"; _as_v="$2"; _as_a="${3:-}"
+  [ -f "$CAPDIR/$_as_stem.unsealable" ] && return 0
+  _as_lock="$CAPDIR/.sealing $(printf '%s' "$_as_stem" | cksum | awk '{print $1}')"
+  [ -d "$_as_lock" ] && [ -n "$(find "$_as_lock" -maxdepth 0 -mmin +360 2>/dev/null)" ] && rmdir "$_as_lock" 2>/dev/null
+  mkdir "$_as_lock" 2>/dev/null || return 0          # another run is sealing this one
+  _as_kb=$(( ( $(stat -f %z "$_as_v" 2>/dev/null || echo 0) + $( [ -n "$_as_a" ] && stat -f %z "$_as_a" 2>/dev/null || echo 0 ) ) / 1024 ))
+  _as_free=$(df -k "$CAPDIR" 2>/dev/null | awk 'NR==2{print $4+0}')
+  if [ "${_as_free:-0}" -lt $(( _as_kb + 1048576 )) ] 2>/dev/null; then
+    warn "a recording left unfinished is waiting in the in-progress folder ($(fmt_bytes $(( _as_kb * 1024 )))) — not enough free space to seal it now"
+    rmdir "$_as_lock" 2>/dev/null; return 0
+  fi
+  _as_tmp="$CAPDIR/$_as_stem.sealed.mp4"; _as_err="$WORKDIR/abandoned.err"; _as_t0=$SECONDS
+  if [ -n "$_as_a" ]; then
+    "$FFMPEG" -hide_banner -loglevel error -y -i "$_as_v" -i "$_as_a" -map 0:v:0 -map 1:a:0 -c copy -shortest -movflags +faststart "$_as_tmp" </dev/null 2>"$_as_err" &
+  else
+    "$FFMPEG" -hide_banner -loglevel error -y -i "$_as_v" -map 0:v:0 -map 0:a:0? -c copy -movflags +faststart "$_as_tmp" </dev/null 2>"$_as_err" &
+  fi
+  _as_pid=$!
+  while kill -0 "$_as_pid" 2>/dev/null; do
+    [ "$IS_TTY" = "1" ] && live_line "${C_GRN}${G_OK}${C_RESET} sealing a recording left unfinished · $(fmt_dur $(( SECONDS - _as_t0 + 1 ))) · $(abridge "$_as_stem" 60)"
+    sleep 1
+  done
+  wait "$_as_pid"; _as_rc=$?
+  [ "$IS_TTY" = "1" ] && live_line_end
+  _as_d1=$(whole_secs "$_as_tmp"); _as_d0=$(whole_secs "$_as_v")
+  case "$_as_d1" in ''|*[!0-9]*) _as_d1=0 ;; esac; case "$_as_d0" in ''|*[!0-9]*) _as_d0=0 ;; esac
+  _as_hasv=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=codec_type -of csv=p=0 "$_as_tmp" 2>/dev/null | head -1 | tr -d ',')
+  if [ "$_as_rc" -eq 0 ] && [ "$_as_hasv" = "video" ] && [ "$_as_d1" -gt 0 ] && [ "$_as_d1" -ge $(( _as_d0 * 98 / 100 - 2 )) ]; then
+    _as_dst="$OUTDIR/$_as_stem.mp4"; _as_n=2
+    while [ -e "$_as_dst" ]; do _as_dst="$OUTDIR/$_as_stem (${_as_n}).mp4"; _as_n=$((_as_n+1)); done
+    if mv -f "$_as_tmp" "$_as_dst" 2>/dev/null; then
+      rm -f "$_as_v" 2>/dev/null; [ -n "$_as_a" ] && rm -f "$_as_a" 2>/dev/null
+      rm -f "$CAPDIR/$_as_stem".f[0-9]*.ytdl "$CAPDIR/$_as_stem.mp4.ytdl" 2>/dev/null
+      _as_cl="$CAPDIR/$_as_stem.mp4.claim"; [ -f "$_as_cl" ] && [ ! -s "$_as_cl" ] && rm -f "$_as_cl" 2>/dev/null
+      ok "a recording left unfinished was sealed — $(fmt_dur "$_as_d1") · $(fmt_bytes "$(stat -f %z "$_as_dst" 2>/dev/null || echo 0)")$([ -z "$_as_a" ] && [ "$(audio_streams "$_as_dst")" = "0" ] && printf ' · no sound was recorded')"
+      note "$_as_dst"
+    else
+      warn "a recording left unfinished was sealed but could not be moved out of the in-progress folder — it is there: $_as_tmp"
+    fi
+  else
+    rm -f "$_as_tmp" 2>/dev/null; : > "$CAPDIR/$_as_stem.unsealable" 2>/dev/null
+    warn "a recording left unfinished could not be sealed — its raw file stays in the in-progress folder (ffmpeg's words are in this run's log)"
+    logln "  abandoned capture: $_as_v · seal exit $_as_rc · sealed ${_as_d1}s of ${_as_d0}s"
+    [ -s "$_as_err" ] && sed 's/^/    /' "$_as_err" | head -8 >> "${RUNLOG:-/dev/null}" 2>/dev/null
+  fi
+  rmdir "$_as_lock" 2>/dev/null
+  return 0
+}
+seal_abandoned() {
+  [ "${SLIPMAT_SEAL_ABANDONED:-1}" != "0" ] && [ -d "${CAPDIR:-/nonexistent}" ] && [ "$CAPDIR" != "$OUTDIR" ] || return 0
+  # one combined file: NAME.mp4.part
+  for _sa in "$CAPDIR"/*.mp4.part; do
+    [ -s "$_sa" ] || continue
+    _sb=$(basename "$_sa"); case "$_sb" in *.f[0-9]*.mp4.part) continue ;; esac
+    _ss="${_sb%.mp4.part}"
+    abandoned_gone "$_sa" "$CAPDIR/$_ss.mp4.claim" || continue
+    abandoned_seal "$_ss" "$_sa" ""
+  done
+  # a rewind's two halves: NAME.f<id>.<ext>[.part]
+  _sdone="|"
+  for _sa in "$CAPDIR"/*.f[0-9]*.*; do
+    [ -s "$_sa" ] || continue
+    case "$_sa" in *.ytdl|*.sealed.mp4|*.unsealable) continue ;; esac
+    _sb=$(basename "$_sa"); _ss="${_sb%.f[0-9]*}"; [ "$_ss" != "$_sb" ] || continue
+    case "$_sdone" in *"|$_ss|"*) continue ;; esac; _sdone="$_sdone$_ss|"
+    _sv=""; _sau=""; _squiet=1
+    for _sf in "$CAPDIR/$_ss".f[0-9]*.*; do
+      [ -s "$_sf" ] || continue
+      case "$_sf" in *.ytdl) continue ;; esac
+      abandoned_gone "$_sf" "$CAPDIR/$_ss.mp4.claim" || { _squiet=0; break; }
+      _st=$("$FFPROBE" -v error -show_entries stream=codec_type -of csv=p=0 "$_sf" 2>/dev/null | tr -d ',' | sort -u | tr '\n' ' ')
+      case "$_st" in *video*) [ -z "$_sv" ] && _sv="$_sf" ;; *audio*) [ -z "$_sau" ] && _sau="$_sf" ;; esac
+    done
+    [ "$_squiet" = "1" ] && [ -n "$_sv" ] || continue
+    abandoned_seal "$_ss" "$_sv" "$_sau"
+  done
+  return 0
+}
 vimeo_unlock() {
   case "$(lc "$URL")" in
     *player.vimeo.com/video/*) : ;;
@@ -3014,6 +3273,22 @@ vimeo_unlock() {
       ;;
     *) return 0 ;;
   esac
+  # the way in that worked last time: player links that needed the same configured
+  # embed page on their last ROUTE_MIN runs are opened with it from the start (its
+  # number in the list is what is kept, and only a page still in the list is sent)
+  _vrh=$(route_host "$URL"); route_get "$_vrh" referer
+  if [ -n "$ROUTE_V" ] && [ "$ROUTE_N" -ge "$ROUTE_MIN" ]; then
+    _i=0
+    for _h in $VIMEO_EMBED_HOSTS; do
+      _i=$((_i+1)); [ "$_i" = "$ROUTE_V" ] || continue
+      if "$YTDLP" $COOKIES $PLARGS --referer "$_h" --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" && info_json_ok "$INFO"; then
+        REFARGS="--referer $_h"; route_put "$_vrh" referer "$_i"
+        logln "  route: player links here open with embed page $_i — sent from the start ($ROUTE_N runs in a row)"
+        return 0
+      fi
+      : > "$INFO"; logln "  route: embed page $_i did not open this one — the plain read and the list follow"
+    done
+  fi
   # public player URLs need no referer — try plain first, never send one uninvited
   "$YTDLP" $COOKIES $PLARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
   info_json_ok "$INFO" && return 0
@@ -3027,6 +3302,7 @@ vimeo_unlock() {
     if "$YTDLP" $COOKIES $PLARGS --referer "$_h" --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" && info_json_ok "$INFO"; then
       REFARGS="--referer $_h"
       ok "unlocked via embed page $_i of $_n"
+      route_put "$_vrh" referer "$_i"
       return 0
     fi
   done
@@ -3055,6 +3331,7 @@ say ""
 printf '%s SLIPMAT %s%s  %smode %s · %s%s\n' "$C_BOLD$C_CYAN" "$VERSION" "$C_RESET" "$C_DIM" "$MODE" "$HLABEL" "$C_RESET"
 logln "SLIPMAT v$VERSION"
 note "$URL"
+seal_abandoned   # a recording nobody came back for is sealed before this run starts its own work (no-op when there is none)
 { [ -z "$LOCAL_SRC" ] || [ -n "$OUT_FALLBACK" ]; } && [ -n "$OUTDIR_NOTE" ] && warn "$OUTDIR_NOTE"
 
 # ---- [1] source probe — ONE `yt-dlp -J` dump feeds naming, live, AND formats --
@@ -3092,7 +3369,31 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
   if is_instagram && [ "$TS_FAST" != "1" ] && ig_cooldown_active; then
     die "Instagram refused a request a little while ago — slipmat is not contacting Instagram until $(ig_cooldown_until), so your login isn't flagged. Run the same link again after that."
   fi
-  [ "$TS_FAST" = "1" ] || [ -s "$INFO" ] || "$YTDLP" $COOKIES $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"
+  # the way in that worked last time (see route_get): a site that refused the plain
+  # read and opened to one fingerprint on its last ROUTE_MIN runs is read with that
+  # fingerprint from the start. Not answered = the plain read and the ladder below,
+  # exactly as before. Every ROUTE_RECHECK-th run reads plain first (quietly).
+  ROUTE_HOST=$(route_host "$URL"); ROUTE_PROBE=""; _plain_ran=0; _route_recheck=0
+  if [ "$TS_FAST" != "1" ] && ! [ -s "$INFO" ] && ! route_skip "$ROUTE_HOST"; then
+    route_get "$ROUTE_HOST" probe
+    if [ -n "$ROUTE_V" ] && [ "$ROUTE_N" -ge "$ROUTE_MIN" ] && imp_available; then
+      case " $IMP_LADDER " in *" $ROUTE_V "*)
+        if [ $(( ROUTE_N % ROUTE_RECHECK )) -eq 0 ]; then _route_recheck=1
+        elif "$YTDLP" $COOKIES $PLARGS $REFARGS --impersonate "$ROUTE_V" --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR" && info_json_ok "$INFO"; then
+          imp_set "$ROUTE_V"; ROUTE_PROBE="$ROUTE_V"; route_put "$ROUTE_HOST" probe "$ROUTE_V"
+          logln "  route: $ROUTE_HOST refuses a plain read — read as $ROUTE_V from the start ($ROUTE_N runs in a row)"
+        else
+          : > "$INFO"; logln "  route: $ROUTE_HOST did not answer as $ROUTE_V this time — the plain read and the ladder follow"
+        fi ;;
+      esac
+    fi
+  fi
+  [ "$TS_FAST" = "1" ] || [ -s "$INFO" ] || { _plain_ran=1; "$YTDLP" $COOKIES $PLARGS $REFARGS --no-warnings -J "$URL" > "$INFO" 2>>"$PROBE_ERR"; }
+  # a plain read that answered: whatever route this site had is no longer needed
+  if [ "$_plain_ran" = "1" ] && info_json_ok "$INFO" && ! route_skip "$ROUTE_HOST"; then
+    route_get "$ROUTE_HOST" probe
+    [ -n "$ROUTE_V" ] && { route_drop "$ROUTE_HOST" probe; logln "  route: $ROUTE_HOST answered a plain read — its route ($ROUTE_V) is forgotten"; }
+  fi
   if is_instagram && [ "$TS_FAST" != "1" ]; then
     if ! info_json_ok "$INFO" && [ -n "$COOKIES" ] && grep -qi 'json' "$PROBE_ERR" 2>/dev/null; then
       note "Instagram's logged-in API answered empty — one retry without your login …"
@@ -3106,7 +3407,11 @@ if [ -z "${SLIPMAT_LOCAL_MKV:-}" ] && [ -z "$LOCAL_SRC" ]; then
     fi
   fi
   # bot-block escalation: plain probe failed -> one retry as a real browser
-  if [ "$TS_FAST" != "1" ] && ! info_json_ok "$INFO"; then imp_probe; fi
+  if [ "$TS_FAST" != "1" ] && ! info_json_ok "$INFO"; then
+    IMP_LEARN=1
+    if [ "$_route_recheck" = "1" ]; then imp_probe quiet; else imp_probe; fi   # the re-check of a known wall is the log's business, not the screen's
+    IMP_LEARN=0
+  fi
   # V4.5d: still nothing readable on a webpage URL → read the page ourselves and
   # hunt the embedded video (see embed_hunt). A hit rewrites $URL; dedicated
   # extractors then probe normally. A miss falls through unchanged.
@@ -3213,6 +3518,7 @@ EOF
   for _v in M_ID M_TITLE M_UPID M_CHANNEL M_UPLOADER M_UPDATE M_LIVE M_DUR; do
     eval "[ \"\$$_v\" = NA ] && $_v=''" || true
   done
+  case "$M_LIVE" in is_live|is_upcoming|post_live) M_TITLE=$(live_title_bare "$M_TITLE") ;; esac
   # V4.6 (the parked "generic honest-failure gap"): when the probe, the browser
   # retry, the embed hunt AND the metadata read ALL came back empty, a later
   # download death must not guess "expired/private" — it saw nothing at all.
@@ -3483,6 +3789,55 @@ live_rearm() {
   tty_flush; stty intr '^C' echo icanon < /dev/tty 2>/dev/null
   rm -f "$LIVE_STOP" "${LIVE_ASK:-/nonexistent}" 2>/dev/null
 }
+# typed_countdown <seconds> — the count that lands on Enter, and keeps what is typed.
+# 11.13.26: the count used to redraw its line once a second over a LINE read. The
+# redraw wiped the key that had just been typed off the screen while the terminal
+# kept it in its line buffer, so a second and a third try stacked up unseen: four
+# presses of 1 entered "1111" — 1111 minutes back, not chip 1 (5 minutes). Now the
+# terminal is read one key at a time for the length of the question: every key is
+# drawn after the arrow at once and stays there, Backspace takes one off, Enter
+# enters what is there, and every key starts the count over. When the count lands
+# it enters what is typed (nothing typed = Enter). Arrow keys and other escape
+# sequences are dropped whole. Sets TC_ANS (the text) and TC_HOW (enter | timer).
+typed_countdown() {
+  _tc_secs="$1"; TC_ANS=""; TC_HOW="timer"; _tc_esc=0; _tc_i=$_tc_secs
+  TC_STTY=$(stty -g < /dev/tty 2>/dev/null)
+  stty -icanon -echo min 1 time 0 < /dev/tty 2>/dev/null
+  while [ "$_tc_i" -gt 0 ]; do
+    if [ -z "$TC_ANS" ]; then
+      live_line "$(printf '%s%s now   %snow in %ss%s   %s%s%s ' "$(rail)" "$(chip Enter)" "$C_ACC" "$_tc_i" "$C_RESET" "$C_CYAN" "$G_ARR" "$C_RESET")" ""
+    else
+      live_line "$(printf '%s%s start there   %sstarts in %ss%s   %s%s%s %s' "$(rail)" "$(chip Enter)" "$C_ACC" "$_tc_i" "$C_RESET" "$C_CYAN" "$G_ARR" "$C_RESET" "$TC_ANS")" ""
+    fi
+    if IFS= read -r -s -n 1 -t 1 _tc_k < /dev/tty; then
+      if [ "$_tc_esc" = "1" ]; then            # the byte after ESC: [ or O opens a sequence, anything else ends it
+        case "$_tc_k" in '['|O) _tc_esc=2 ;; *) _tc_esc=0 ;; esac
+      elif [ "$_tc_esc" = "2" ]; then          # inside a sequence: its last byte is a letter or ~
+        case "$_tc_k" in [A-Za-z~]) _tc_esc=0 ;; esac
+      else
+        case "$_tc_k" in
+          '') TC_HOW="enter"; break ;;         # Enter
+          "$(printf '\033')") _tc_esc=1 ;;
+          "$(printf '\177')"|"$(printf '\010')") TC_ANS="${TC_ANS%?}" ;;
+          [0-9a-zA-Z:.\ -]) [ "${#TC_ANS}" -lt 16 ] && TC_ANS="$TC_ANS$_tc_k" ;;
+        esac
+      fi
+      _tc_i=$_tc_secs
+    else
+      _tc_i=$((_tc_i-1))
+    fi
+  done
+  [ -n "$TC_STTY" ] && stty "$TC_STTY" < /dev/tty 2>/dev/null; TC_STTY=""
+  # the question is over: its line is drawn one last time (through live_line, cut to the window) and finished
+  if [ "$TC_HOW" = "enter" ]; then
+    live_line "$(printf '%s%s %s   %s%s%s %s' "$(rail)" "$(chip Enter)" "$([ -n "$TC_ANS" ] && printf 'start there' || printf 'now')" "$C_CYAN" "$G_ARR" "$C_RESET" "$TC_ANS")" ""
+  elif [ -n "$TC_ANS" ]; then
+    live_line "$(printf '%s%s start there   %sthe timer landed%s   %s%s%s %s' "$(rail)" "$(chip Enter)" "$C_ACC" "$C_RESET" "$C_CYAN" "$G_ARR" "$C_RESET" "$TC_ANS")" ""
+  else
+    live_line "$(printf '%s%s now   %snow — the timer landed%s' "$(rail)" "$(chip Enter)" "$C_ACC" "$C_RESET")" ""
+  fi
+  printf '\n' > /dev/tty
+}
 ask_live_start() {
   _q="where should the capture start?"
   _cols=$(stty size < /dev/tty 2>/dev/null | awk '{print $2}'); [ "${_cols:-0}" -gt 0 ] 2>/dev/null || _cols=${COLUMNS:-80}
@@ -3511,13 +3866,7 @@ ask_live_start() {
   case "$_secs" in ''|*[!0-9]*) _secs=8 ;; esac
   _ans=""; _got=0
   if [ "$_secs" -gt 0 ]; then
-    _i=$_secs
-    while [ "$_i" -gt 0 ]; do
-      live_line "$(printf '%s%s now   %snow in %ss%s   %s%s%s ' "$(rail)" "$(chip Enter)" "$C_ACC" "$_i" "$C_RESET" "$C_CYAN" "$G_ARR" "$C_RESET")" ""
-      if read -t 1 -r _ans < /dev/tty; then _got=1; break; fi
-      _i=$((_i-1))
-    done
-    [ "$_got" = "1" ] || { tty_flush; printf '\r\033[K%s%s now   %snow — the timer landed%s\n' "$(rail)" "$(chip Enter)" "$C_ACC" "$C_RESET" > /dev/tty; }
+    typed_countdown "$_secs"; _ans="$TC_ANS"; _got=1
   else
     printf '%s%s now   %s%s%s ' "$(rail)" "$(chip Enter)" "$C_CYAN" "$G_ARR" "$C_RESET" > /dev/tty
     read -r _ans < /dev/tty && _got=1
@@ -4872,6 +5221,17 @@ else
     fi
     printf '%s' "${_sl:+$_sl/}bv*[height<=$1][vcodec^=avc1]+ba/bv*[height<=$1]+ba/b[height<=$1]/b"
   }
+  # 11.13.26: the playlist's own format ids are not the page's. After a swap to the
+  # playlist a picked row's id matched nothing and the selector fell through to its
+  # uncapped tail: a 720 pick (865 MB on the menu) landed as 1080 (1.58 GB). The
+  # picked height now leads the fallbacks; the uncapped tail stays last so the
+  # download still lands when nothing at or under the pick is offered. A vertical
+  # pick is left alone (its short side is not its height).
+  sel_height_led() {   # $1 = the selector in use → the same with height-capped rungs ahead of its fallbacks
+    case "$SELNOTE" in *"(V)"*) printf '%s' "$1"; return ;; esac
+    case "${_att_short:-}" in ''|*[!0-9]*) printf '%s' "$1"; return ;; esac
+    printf '%s' "${1%%/*}/bv*[height<=${_att_short}][vcodec^=avc1]+ba/bv*[height<=${_att_short}]+ba/b[height<=${_att_short}]/${1#*/}"
+  }
   # the short side we are ATTEMPTING (drives the retry ladder): the dump pick's
   # note when numeric ("720p h264"), else unknown -> ladder starts one below top.
   _att_short=""
@@ -4908,7 +5268,7 @@ else
     ) >> "$RUNLOG" 2>/dev/null &
     SPID=$!
   fi
-  CUR_SEL="$DLSEL"; DL_RETRIES=0; BEST_MKV=""; BEST_COV=0; RETRY_NOTE=""; SAME_RETRY=0; MANIFEST_SWAP=0
+  CUR_SEL="$DLSEL"; DL_RETRIES=0; BEST_MKV=""; BEST_COV=0; RETRY_NOTE=""; SAME_RETRY=0; MANIFEST_SWAP=0; ROUTE_SWAPPED=0
   # ---- the keys while it downloads: see keys_start. key.next (written before
   # every attempt while a ladder exists) is the rung ↓ would take; empty = floor.
   KEY_NEXT_F="$WORKDIR/key.next"; KEY_LADDER=0; _kn=""
@@ -4916,6 +5276,28 @@ else
   [ -n "$_kn" ] && KEY_LADDER=1
   key_next_write() { [ "$KEY_LADDER" = "1" ] || return 0; if [ "$DL_RETRIES" -lt 2 ]; then next_rung_below "$_att_short" > "$KEY_NEXT_F" 2>/dev/null; else : > "$KEY_NEXT_F"; fi; }
   keys_start download "$_kn"
+  # the way in that worked last time: a site whose page download has landed only
+  # from the playlist itself on its last ROUTE_MIN runs is asked for the playlist
+  # from the start, with the fingerprint that landed it. Everything the swap
+  # changes is kept aside: an attempt that lands nothing puts it all back, forgets
+  # the route, and the run goes on exactly as it would have before.
+  ROUTE_DL=0
+  if [ "$IS_HLS" = "1" ] && [ -n "$PYTHON" ] && [ -s "${INFO:-/nonexistent}" ] && ! route_skip "$ROUTE_HOST"; then
+    route_get "$ROUTE_HOST" hlsdl
+    case "$ROUTE_V" in manifest:*)
+      _mf=""; [ "$ROUTE_N" -ge "$ROUTE_MIN" ] && _mf=$(dump_manifest < "$INFO")
+      _rfp="${ROUTE_V#manifest:}"; case " $IMP_LADDER plain " in *" $_rfp "*) : ;; *) _mf="" ;; esac
+      [ "$_rfp" != "plain" ] && ! imp_available && _mf=""
+      if [ -n "$_mf" ] && [ "$_mf" != "$URL" ]; then
+        _R_URL="$URL"; _R_REF="$REFARGS"; _R_IMPA="$IMPARGS"; _R_IMPT="$IMP_TARGET"; _R_TRIED="$IMP_TRIED"; _R_SEL="$CUR_SEL"
+        [ -z "$REFARGS" ] && REFARGS="--referer $URL"
+        if [ "$_rfp" = "plain" ]; then IMPARGS=""; IMP_TARGET=""; else imp_set "$_rfp"; fi
+        logln "  route: $ROUTE_HOST serves the download from its playlist only — asked for it from the start as $_rfp ($ROUTE_N runs in a row)"
+        logln "  manifest swap: $URL -> $_mf"
+        URL="$_mf"; MANIFEST_SWAP=1; ROUTE_DL=1; CUR_SEL=$(sel_height_led "$CUR_SEL")
+      fi ;;
+    esac
+  fi
   while :; do
     key_next_write
     run_download "$CUR_SEL"; YTRC=$?
@@ -4945,6 +5327,17 @@ else
       # weather — the identical command 30s later pulled at 21MB/s. If a partial
       # is already in hand, retry the SAME rung ONCE; yt-dlp resumes the .part
       # (nothing re-downloaded). Only then walk the ladder down.
+      if [ "$ROUTE_DL" = "1" ]; then   # the route's attempt: nothing landed = put the page route back and run it whole
+        ROUTE_DL=2
+        _rz=$(stat -f %z "$WORKDIR/${WORKSTEM}".* 2>/dev/null | awk '{s+=$1} END{printf "%d", s}')
+        if [ "${_rz:-0}" -lt 1048576 ] 2>/dev/null; then
+          yterr_log; rm -f "$WORKDIR/${WORKSTEM}".* 2>/dev/null
+          URL="$_R_URL"; REFARGS="$_R_REF"; IMPARGS="$_R_IMPA"; IMP_TARGET="$_R_IMPT"; IMP_TRIED="$_R_TRIED"; CUR_SEL="$_R_SEL"; MANIFEST_SWAP=0; ROUTE_DL=0
+          route_drop "$ROUTE_HOST" hlsdl
+          note "this site's usual way in did not answer this time — taking the long way"
+          continue
+        fi
+      fi
       if pieces_backoff; then continue; fi   # the downloader's own race: fewer pieces, same rung, resumed
       if imp_rotate; then continue; fi       # the page refused the download's re-read, or the video server hung up on this fingerprint: next browser fingerprint, same rung
       if salvage_merge; then YTRC=0; else    # 11.2.26: a merge that died after a whole download is merged here, nothing re-fetched (else-branch closes at "# salvage_merge")
@@ -4970,14 +5363,7 @@ else
       if [ "$MANIFEST_SWAP" = "0" ] && [ -s "${INFO:-/nonexistent}" ] && [ -n "$PYTHON" ] \
          && [ -z "$(ls "$WORKDIR/${WORKSTEM}".* 2>/dev/null)" ]; then
         MANIFEST_SWAP=1
-        _mf=$("$PYTHON" -c 'import json,sys
-try: d=json.load(sys.stdin)
-except Exception: raise SystemExit
-u=next((f.get("manifest_url") for f in d.get("formats",[]) if f.get("manifest_url")), None) or d.get("manifest_url")
-if not u:
-    u=d.get("url") or ""
-    if ".m3u8" not in u: u=""
-print(u or "")' < "$INFO" 2>/dev/null)
+        _mf=$(dump_manifest < "$INFO")
         if [ -n "$_mf" ] && [ "$_mf" != "$URL" ]; then
           yterr_show
           warn "the page went blank between the read and the download (their site does this) — going straight at its manifest …"
@@ -4985,7 +5371,8 @@ print(u or "")' < "$INFO" 2>/dev/null)
           [ -z "$REFARGS" ] && REFARGS="--referer $URL"   # V4.5e: the page vouches for its own manifest
           imp_available && [ -z "$IMPARGS" ] && imp_set firefox
           URL="$_mf"
-          RETRY_NOTE="page went blank mid-run — ripped via its manifest"
+          CUR_SEL=$(sel_height_led "$CUR_SEL")
+          RETRY_NOTE="page went blank mid-run — ripped via its manifest"; ROUTE_SWAPPED=1
           continue
         fi
       fi
@@ -5061,6 +5448,13 @@ print(u or "")' < "$INFO" 2>/dev/null)
   keys_stop
   [ -n "$BEST_MKV" ] && [ "$BEST_MKV" != "$MKV" ] && rm -f "$BEST_MKV" 2>/dev/null
   DL_EL=$((SECONDS - DL_T0))
+  # the way in that worked: a page download that landed only from its playlist is
+  # written down (one more run in a row); one that landed from the page itself
+  # ends the row
+  if [ "$IS_HLS" = "1" ] && ! route_skip "$ROUTE_HOST"; then
+    if [ "$ROUTE_DL" != "0" ] || [ "${ROUTE_SWAPPED:-0}" = "1" ]; then route_put "$ROUTE_HOST" hlsdl "manifest:${IMP_TARGET:-plain}"
+    elif [ "$MANIFEST_SWAP" = "0" ]; then route_get "$ROUTE_HOST" hlsdl; [ -n "$ROUTE_V" ] && route_drop "$ROUTE_HOST" hlsdl; fi
+  fi
   # ---- audio-verify (memory: tiktok-h265-is-video-only) ------------------------
   # Same guard as the fast path: a silent scratch while the dump says the source
   # has audio -> ONE re-fetch preferring audio-bearing non-h265 renditions. CUSTOM
@@ -5203,6 +5597,7 @@ KEEP_ORIGINAL=0      # STUDIO: also keep the pristine lossless remux
 VOL_RE=0             # 1 = the user CHOSE this re-encode on a clean source
                      #     ("want it smaller?") — the shrink guard applies only here
 ZMODE=0; ZBOX=""; _ZCUSTOM=""   # V3.9 zoom-crop state (STUDIO z path sets them)
+FIT_MB=""            # STUDIO: a size the file must land under (decimal MB), typed at the pick or at the recipe prompt
 
 # No-questions modes (BEST + AUTO/PICKER): a DEFECTIVE source above 720 downscales to
 # 720 — the resolution drop denoises the stutter fix and yields a much smaller file.
@@ -5851,6 +6246,40 @@ if [ "$MODE" = "studio" ]; then
     0*[0-9]*) _pick=$(printf '%s' "$_pick" | sed 's/^0*//'); [ -z "$_pick" ] && _pick=0 ;;
   esac
   fi
+  # 11.13.26: a SIZE at the recipe prompt ("950mb" · "1g" · "under 1g") = the
+  # highest dial whose estimate lands under it. Promised only on measured numbers
+  # (an un-probed table is probed first), held 10% under for the estimate's own
+  # error, and checked against the file that lands (see the second pass below).
+  _fitmb=$(size_token_mb "$_pick")
+  if [ -n "$_fitmb" ]; then
+    FIT_MB="$_fitmb"; PICK_FIT_MB=""   # the pick's size is spent: a recipe question after this one is the person's to answer
+    if [ -z "${SAMP_RATIO:-}" ] && [ "${_fit_probed:-0}" != "1" ]; then
+      _fit_probed=1
+      probe_screen "Sampling" "$SCALE" "$EST_SHORT" ""
+      [ -n "$SAMP_RATIO" ] && [ "$SCALE" = "$_SC0" ] && { SAMP_RATIO_NAT="$SAMP_RATIO"; ENC_FPS_NAT="$ENC_FPS_MEAS"; PROBE_SKIPPED_NAT=0; }
+      compose_dial_advice
+    fi
+    _fcap=$(awk -v m="$FIT_MB" 'BEGIN{ printf "%.0f", m*1000000/1048576*0.90 }')
+    if [ "$_forced" != "1" ] && [ "${SRC_MB:-0}" -gt 0 ] 2>/dev/null && awk -v s="$SRC_MB" -v m="$FIT_MB" 'BEGIN{ exit !(s*1048576 <= m*1000000) }'; then
+      frame_rail "${C_GRN}${G_OK}${C_RESET} already under ${FIT_MB}MB ($(fmt_mb "$SRC_MB")) — kept as it is, no re-encode"
+      _pick=0; FIT_MB=""
+    else
+      _fq=""; _fe=0
+      for _q in 56 54 52 50 47 45 42 40 37 35 32 29 27 25; do
+        _fe=$(est_mb "$(est_dial "$_q" "$EST_FPS")" "$DUR_S")
+        case "$_fe" in ''|*[!0-9]*) _fe=0 ;; esac
+        [ "$_fe" -gt 0 ] && [ "$_fe" -le "$_fcap" ] && { _fq=$_q; break; }
+      done
+      if [ -n "$_fq" ]; then
+        frame_rail "${C_MAG}${C_BOLD}under ${FIT_MB}MB → q${_fq}${C_RESET} — the highest dial whose estimate fits (~$(fmt_mb "$_fe")); a pass that lands over runs once more, one step down"
+        _pick="c"; _ZCUSTOM="$_fq"
+      else
+        if [ "$_fe" -gt 0 ]; then frame_rail "${C_YEL}even q25 lands over ${FIT_MB}MB here (~$(fmt_mb "$_fe")) — under q25 the picture breaks; a smaller frame or a 24fps row is the way down. Pick a row:${C_RESET}"
+        else frame_rail "${C_YEL}no size can be promised for this file (its length could not be read) — pick a row:${C_RESET}"; fi
+        FIT_MB=""; continue
+      fi
+    fi
+  fi
   if [ "$_pick" = "s" ]; then
     probe_screen "Sampling" "$SCALE" "$EST_SHORT" ""
     [ -n "$SAMP_RATIO" ] && [ "$SCALE" = "$_SC0" ] && { SAMP_RATIO_NAT="$SAMP_RATIO"; ENC_FPS_NAT="$ENC_FPS_MEAS"; PROBE_SKIPPED_NAT=0; }   # V4.3: a sample at a DOWNSCALED geometry is not the native ratio
@@ -6008,6 +6437,22 @@ if [ "$MODE" = "studio" ]; then
         if [ "${_hqk:-0}" -gt 0 ] 2>/dev/null; then
           _gmb=$(est_mb "$_hqk" "$DUR_S")
           logln "  high-dial sample: q${Q} measured ${_hqk} kbps (curve said $(est_dial "$Q" "$_selfps"))"
+        fi
+      fi
+      # the size asked for (11.13.26): a number over it moves the dial down BEFORE
+      # the encode — this file's own number at the picked dial, scaled by the
+      # curve's ratio between the two dials. The landed file is still checked.
+      if [ -n "${FIT_MB:-}" ] && [ "${_fcap:-0}" -gt 0 ] 2>/dev/null && [ "${_gmb:-0}" -gt "$_fcap" ] 2>/dev/null; then
+        _fk1=$(est_dial "$Q" "$_selfps"); _fqn=""; _fgn=0
+        for _q in 54 52 50 47 45 42 40 37 35 32 29 27 25; do
+          [ "$_q" -lt "$Q" ] || continue
+          _fgn=$(awk -v a="$(est_dial "$_q" "$_selfps")" -v b="${_fk1:-0}" -v g="$_gmb" 'BEGIN{ if (b>0) printf "%.0f", g*a/b; else print 0 }')
+          [ "${_fgn:-0}" -gt 0 ] && [ "$_fgn" -le "$_fcap" ] && { _fqn=$_q; break; }
+        done
+        if [ -n "$_fqn" ]; then
+          frame_rail "measured at q${Q}: ~$(fmt_mb "$_gmb") — over ${FIT_MB}MB, so the dial moves to q${_fqn} before anything is encoded"
+          logln "  size asked for: ${FIT_MB}MB · q${Q} measured ~${_gmb}MB → q${_fqn} (~${_fgn}MB)"
+          Q="$_fqn"; _selq="$_fqn"; _sellbl="q${_fqn}"; _gmb="$_fgn"
         fi
       fi
       # ETA (quality mode): the probe measured THIS machine encoding THIS file
@@ -6312,6 +6757,39 @@ if [ "$DO_REENCODE" = "1" ]; then
     [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
   fi
   reencode "$NAME"
+  # the size asked for (11.13.26): the file that landed is the measure. Over the
+  # size = one more pass, at the highest dial that fits when this pass's real
+  # bytes are scaled by the curve's own ratio between the two dials (4% under).
+  # One second pass, never a third; a file still over says so.
+  if [ -n "${FIT_MB:-}" ] && [ "$RE_MODE" = "cq" ] && [ -f "$OUT" ]; then
+    _fb=$(stat -f %z "$OUT" 2>/dev/null); _fcapb=$(( FIT_MB * 1000000 ))
+    if [ "${_fb:-0}" -gt "$_fcapb" ] 2>/dev/null; then
+      _q1e=$(est_dial "$Q" "${EST_FPS:-30}" 2>/dev/null); _fq2=""
+      for _q in 54 52 50 47 45 42 40 37 35 32 29 27 25 22 20; do
+        [ "$_q" -lt "$Q" ] || continue
+        _q2e=$(est_dial "$_q" "${EST_FPS:-30}" 2>/dev/null)
+        awk -v a="${_q2e:-0}" -v b="${_q1e:-0}" -v s="$_fb" -v c="$_fcapb" 'BEGIN{ exit !(b>0 && a>0 && s*a/b <= 0.96*c) }' && { _fq2=$_q; break; }
+      done
+      if [ -n "$_fq2" ]; then
+        warn "landed $(fmt_bytes "$_fb") — over the ${FIT_MB}MB asked for (the estimate ran low); one more pass at q${_fq2}, sized from what this pass measured …"
+        logln "  size asked for: ${FIT_MB}MB · pass 1 q${Q} landed ${_fb} bytes · pass 2 q${_fq2}"
+        rm -f "$OUT"
+        case "$NAME" in *"q${Q}"*) NAME="${NAME%q${Q}*}q${_fq2}${NAME##*q${Q}}" ;; esac
+        case "${RECIPE_TAG:-}" in *"q${Q}"*) RECIPE_TAG="${RECIPE_TAG%q${Q}*}q${_fq2}${RECIPE_TAG##*q${Q}}" ;; esac
+        Q="$_fq2"; NAME=$(uniquify "$NAME")
+        [ -n "$NAME" ] || die "could not claim an output name in $OUTDIR — is the folder writable, and is the name too long?"
+        reencode "$NAME"
+        _fb=$(stat -f %z "$OUT" 2>/dev/null)
+      fi
+      if [ "${_fb:-0}" -gt "$_fcapb" ] 2>/dev/null; then
+        warn "landed $(fmt_bytes "$_fb") — still over the ${FIT_MB}MB asked for; a smaller frame or a 24fps row is the way down from here"
+      else
+        ok "landed $(fmt_bytes "$_fb") — under the ${FIT_MB}MB asked for"
+      fi
+    else
+      ok "landed $(fmt_bytes "${_fb:-0}") — under the ${FIT_MB}MB asked for"
+    fi
+  fi
   # shrink-guard layer 3 (8.10.26): the estimate was wrong and a VOLUNTARY shrink
   # STILL landed >=95% of the original — it cannot look better and is not smaller.
   # Ask (tty only; headless keeps both files, never destroys unattended). On

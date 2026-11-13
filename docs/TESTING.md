@@ -931,3 +931,84 @@ answers `SMART NAME<TAB>10.21.26<TAB>-` and expects `SMART NAME - 10.21.26.mp4`;
 unit-tests the size suffix and the placement correction. The menu-bar door
 `[SLIPMAT VIDEO] NEWSMAX` (`make-shortcuts.sh -n`, launcher mode `newsmax`) opens a
 window that asks the one question and closes itself 45 s after the show windows open.
+
+## The way in that worked last time (11.13.26, 4.36)
+
+Two months of run logs: 1,385 runs, 60 refused first reads. One site refused on
+36 of 36 runs and then took four more refusals before each download (the video
+server hung up on chrome, then firefox; the page refused safari; the playlist
+itself, asked as safari, was served). A player host needed its embed page on 586
+of 592. The run arrived every time, the long way.
+
+`~/.slipmat/routes` holds one line per site and stage (tab-separated: host, stage,
+value, runs in a row, last day):
+
+- `probe`: the fingerprint the page opened to after refusing a plain read. Written
+  by the main probe's ladder only. Applied from 2 runs in a row. A plain read that
+  answers forgets it; every 25th run reads plain first, quietly.
+- `referer`: the NUMBER of the configured embed page that opened a player link.
+  Only a page still in `SLIPMAT_EMBED_HOSTS` is ever sent.
+- `hlsdl`: `manifest:<fingerprint|plain>`, written when a page download landed only
+  after the swap to its playlist. Applied before the first attempt; an attempt that
+  lands under 1 MB puts the page route back whole, forgets the line and says
+  `this site's usual way in did not answer this time — taking the long way`.
+
+youtube.com and instagram.com are never routed. `SLIPMAT_ROUTES=0` turns it off.
+The run log says `route: …` for each one used; the screen says nothing.
+
+Proof (throwaway HOME, a 56-minute replay on the site above, picker row 4 = 360p):
+run 1 took all five refusals and landed 360p (before 4.36 a picked row landed as
+the top size after the swap: its id is not in the playlist's own list, and the
+selector fell to its uncapped tail; `sel_height_led` now puts the picked height
+ahead of the fallbacks); run 2 wrote both lines; with the count set to 2 by hand,
+run 3 read the page as chrome, asked for the playlist as safari, printed no refusal
+and finished in 0:27. Smoke 3m covers the ledger, the skipped hosts and the selector.
+
+## `slipmat review [days]` (11.13.26)
+
+`tools/review.py` reads `~/.slipmat/logs` (30 days by default, `all` for every
+day, `--logs DIR`, `--min N`, `--share PCT`, `--json`) and prints three lists: HABITS
+(a detour on half or more of a site's runs, sites with five or more runs), OFTEN
+(the fifteen most frequent other detours) and FAILED RUNS (a closed window and a
+canceled run are counted apart, never as failures). Lines are reduced to shapes:
+no address, title or number leaves the logs. Smoke 3p runs it on a built tree.
+
+## The count on the where-to-start question (11.13.26)
+
+BEST and AUTO count down to Enter on a live source. The count used to redraw its
+line over a line read: the key just typed was wiped off the screen and kept by the
+terminal, so each new try stacked up unseen (four presses of 1 entered `1111`:
+1111 minutes back, past the stream's four-hour window). `typed_countdown` reads a
+key at a time: the key is drawn and stays, Backspace takes one off, every key
+starts the count over, and the count lands on what is typed. Smoke 3k drives it
+in a pty. Live: `1` typed and left alone on a 24/7 stream → `the timer landed › 1`
+→ `last 5m`, 5:37 in the file.
+
+## A row, and what happens to it next (11.13.26)
+
+Picker answers: `2s` (or `s2`, `2 s`; `s` alone = the top row) hands the rest of
+the run to STUDIO after the pick: its box widths, its window size, its questions.
+`2 950mb` (also `1g`, `under 1.5gb`, `<900m`; decimal MB) does the same and answers
+STUDIO's size question with keep and its recipe question with the size. At the
+recipe prompt a size picks the highest dial in 56 … 25 whose estimate is at most
+90% of the size (an un-probed table is probed first); the file's own number at the
+picked dial moves the dial down before the encode when it is over; a file that
+lands over runs once more at a dial sized from its real bytes (4% under); a source
+already under the size is kept untouched; no dial that fits is said and the table
+asks again. Smoke 3n covers the grammar. Hand proofs: a 100 s 720p noise clip at
+9 Mbps with `under 40mb` → q50 landed 60 MB → second pass q35 → 24 MB; a 173 MB
+YouTube 720p row with `4 60mb` → `even q25 lands over 60MB here` and the table
+again; the same row with `4 200mb` → `already under 200MB`, kept.
+
+## A recording nobody came back for (11.13.26)
+
+`seal_abandoned` runs once per run, before the probe. In `_in progress`: a
+`NAME.mp4.part` (or a rewind's `NAME.f<id>.*` halves) not written for 3 minutes,
+whose reservation is named by a scratch folder with a dead process id (no scratch
+folder: 20 quiet minutes). Streams are copied into `NAME.sealed.mp4`, its length
+must reach 98% of the raw file's, it is placed as `NAME.mp4` (or ` (2)`), then the
+raw file and the empty reservation go. A lock folder keeps two runs off one
+capture; too little free space waits; a failed seal leaves `NAME.unsealable` and
+is not tried again. Smoke 5c: a dead capture and a pair of halves are sealed, a
+capture whose run is alive is left alone. Real size: a 12.4 GB six-hour raw file
+sealed in 20 s to 5:56:24, byte for byte the size of the hand seal.

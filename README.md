@@ -184,6 +184,20 @@ browser cookies, quality, naming style, your own embed-page hosts.
   file itself instead of trusting the site's metadata.
 - A stutter detector that checks real frame timestamps (container metadata
   often reports a broken stream as fine).
+- It remembers the way in. A site that refuses the first read and opens to a
+  browser fingerprint, a player link that needs its embed page, a download
+  that only lands from the playlist itself: once that has worked twice running
+  the next run starts there, and the full path stays the fallback
+  (`~/.slipmat/routes`). `slipmat review` reads the run logs back and lists
+  the recoveries a site sets off on most of its runs.
+- In the picker, a row can carry what happens next: `2s` rips row 2 and opens
+  STUDIO on it when it lands (nothing is downloaded twice); `2 950mb` rips
+  row 2 and re-encodes it to land under 950 MB at the best quality that fits,
+  measured on the file itself, with one more pass if the first lands over.
+  A size can also be typed at STUDIO's recipe prompt.
+- A live recording whose window was closed before its stop is sealed into a
+  playable mp4 by the next run, checked against the raw file's length, and
+  only then is the raw file removed.
 - A re-encode concierge that samples *your* file at the target size before
   quoting numbers; estimates are typically within a few percent.
 - Every question is one line: the question, then each key and what it does,

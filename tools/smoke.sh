@@ -592,6 +592,102 @@ if [ "$_f1" = "the stream its player loads, found on /watch-the-show|https://cdn
   pass "a page with no stream address is followed to its stream: home page → its watch link → the player script → the player address spelled from the script's constants → the playlist; a DRM playlist and a broken chain give nothing; a bare playlist takes the page's title (a one-word title gets the site beside it) and no bracket"
 else fail "follow the player: home='$_f1' · watch page='$_f2' · DRM='$_f3' · broken chain='$_f4' · raw playlist='$_f5'"; fi
 
+# ---- 3k. the count that lands on Enter keeps what is typed (11.13.26) --------------
+# The count used to redraw its line over a LINE read: the redraw wiped the typed key
+# off the screen while the terminal kept it, and a second and third try stacked up
+# unseen (four presses of 1 entered 1111). Driven in a pty: a key typed and left
+# alone stays on the line and is what the count lands on; Backspace takes it off;
+# an arrow key is dropped whole; the terminal is back in line mode afterwards.
+if command -v python3 >/dev/null 2>&1 && [ -f "$REPO/tools/ptydrive.py" ]; then
+  cat > "$S/tc.sh" <<TCEOF
+#!/bin/bash
+IS_TTY=1; C_KEY=''; C_RESET=''; C_CYAN=''; C_ACC=''; B_V='|'; G_ARR='>'
+eval "\$(sed -n '/^rail()/p; /^chip() {   # a keycap/,/^}/p; /^live_line()/,/^}/p; /^typed_countdown()/,/^}/p' "$ENGINE")"
+typed_countdown "\$1"
+printf 'ANS=[%s] HOW=%s MODE=%s\n' "\$TC_ANS" "\$TC_HOW" "\$(stty -a < /dev/tty | grep -o '[-]*icanon' | head -1)"
+TCEOF
+  chmod +x "$S/tc.sh"
+  tc_run() { _o="$S/tc.$1.raw"; shift; _n="$1"; shift; SLIPMAT_ENGINE="$S/tc.sh" PTY_COLS=100 python3 "$REPO/tools/ptydrive.py" "$_o" 15 -- "$_n" -- "$@" >/dev/null 2>&1; tr '\r' '\n' < "$_o"; }
+  _k1=$(tc_run a 3 'KEY@0.6:1')                                   # typed, never entered: the count lands on it
+  _k2=$(tc_run b 4 'KEY@0.5:1' 'KEY@0.4:\x7f' 'KEY@0.4:\x1b[B' 'KEY@0.3:3' 'KEY@0.3:\r')
+  _k3=$(tc_run c 2)                                               # nothing typed: Enter's own meaning
+  if printf '%s' "$_k1" | grep -q 'ANS=\[1\] HOW=timer MODE=icanon' && printf '%s' "$_k1" | grep -q 'starts in [0-9]s   > 1' \
+     && printf '%s' "$_k2" | grep -q 'ANS=\[3\] HOW=enter' && printf '%s' "$_k3" | grep -q 'ANS=\[\] HOW=timer' \
+     && grep -q 'typed_countdown "\$_secs"; _ans="\$TC_ANS"' "$ENGINE" && ! grep -q 'read -t 1 -r _ans' "$ENGINE"; then
+    pass "the where-to-start count keeps what is typed: a key stays on the line and is what the count lands on, Backspace takes it off, an arrow key is dropped whole, nothing typed lands on Enter's own meaning, and the terminal is in line mode afterwards"
+  else fail "typed_countdown: typed-and-left='$(printf '%s' "$_k1" | grep ANS=)' · edited='$(printf '%s' "$_k2" | grep ANS=)' · empty='$(printf '%s' "$_k3" | grep ANS=)' · or ask_live_start still reads a whole line under the count"; fi
+else skip "the where-to-start count (python3 + tools/ptydrive.py)"; fi
+
+# ---- 3l. a live title drops the minute it was read (11.13.26) ----------------------
+# yt-dlp ends a live stream's title with "YYYY-MM-DD HH:MM"; the name's own live stamp
+# says the same, so the date and time stood in the name twice.
+eval "$(sed -n '/^live_title_bare()/,/^}/p' "$ENGINE")"
+if [ "$(live_title_bare 'Channel 24⧸7 2026-11-12 23:14')" = "Channel 24⧸7" ] && [ "$(live_title_bare 'Town hall, March 2026')" = "Town hall, March 2026" ] \
+   && [ "$(live_title_bare '2026-11-12 23:14')" = "2026-11-12 23:14" ] && [ "$(live_title_bare 'Budget 2026-11-12 vote')" = "Budget 2026-11-12 vote" ] \
+   && grep -q 'is_live|is_upcoming|post_live) M_TITLE=$(live_title_bare "$M_TITLE")' "$ENGINE"; then
+  pass "a live stream's title drops the read-time stamp yt-dlp adds (the name carries its own live stamp once); a title that is only the stamp, or a date inside a title, is left alone"
+else fail "live_title_bare: '$(live_title_bare 'Channel 24⧸7 2026-11-12 23:14')' · or the live branch no longer runs it on M_TITLE"; fi
+
+# ---- 3m. the way in that worked last time (11.13.26) ------------------------------
+# One site refused the plain read on every run and took four more refusals before each
+# download; the run always arrived, the long way. The way in is written down per site
+# and the next run starts there once it has worked twice running. Checked: the ledger's
+# own arithmetic, the hosts that are never routed, the picked height leading the
+# selector after a playlist swap, and the three call sites.
+(
+  HOME="$S/rhome"; mkdir -p "$HOME"
+  eval "$(sed -n '/^ROUTES=/p; /^ROUTE_HOST=/p; /^route_on()/p; /^route_host()/,/^}/p; /^route_skip()/,/^}/p; /^route_get()/,/^}/p; /^route_put()/,/^}/p; /^route_drop()/,/^}/p; /^  sel_height_led()/,/^  }/p' "$ENGINE")"
+  r=""
+  r="$r$(route_host 'https://www.Example.org/v/1?x=1')|$(route_host 'https://player.example.com/video/1?h=2')|$(route_host 'http://m.example.net:8080/a')|"
+  route_put example.org probe chrome; route_get example.org probe; r="$r$ROUTE_V$ROUTE_N|"
+  route_put example.org probe chrome; route_put example.org hlsdl manifest:safari; route_get example.org probe; r="$r$ROUTE_V$ROUTE_N|"
+  route_put example.org probe firefox; route_get example.org probe; r="$r$ROUTE_V$ROUTE_N|"
+  route_drop example.org hlsdl; route_get example.org hlsdl; r="$r[$ROUTE_V]$ROUTE_N|"
+  route_skip youtube.com && route_skip www.instagram.com && route_skip "" && ! route_skip example.org && r="${r}skips|"
+  SLIPMAT_ROUTES=0; route_get example.org probe; r="$r[$ROUTE_V]|"
+  SELNOTE="720p · avc1"; _att_short=720; r="$r$(sel_height_led 'hls-9/bv*+ba/b')|"
+  SELNOTE="720p (V) · avc1"; r="$r$(sel_height_led 'hls-9/bv*+ba/b')"
+  printf '%s' "$r" > "$S/routes.out"
+)
+_rt=$(cat "$S/routes.out" 2>/dev/null)
+if [ "$_rt" = 'example.org|player.example.com|example.net|chrome1|chrome2|firefox1|[]0|skips|[]|hls-9/bv*[height<=720][vcodec^=avc1]+ba/bv*[height<=720]+ba/b[height<=720]/bv*+ba/b|hls-9/bv*+ba/b' ] \
+   && grep -q 'route_get "$ROUTE_HOST" probe' "$ENGINE" && grep -q 'route_get "$ROUTE_HOST" hlsdl' "$ENGINE" && grep -q 'route_get "$_vrh" referer' "$ENGINE" \
+   && [ "$(grep -c 'CUR_SEL=$(sel_height_led "$CUR_SEL")' "$ENGINE")" -ge 2 ] && grep -q "usual way in did not answer this time" "$ENGINE" \
+   && grep -q 'IMP_LEARN:-0}" = "1" \] && ! route_skip "$ROUTE_HOST" && route_put "$ROUTE_HOST" probe' "$ENGINE"; then
+  pass "the way in that worked is written down per site (same value = one more run in a row, another value starts over, a drop forgets it, off by config) and never for a site with its own login or token handling; a picked height leads the selector after a playlist swap (a vertical pick is left alone); the probe, the embed page and the download each start on their route and fall back to the full path"
+else fail "routes: '$_rt' · or a call site (probe · referer · hlsdl), the fallback sentence, the learning line in imp_probe, or sel_height_led at both swaps is missing"; fi
+
+# ---- 3n. a row, and what happens to it next (11.13.26) ----------------------------
+# 2s = that row, then STUDIO on it; 2 950mb = that row, re-encoded to land under 950 MB.
+eval "$(sed -n '/^size_token_mb()/,/^}/p; /^pick_words()/,/^}/p' "$ENGINE")"
+pw() { pick_words "$1"; printf '%s/%s/%s' "$PICK_ROW" "$PICK_STUDIO" "$PICK_FIT_MB"; }
+_pw="$(pw 2s)|$(pw 'S')|$(pw 's3')|$(pw '2 S')|$(pw '2 950mb')|$(pw '1g')|$(pw '3 under 1.5GB')|$(pw 2)|$(pw c)|$(pw r)|$(pw '2 950')|$(size_token_mb '<900m')|$(size_token_mb 24)|$(size_token_mb 2mb)"
+if [ "$_pw" = '2/1/|1/1/|3/1/|2/1/|2/1/950|1/1/1000|3/1/1500|/0/|/0/|/0/|/0/|900||' ] \
+   && grep -q '  \[ "${PICK_STUDIO:-0}" = "1" \] && studio_takeover' "$ENGINE" && grep -q '\*"recipe "\*)  _ans="${PICK_FIT_MB}mb" ;;' "$ENGINE" \
+   && grep -q '_fitmb=$(size_token_mb "$_pick")' "$ENGINE" && grep -q 'one more pass at q${_fq2}' "$ENGINE" && grep -q 'so the dial moves to q${_fqn} before anything is encoded' "$ENGINE"; then
+  pass "the picker's answer can carry what happens next: 2s = that row then STUDIO (s alone = the top row), 2 950mb = that row re-encoded to land under it (1g = 1000 MB; a bare number is a row, never a size); the size answers STUDIO's size and recipe questions, moves the dial before the encode when the file's own number is over, and a pass that lands over runs once more"
+else fail "pick grammar: '$_pw' · or the takeover after the box, the recipe hook in ask_line, the size at the recipe prompt, or the second pass is missing"; fi
+
+# ---- 3p. slipmat review: the tool's own look at its run logs (11.13.26) ------------
+# A recovery sentence that prints on most of a site's runs is a detour the engine takes
+# every time. Built on a throwaway log tree: a habit at 5 of 5, one below the line,
+# a closed window that is never a failure, no address or title in the output.
+if command -v python3 >/dev/null 2>&1 && [ -f "$REPO/tools/review.py" ]; then
+  _rv="$S/review/2026-11-10"; mkdir -p "$_rv"
+  rvlog() { { echo "SLIPMAT 2026-11-10 10:00:00"; [ -n "$2" ] && echo "url:  $2"; echo "args: mode=best res=max"; echo; echo "SLIPMAT v9"; echo "[1] reading source …"; shift 2; printf '%s\n' "$@"; echo; echo "total elapsed: 0:40"; } > "$_rv/$1"; }
+  _rf='  site refused the probe — retrying as a real browser …'
+  for _n in 1 2 3 4; do rvlog "10000$_n A$_n.log" "https://www.alpha.test/v/$_n" "$_rf" "  [speed] 0:30  353MB total · 11.8MB/s (last 30s)" "  Private Title $_n"; done
+  rvlog "100005 ✗ closed A5.log" "https://alpha.test/v/5" "$_rf" "run ended by a signal (window closed or Ctrl-C) before it finished"
+  for _n in 1 2 3 4 5; do rvlog "11000$_n B$_n.log" "https://beta.test/$_n" "  + 480p · clean"; done
+  printf '%s\n' "  embed-locked player URL — trying your embed pages …" >> "$_rv/110001 B1.log"
+  _ro=$(python3 -I "$REPO/tools/review.py" all --logs "$S/review" 2>&1); _rrc=$?
+  if [ "$_rrc" = "0" ] && printf '%s' "$_ro" | grep -q '10 runs' && printf '%s' "$_ro" | grep -A1 '5 of 5 runs' | grep -q 'site refused the probe' \
+     && ! printf '%s' "$_ro" | grep -Eq '\[speed\]|Private Title|https?://' && ! printf '%s' "$_ro" | grep -q 'alpha.test  *[0-9]* failed' \
+     && grep -q 'review)  *shift; exec .*tools/review.py' "$REPO/slipmat"; then
+    pass "slipmat review reads the run logs and names the detours that have become habits per site (5 of 5 = a habit, 1 of 5 = not), prints no address, title or telemetry, and never counts a closed window as a failure"
+  else fail "slipmat review on the fixture tree (exit $_rrc), or the wrapper does not route 'review'" ; [ "$VERB" = "1" ] && printf '%s\n' "$_ro" | head -30; fi
+else skip "slipmat review (python3 + tools/review.py)"; fi
+
 # ---- 4. the private embed-host list never lands in a run log ----------------
 # A host may appear legitimately in a log whose own source URL is on that host;
 # anywhere else it is a leak (logs get handed to people and to AI agents). Scope:
@@ -650,6 +746,34 @@ if [ -n "$_l5" ] && ! grep -q 'heads-up' "$_l5"; then pass "BEST is wordless: no
 else fail "BEST printed a size heads-up (ruled local + STUDIO only)" "$_l5"; fi
 if [ -n "$_l5" ] && comma_clean "$_l5"; then pass "probed values comma-free in the BEST log"
 else fail "a probed value carries ffprobe's trailing comma (BEST log)" "$_l5"; fi
+
+# ---- 5c. a recording nobody came back for is sealed by the next run (11.13.26) -----
+# Three leftovers in a second throwaway home's in-progress folder: a combined capture
+# whose run is gone (its scratch folder names a dead process), a rewind's two halves
+# with no scratch folder left, and a capture whose run is ALIVE. The next run seals
+# the first two (playable mp4s under their reserved names, raw files and reservation
+# gone) and leaves the third alone.
+FH2="$S/home2"; OUT2="$S/out2"; CAP2="$OUT2/_in progress"; W2="$FH2/.slipmat/work"
+mkdir -p "$FH2/.slipmat" "$CAP2" "$W2/vr_20200101-000000_999999"
+printf 'OUTDIR="%s"\nUSE_COOKIES=0\nTERM_SIZE=""\n' "$OUT2" > "$FH2/.slipmat/config"
+"$FFMPEG" -hide_banner -loglevel error -y -i "$FX/cfr.mp4" -c copy -f mpegts "$CAP2/Dead [L- 1.1.20 - 1.00PM].mp4.part" 2>/dev/null
+: > "$CAP2/Dead [L- 1.1.20 - 1.00PM].mp4.claim"; printf '%s\n' "$CAP2/Dead [L- 1.1.20 - 1.00PM].mp4.claim" > "$W2/vr_20200101-000000_999999/claims"
+"$FFMPEG" -hide_banner -loglevel error -y -i "$FX/cfr.mp4" -an -c copy "$CAP2/Halves [L- 1.1.20 - 2.00PM].f136.mp4" 2>/dev/null
+"$FFMPEG" -hide_banner -loglevel error -y -i "$FX/cfr.mp4" -vn -c copy "$S/h.m4a" 2>/dev/null && mv "$S/h.m4a" "$CAP2/Halves [L- 1.1.20 - 2.00PM].f140.m4a.part"
+/bin/bash -c 'exec -a slipmat-video sleep 90' & _own=$!
+mkdir -p "$W2/vr_20200101-000001_$_own"
+"$FFMPEG" -hide_banner -loglevel error -y -i "$FX/cfr.mp4" -c copy -f mpegts "$CAP2/Owned [L- 1.1.20 - 3.00PM].mp4.part" 2>/dev/null
+: > "$CAP2/Owned [L- 1.1.20 - 3.00PM].mp4.claim"; printf '%s\n' "$CAP2/Owned [L- 1.1.20 - 3.00PM].mp4.claim" > "$W2/vr_20200101-000001_$_own/claims"
+touch -t 202001010100 "$CAP2"/*
+HOME="$FH2" SLIPMAT_LOCAL_MKV="$FX/clean.mkv" "$ENGINE" "https://example.test/after-abandoned" max best </dev/null > "$S/run5c.txt" 2>&1
+kill "$_own" 2>/dev/null; wait "$_own" 2>/dev/null
+_d5="$OUT2/Dead [L- 1.1.20 - 1.00PM].mp4"; _h5="$OUT2/Halves [L- 1.1.20 - 2.00PM].mp4"
+if [ -s "$_d5" ] && [ "$(vcodec "$_d5")" = "h264" ] && [ -s "$_h5" ] && [ "$("$FFPROBE" -v error -show_entries stream=codec_type -of csv=p=0 "$_h5" 2>/dev/null | tr -d ',' | sort -u | tr '\n' ' ')" = "audio video " ] \
+   && [ ! -e "$CAP2/Dead [L- 1.1.20 - 1.00PM].mp4.part" ] && [ ! -e "$CAP2/Dead [L- 1.1.20 - 1.00PM].mp4.claim" ] && [ ! -e "$CAP2/Halves [L- 1.1.20 - 2.00PM].f136.mp4" ] \
+   && [ -s "$CAP2/Owned [L- 1.1.20 - 3.00PM].mp4.part" ] && [ ! -e "$OUT2/Owned [L- 1.1.20 - 3.00PM].mp4" ] \
+   && [ "$(grep -c 'a recording left unfinished was sealed' "$S/run5c.txt")" = "2" ]; then
+  pass "a recording nobody came back for is sealed by the next run: a combined capture whose run is gone and a rewind's two halves become playable mp4s under their reserved names and their raw files go; a capture whose run is alive is left alone"
+else fail "abandoned captures: dead='$(ls "$OUT2" 2>/dev/null | tr '\n' '|')' · still in progress='$(ls "$CAP2" 2>/dev/null | tr '\n' '|')'" "$S/run5c.txt"; fi
 
 # ---- 5b. the title hook (11.3.26): it gets title · channel · source tag and may answer NAME <TAB> date <TAB> tag;
 # "-" as the tag writes no bracket, its date outranks the upload date; the menu-bar door for the day's shows exists.

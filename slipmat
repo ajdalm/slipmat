@@ -14,6 +14,8 @@
 #   slipmat compare <file> <q> <q> [...]          measure quality dials on your file first
 #   slipmat smoke                                 offline self-test, about a minute —
 #                                                 run it before every commit
+#   slipmat review [days]                         the run logs, read back: which recoveries
+#                                                 a site sets off on most of its runs
 #   slipmat doctor                                check the toolchain
 # A bare URL or file path routes to video: `slipmat <url> best` works.
 set -u
@@ -21,7 +23,7 @@ set -u
 SELF="$0"; while [ -L "$SELF" ]; do _l=$(readlink "$SELF"); case "$_l" in /*) SELF="$_l" ;; *) SELF="$(dirname "$SELF")/$_l" ;; esac; done
 HERE="$(cd "$(dirname "$SELF")" && pwd)"
 CMD="${1:-}"
-usage() { sed -n '2,18p' "$0" | sed 's/^# //;s/^#//'; }
+usage() { sed -n '2,20p' "$0" | sed 's/^# //;s/^#//'; }
 case "$CMD" in
   hello|setup) shift; exec /bin/bash "$HERE/tools/hello.sh" "$@" ;;
   ""|help)
@@ -37,6 +39,7 @@ case "$CMD" in
   z-batch) shift; exec /bin/bash "$HERE/tools/z-batch.sh" "$@" ;;
   compare) shift; exec /bin/bash "$HERE/tools/compare.sh" "$@" ;;
   smoke)   shift; exec /bin/bash "$HERE/tools/smoke.sh" "$@" ;;
+  review)  shift; exec python3 -I "$HERE/tools/review.py" "$@" ;;
   doctor)
     "$HERE/engine/slipmat-video" --doctor
     FF=/opt/homebrew/bin/ffmpeg; [ -x "$FF" ] || FF="$(command -v ffmpeg || printf '%s' "$FF")"

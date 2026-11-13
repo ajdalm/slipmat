@@ -40,6 +40,18 @@
 # at a time in this order (measured 10.13.26 on Rumble: chrome was the reliable one).
 #SLIPMAT_BROWSERS="chrome firefox safari"
 
+# The way in that worked last time is where the next run starts: once a site has
+# refused the plain fetch and opened to one fingerprint twice running, it is read
+# with that fingerprint from the start (the same for a player link that needs one
+# of your embed pages, and a download that only lands from the playlist itself).
+# The full path stays the fallback. Kept in ~/.slipmat/routes; 0 turns it off.
+#SLIPMAT_ROUTES=1
+
+# A live recording whose window was closed before its stop is left as a raw file
+# in the "_in progress" folder. The next run seals it into a playable mp4 beside
+# your finished files before it starts its own work. 0 leaves such files alone.
+#SLIPMAT_SEAL_ABANDONED=1
+
 # Which yt-dlp to run. Default: /opt/homebrew/bin/yt-dlp, else the first on
 # PATH. Set this if you installed the pip variant next to Homebrew's:
 #YTDLP="$HOME/Library/Python/3.12/bin/yt-dlp"
