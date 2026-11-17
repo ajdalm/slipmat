@@ -45,7 +45,8 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.39"          # 11.17.26 — bank: b, asked once, on any live capture finishes the file so far and the recording goes on in a new one; a second capture of the same stream is started in its own window and the first is stopped only once that one is writing, so the two files share a few seconds and nothing between them is lost
+VERSION="4.40"          # 11.17.26 — a live recorder that ends by itself (ffmpeg killed, a crash, a connection gone for good) no longer loses its capture to "produced no file": what it wrote is sealed there and then, checked against the raw file's length, and placed like any stopped capture
+#VERSION 4.39             # 11.17.26 — bank: b, asked once, on any live capture finishes the file so far and the recording goes on in a new one; a second capture of the same stream is started in its own window and the first is stopped only once that one is writing, so the two files share a few seconds and nothing between them is lost
 #VERSION 4.38             # 11.13.26 — a playlist rewind is recorded by sequence number: the backlog is fetched several pieces at a time and written in order, then the same recorder keeps going piece by piece at the live edge (thirty minutes of 1080p reach live in under a minute, where ffmpeg, one piece at a time, took ten); it takes only a plain playlist of MPEG-TS pieces, declines anything else before a byte is written, and at the first piece or playlist that will not come hands the capture back to the one-piece-at-a-time recorder, whose part is joined to the first and counted packet for packet
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
@@ -4160,6 +4161,28 @@ live_refused_ending() {
   done
   return 0
 }
+# A recorder that ended by itself (11.17.26): ffmpeg killed, the connection gone for good,
+# a crash. Nobody stopped it, so nothing sealed it, and NAME.mp4.part holds everything it
+# wrote. It is sealed here the way a stop seals it (streams copied, nothing re-encoded),
+# checked against the raw file's own length, and only then is the raw file removed; a seal
+# that fails leaves the raw file for the next run's seal_abandoned. Sets PRODUCED + LIVE_DIED.
+seal_live_part() {
+  _lp="$CAPDIR/$NAME.mp4.part"; [ -s "$_lp" ] || return 0
+  _lo="$CAPDIR/$NAME.mp4"; [ -e "$_lo" ] && return 0
+  "$FFMPEG" -hide_banner -loglevel error -y -i "$_lp" -map 0:v:0 -map 0:a:0? -c copy -movflags +faststart -f mp4 "$_lo" </dev/null 2>>"${LIVE_ERRLOG:-/dev/null}"
+  _lrc=$?
+  _l1=$(whole_secs "$_lo"); _l0=$(whole_secs "$_lp")
+  case "$_l1" in ''|*[!0-9]*) _l1=0 ;; esac; case "$_l0" in ''|*[!0-9]*) _l0=0 ;; esac
+  if [ "$_lrc" -eq 0 ] && [ "$_l1" -gt 0 ] && [ "$_l1" -ge $(( _l0 * 98 / 100 - 2 )) ]; then
+    rm -f "$_lp" 2>/dev/null; PRODUCED="$_lo"; LIVE_DIED=1
+    warn "the recorder ended by itself (nobody stopped it) — everything it had written is kept: $(fmt_dur "$_l1")"
+    logln "  recorder ended by itself: sealed ${_l1}s of ${_l0}s from the raw capture"
+  else
+    rm -f "$_lo" 2>/dev/null
+    logln "  recorder ended by itself: the raw capture could not be sealed here (exit $_lrc, ${_l1}s of ${_l0}s); it stays in the in-progress folder"
+  fi
+  return 0
+}
 seal_live_orphans() {
   _sv=""; _sa=""
   for _sf in "${CAPDIR:-$OUTDIR}/${NAME}".f[0-9]*.*; do
@@ -4209,6 +4232,7 @@ live_receipt_notes() {
       box_line "stop    stopped $_lg short of live — video and audio end together"
     fi
   fi
+  [ "${LIVE_DIED:-0}" = "1" ] && box_line "ended   the recorder stopped by itself; everything it had written is in this file"
   [ "${LIVE_BANKED:-0}" = "1" ] && box_line "banked  the recording goes on in its own window; the two files share a few seconds"
   if [ -n "${LIVE_PICK_H:-}" ]; then
     _gh=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$PRODUCED" 2>/dev/null | head -1 | tr -dc '0-9')
@@ -4557,7 +4581,7 @@ if f and f.get("url"):
   # the keys while it records — shown, not hidden (10.5.26 night): x = stop, asked
   # once. Ctrl-C (the emergency exit, never printed) still stops at once; both
   # take the same seal path (live-rewind.py).
-  LIVE_BANK=""; LIVE_BANK_ASK_TEXT=""; LIVE_BANKED=0; unset SLIPMAT_LIVE_BANK_FLAG
+  LIVE_BANK=""; LIVE_BANK_ASK_TEXT=""; LIVE_BANKED=0; LIVE_DIED=0; unset SLIPMAT_LIVE_BANK_FLAG
   LIVE_ASK=""; LIVE_ASK_TEXT=""; LIVE_STOP_TEXT="$G_OK stopping · sealing into one mp4 — keys are off until it is done (closing the window abandons it)"   # said ONCE, at the press (live-rewind.py prints it as a finished line); the REC line then shows the seal's own clock
   if [ "$IS_TTY" = "1" ] && [ -n "$LIVE_PY" ]; then
     LIVE_ASK="$WORKDIR/live.ask"; rm -f "$LIVE_ASK" 2>/dev/null
@@ -4882,6 +4906,7 @@ i=max(0,min(len(d)-1,int(sys.argv[3])-2-first)); print(i, int(sum(d[i:])))' "$LI
   # Ctrl-C had cut the seal short and the receipt named the silent video half)
   PRODUCED=$(ls -t "$CAPDIR/${NAME}".* 2>/dev/null | grep -vE '\.temp\.[^.]+$|\.part$|\.ytdl$|\.claim$|\.f[0-9]+\.[^.]+$' | head -1)
   { [ -n "$PRODUCED" ] && [ -s "$PRODUCED" ]; } || seal_live_orphans
+  { [ -n "$PRODUCED" ] && [ -s "$PRODUCED" ]; } || [ -f "$LIVE_STOP" ] || seal_live_part   # 11.17.26: a recorder that ended by itself keeps what it wrote
   { [ -n "$PRODUCED" ] && [ -s "$PRODUCED" ]; } || { surface_log "$LIVE_ERRLOG"; die "live capture produced no file (URL may have ended/failed)."; }
   # V4.6 (9.21): the VIDEO's duration is king — the wall-clock window
   # number (padded by connect/buffer lag) confused and no longer prints; the run

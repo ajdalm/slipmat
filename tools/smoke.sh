@@ -539,6 +539,22 @@ if [ "$_b1" = 'SLIPMAT_WINDOW=1 /e/slipmat-video https://x.example/a\ b\?c=1 max
   pass "bank: the new window runs the engine on the link as given at the picked size (a menu or STUDIO run becomes a plain one); the first capture is stopped only after the new one says it is writing, never while a rewind is behind live; b is asked once and is deaf while a bank is under way"
 else fail "bank: words '$_b1' · '$_b2' · '$_b3' · or the hand-over's order, the lag guard, the ready flag, the key thread or the recorder's signal"; fi
 
+# ---- 3c6b2. a recorder that ended by itself keeps what it wrote (11.17.26): NAME.mp4.part is sealed in place
+# (streams copied), checked against the raw file's length, the raw file removed only then; a raw file that
+# cannot be read is left where it is; a stop never takes this path.
+_sp=$(sed -n '/^seal_live_part() {/,/^}/p; /^whole_secs() {/p' "$ENGINE")
+mkdir -p "$S/died"
+"$FFMPEG" -hide_banner -loglevel error -y -f lavfi -i "testsrc=d=4:s=320x180:r=30" -f lavfi -i "sine=d=4" -c:v mpeg2video -c:a mp2 -f mpegts "$S/died/Show [L- x].mp4.part" </dev/null 2>/dev/null
+printf 'not a video' > "$S/died/Bad [L- x].mp4.part"
+_sl() { FFMPEG="$FFMPEG" FFPROBE="$FFPROBE" CAPDIR="$S/died" NAME="$1" bash -c "$_sp"$'\n''warn() { :; }; logln() { :; }; fmt_dur() { printf "%s" "$1"; }; PRODUCED=""; LIVE_DIED=0; seal_live_part; printf "%s|%s" "$LIVE_DIED" "$(basename "${PRODUCED:-none}")"' 2>/dev/null; }
+_s1=$(_sl "Show [L- x]"); _s2=$(_sl "Bad [L- x]")
+_s1d=$("$FFPROBE" -v error -show_entries format=duration -of csv=p=0 "$S/died/Show [L- x].mp4" 2>/dev/null | cut -d. -f1)
+if [ "$_s1" = "1|Show [L- x].mp4" ] && [ ! -e "$S/died/Show [L- x].mp4.part" ] && [ "${_s1d:-0}" -ge 3 ] \
+   && [ "$_s2" = "0|none" ] && [ -s "$S/died/Bad [L- x].mp4.part" ] && [ ! -e "$S/died/Bad [L- x].mp4" ] \
+   && grep -q '|| \[ -f "\$LIVE_STOP" \] || seal_live_part' "$ENGINE" && grep -q 'box_line "ended ' "$ENGINE"; then
+  pass "a recorder that ended by itself keeps what it wrote: the raw capture is sealed in place and counted against its own length, a raw file that cannot be read stays where it is, and a stop never takes this path"
+else fail "recorder ended by itself: good='$_s1' (${_s1d:-?}s) · unreadable='$_s2' · or the call site"; fi
+
 # ---- 3c6c. a private door (11.17.26): one lowercase word that names an executable in ~/.slipmat/doors is a
 # command of the user's own, run with the rest of the line; a word with no door, a link and a flag are not.
 mkdir -p "$S/doorhome/.slipmat/doors"

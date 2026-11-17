@@ -155,6 +155,10 @@ stream starts in its own window, and the first is stopped and sealed only once
 that one is writing, so the two files share a few seconds and nothing between
 them is lost. A rewind that is still catching up declines and says how far
 behind it is; a new capture that never begins leaves the first one recording.
+A recorder that ends by itself (ffmpeg killed, a crash, a connection gone for
+good) keeps what it wrote: the raw capture is sealed there and then, checked
+against its own length, and placed like any stopped capture, and the receipt
+says the recorder ended by itself.
 From the command line the window can be given up front and
 the question is skipped: `slipmat video <url> max best from-start`,
 `… last-2h`, `… last-90m` — and on a stream that already ended, `last-2h`

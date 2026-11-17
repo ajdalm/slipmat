@@ -272,6 +272,17 @@ HOME=$H TERM_PROGRAM=Apple_Terminal PTY_COLS=150 SLIPMAT_LIVE_ASK=0 \
 # 1,078 frames are the same in both (ffmpeg -c copy -f framemd5), in one unbroken run
 ```
 
+### A recorder that ends by itself (11.17.26)
+
+No stop flag and no finished file, but `NAME.mp4.part` holds bytes: `seal_live_part`
+copies its streams into `NAME.mp4`, requires 98% of the raw file's length, removes
+the raw file only then, and the run goes on to its receipt (`ended   the recorder
+stopped by itself…`; the log says `recorder ended by itself: sealed <s>s of <s>s`).
+A raw file that will not seal stays for the next run's `seal_abandoned`. Proven
+11.17.26 on a live playlist: `kill -9` of the recorder's ffmpeg 40 s into a capture
+begun 2:00 back → a whole 2:36 file, where the run used to end in
+`live capture produced no file` with the raw file left in the in-progress folder.
+
 Proofs (11.12.26, two live Rumble streams; the run log carries
 `live playlist history: <s> listed, first sequence <n>` and
 `playlist rewind: format … · start index …`):
