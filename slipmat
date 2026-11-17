@@ -17,13 +17,15 @@
 #   slipmat review [days]                         the run logs, read back: which recoveries
 #                                                 a site sets off on most of its runs
 #   slipmat doctor                                check the toolchain
+#   slipmat <word> …                              a command of your own: an executable
+#                                                 ~/.slipmat/doors/<word> is run with the rest of the line
 # A bare URL or file path routes to video: `slipmat <url> best` works.
 set -u
 # resolve a symlinked install so hello/audio/spotify/z-batch find the repo
 SELF="$0"; while [ -L "$SELF" ]; do _l=$(readlink "$SELF"); case "$_l" in /*) SELF="$_l" ;; *) SELF="$(dirname "$SELF")/$_l" ;; esac; done
 HERE="$(cd "$(dirname "$SELF")" && pwd)"
 CMD="${1:-}"
-usage() { sed -n '2,20p' "$0" | sed 's/^# //;s/^#//'; }
+usage() { sed -n '2,22p' "$0" | sed 's/^# //;s/^#//'; }
 case "$CMD" in
   hello|setup) shift; exec /bin/bash "$HERE/tools/hello.sh" "$@" ;;
   ""|help)
@@ -69,6 +71,12 @@ case "$CMD" in
   *open.spotify.com/*|spotify:*)
     exec "$HERE/engine/slipmat-spotify" "$@" ;;
   *)
+    # a private door: one lowercase word that names an executable in ~/.slipmat/doors
+    # is that command, run with the rest of the line (a link or a path is never one word like that)
+    case "$CMD" in
+      *[!a-z0-9-]*|-*) ;;
+      *) if [ -f "$HOME/.slipmat/doors/$CMD" ] && [ -x "$HOME/.slipmat/doors/$CMD" ]; then shift; exec "$HOME/.slipmat/doors/$CMD" "$@"; fi ;;
+    esac
     # bare URL or file path → video engine
     exec "$HERE/engine/slipmat-video" "$@" ;;
 esac

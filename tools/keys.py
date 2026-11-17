@@ -107,7 +107,7 @@ def say(fd, line):
 
 
 # ---- live: a thread inside live-rewind.py ------------------------------------
-def live_thread(stop_cb, ask_flag, ask_text, stop_text):
+def live_thread(stop_cb, ask_flag, ask_text, stop_text, bank_flag='', bank_ask='', bank_text=''):
     """runs until stop_cb() has been called (by us or by a Ctrl-C). Owns the tty
     mode while the capture runs; live-rewind.py restores it at exit. After the
     second x the thread ends at once — nothing reads keys again until the engine
@@ -121,30 +121,49 @@ def live_thread(stop_cb, ask_flag, ask_text, stop_text):
     import threading
 
     def loop():
-        armed = False
+        # b = bank (11.17.26), asked once like x: the second b leaves bank_flag for the
+        # engine, which starts a new capture and stops this one only once that one is
+        # recording. The key exists only when the engine passed a flag, and is deaf
+        # while a bank is under way (the flag is there until it ends or is declined).
+        armed = b''
         while not stop_cb.done:
             k = read_key(fd, ASK_WINDOW if armed else 1.0)
             if stop_cb.done:
                 break
             if armed:
-                armed = False
+                was, armed = armed, b''
                 try:
                     os.unlink(ask_flag)
                 except OSError:
                     pass
-                if k in (b'x', b'X'):
+                if was == b'x' and k in (b'x', b'X'):
                     say(fd, stop_text)
                     stop_cb()          # the first-Ctrl-C path, exactly
                     break
+                if was == b'b' and k in (b'b', b'B'):
+                    try:
+                        open(bank_flag, 'w').close()
+                        say(fd, bank_text)
+                    except OSError:
+                        say(fd, '')
+                    continue
                 say(fd, '')            # the REC line redraws on its next tick
                 continue
             if k in (b'x', b'X'):
-                armed = True
+                armed = b'x'
                 try:
                     open(ask_flag, 'w').close()
                 except OSError:
                     pass
                 say(fd, ask_text)
+            elif bank_flag and k in (b'b', b'B') and not os.path.exists(bank_flag):
+                armed = b'b'
+                try:
+                    with open(ask_flag, 'w') as fh:
+                        fh.write('b\n')
+                except OSError:
+                    pass
+                say(fd, bank_ask)
     t = threading.Thread(target=loop, daemon=True)
     t.start()
     return saved

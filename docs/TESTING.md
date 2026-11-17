@@ -250,6 +250,28 @@ for a last-N window (12 s of margin), three pieces in on a sliding window.
 - no history (a playlist under 90 s, no playlist, an ended one, a picked stream
   that is not a playlist): one line saying so, and the capture runs from now.
 
+### Bank (11.17.26): the file so far is finished, the recording goes on
+
+`b` on the live rail, asked once like `x` (`keys.py`, the same thread). The second
+`b` leaves `live.bank` in the run's scratch; the REC line's loop starts
+`live_bank_handoff` beside it: a new Terminal window runs the engine on the link
+as given at the same size (`bank_words`; `SLIPMAT_BANK_CMD` replaces the command),
+from now, with `SLIPMAT_BANK_READY` naming a flag the new run touches once its
+file holds 200 KB. Four seconds after that flag the first recorder gets SIGUSR1
+(`live-rewind.py`: the first-Ctrl-C path, named `bank`), seals, and its receipt
+says `banked`. Declined while `live.lag` says more than 15 s behind; a window that
+does not open or a new capture with no bytes in 3 minutes leaves the first one
+recording and frees the key. `SLIPMAT_BANK=0` takes the key away.
+
+```
+# a live playlist, b b after 35 s (the new window lands in the throwaway home too):
+HOME=$H TERM_PROGRAM=Apple_Terminal PTY_COLS=150 SLIPMAT_LIVE_ASK=0 \
+  SLIPMAT_BANK_CMD="HOME=$H SLIPMAT_WINDOW=1 $PWD/engine/slipmat-video '<live playlist>' max best" \
+  python3 tools/ptydrive.py /tmp/bank.raw 210 -- '<live playlist>' best -- KEY@35:b KEY@1:b
+# proven 11.17.26: file one 1:12, file two began 36.0 s before file one ended; those
+# 1,078 frames are the same in both (ffmpeg -c copy -f framemd5), in one unbroken run
+```
+
 Proofs (11.12.26, two live Rumble streams; the run log carries
 `live playlist history: <s> listed, first sequence <n>` and
 `playlist rewind: format … · start index …`):

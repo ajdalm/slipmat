@@ -122,7 +122,7 @@ def _on_sigint(signum, frame):
                     fh.write(_stop.how)     # the engine's log says which key stopped it
             except OSError:
                 pass
-            txt = os.environ.get('SLIPMAT_LIVE_STOP_TEXT', '')
+            txt = os.environ.get('SLIPMAT_LIVE_BANK_STOP_TEXT' if _stop.how == 'bank' else 'SLIPMAT_LIVE_STOP_TEXT', '')
             if txt and _fd >= 0 and _stop.how != 'x':   # said ONCE: the key thread already said it on x x; a Ctrl-C says it here (10.29.26)
                 try:
                     os.write(_fd, b'\r\033[K' + txt.encode('utf-8', 'replace'))
@@ -139,6 +139,17 @@ def _on_sigint(signum, frame):
 
 
 signal.signal(signal.SIGINT, _on_sigint)
+
+
+def _on_bank(signum, frame):
+    # the engine's bank hand-over (11.17.26): a new capture of this stream is
+    # recording in its own window, so this one takes the first-Ctrl-C path, by name
+    if not _stop.done:
+        _stop.how = 'bank'
+        os.kill(os.getpid(), signal.SIGINT)
+
+
+signal.signal(signal.SIGUSR1, _on_bank)
 
 back = int(os.environ.get('SLIPMAT_LIVE_BACK', '0') or 0)
 if back > 0:
@@ -266,7 +277,10 @@ if _ask_flag and _fd >= 0:
         import keys as _keys
         _orig = _keys.live_thread(_stop, _ask_flag,
                                   os.environ.get('SLIPMAT_LIVE_ASK_TEXT', ''),
-                                  os.environ.get('SLIPMAT_LIVE_STOP_TEXT', ''))
+                                  os.environ.get('SLIPMAT_LIVE_STOP_TEXT', ''),
+                                  os.environ.get('SLIPMAT_LIVE_BANK_FLAG', ''),
+                                  os.environ.get('SLIPMAT_LIVE_BANK_ASK_TEXT', ''),
+                                  os.environ.get('SLIPMAT_LIVE_BANK_TEXT', ''))
     except Exception as e:
         sys.stderr.write(f'live-rewind: no stop key ({e}); Ctrl-C still stops\n')
         _orig = None

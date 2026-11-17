@@ -149,6 +149,12 @@ A live playlist whose pieces are listed under addresses with no media file
 ending (some station channels list a tracking address per piece) is recorded
 too: ffmpeg refuses it once, the capture runs again with that one check off
 and says so in a line.
+While a capture records, `b` banks it: asked once, then the file so far is
+finished and the recording goes on in a new file. A second capture of the same
+stream starts in its own window, and the first is stopped and sealed only once
+that one is writing, so the two files share a few seconds and nothing between
+them is lost. A rewind that is still catching up declines and says how far
+behind it is; a new capture that never begins leaves the first one recording.
 From the command line the window can be given up front and
 the question is skipped: `slipmat video <url> max best from-start`,
 `… last-2h`, `… last-90m` — and on a stream that already ended, `last-2h`
@@ -170,6 +176,7 @@ The same tools, from the command line:
 ./slipmat z-batch -c 50 <folder>     # unattended zoom-crop/re-encode a folder
 ./slipmat smoke                      # offline self-test, ~10 s (run before a commit)
 ./slipmat doctor                     # toolchain check, last green smoke
+./slipmat <word> …                   # a command of your own: an executable ~/.slipmat/doors/<word>
 ```
 
 Downloads land in `~/Downloads/SLIPMAT` (or wherever you told `hello`); a

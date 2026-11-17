@@ -45,7 +45,8 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.38"          # 11.13.26 — a playlist rewind is recorded by sequence number: the backlog is fetched several pieces at a time and written in order, then the same recorder keeps going piece by piece at the live edge (thirty minutes of 1080p reach live in under a minute, where ffmpeg, one piece at a time, took ten); it takes only a plain playlist of MPEG-TS pieces, declines anything else before a byte is written, and at the first piece or playlist that will not come hands the capture back to the one-piece-at-a-time recorder, whose part is joined to the first and counted packet for packet
+VERSION="4.39"          # 11.17.26 — bank: b, asked once, on any live capture finishes the file so far and the recording goes on in a new one; a second capture of the same stream is started in its own window and the first is stopped only once that one is writing, so the two files share a few seconds and nothing between them is lost
+#VERSION 4.38             # 11.13.26 — a playlist rewind is recorded by sequence number: the backlog is fetched several pieces at a time and written in order, then the same recorder keeps going piece by piece at the live edge (thirty minutes of 1080p reach live in under a minute, where ffmpeg, one piece at a time, took ten); it takes only a plain playlist of MPEG-TS pieces, declines anything else before a byte is written, and at the first piece or playlist that will not come hands the capture back to the one-piece-at-a-time recorder, whose part is joined to the first and counted packet for packet
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
 #VERSION 4.15             # 10.29.26 — a finished window closes itself after 5 minutes (the NMX naming window as soon as its name is on the file); a live capture grows in capturing/ and moves up beside the others when it ends
 #VERSION 4.14             # 10.13.26 — a bot-walled page (Rumble) is retried as Chrome, then Firefox, then Safari, and again at the download; a Newsmax show page rips as is (its own service names the stream and the show); a sniffer's rendition playlist is traded for the master beside it
@@ -329,6 +330,7 @@ fi
 # -----------------------------------------------------------------------------
 
 URL="${1:-}"
+BANK_URL="${1:-}"   # the link as it was given: a banked capture's successor starts from it (a run may rewrite $URL to a playlist)
 RES="${2:-max}"
 MODE="${3:-auto}"
 # Ergonomic shorthand (7.14.26): a lone MODE word as the second arg maps to that
@@ -3968,6 +3970,69 @@ tty_flush() {   # drop keys typed into the terminal but never entered (after a t
   stty -icanon min 0 time 0 < /dev/tty 2>/dev/null && dd bs=256 count=1 < /dev/tty > /dev/null 2>&1
   stty icanon < /dev/tty 2>/dev/null
 }
+# ---- bank (11.17.26): finish the file so far, keep recording --------------------
+# b, asked once, on any live capture: a second capture of the same stream is
+# started in its own window, and only once that one is writing is this one
+# stopped and sealed. The two files overlap by a few seconds (a from-now capture
+# of a playlist begins a few pieces back; any other begins before this one
+# stops), so nothing between them is lost. Declined while a rewind is still
+# catching up: the new capture begins at live, and the stretch this one has not
+# reached yet would be in neither file. SLIPMAT_BANK=0 takes the key away;
+# SLIPMAT_BANK_CMD = the command the new window runs (a wrapper that names its
+# own files); otherwise the engine itself on the link as given, at the same size.
+bank_words() {   # $1 engine · $2 link · $3 res · $4 picked height or "" · $5 mode → the new window's command line (pure; smoke-tested)
+  _bw_r="$3"; [ -n "$4" ] && _bw_r="$4"; case "$_bw_r" in ask|"") _bw_r="max" ;; esac
+  _bw_m="$5"; case "$_bw_m" in best|auto) ;; *) _bw_m="auto" ;; esac
+  printf 'SLIPMAT_WINDOW=1 %q %q %s %s' "$1" "$2" "$_bw_r" "$_bw_m"
+}
+bank_can() {
+  [ "${SLIPMAT_BANK:-1}" != "0" ] && [ "$IS_TTY" = "1" ] && [ -n "${LIVE_PY:-}" ] || return 1
+  command -v osascript >/dev/null 2>&1 || return 1
+  [ "${TERM_PROGRAM:-}" = "Apple_Terminal" ] || [ -n "${SLIPMAT_BANK_CMD:-}" ]
+}
+bank_say() {   # a finished line from beside the REC line; the flag tells the REC line a row was taken
+  live_line_end; printf '  %s%s%s\n' "$C_YEL" "$1" "$C_RESET" > /dev/tty 2>/dev/null
+  : > "$WORKDIR/bank.said" 2>/dev/null; logln "  $1"
+}
+live_bank_handoff() {   # runs beside the REC line, never in the capture's way
+  if read_live_lag && [ -n "${LIVE_LAG_V:-}" ] && [ "$LIVE_LAG_V" -gt 15 ] 2>/dev/null; then
+    lag_clock _bl "$LIVE_LAG_V"
+    bank_say "not banked: this capture is still $_bl behind live and a new one begins at live — bank once it has caught up"
+    rm -f "$LIVE_BANK" 2>/dev/null; return 0
+  fi
+  _br="$WORKDIR/bank.ready"; rm -f "$_br" 2>/dev/null
+  _bc="${SLIPMAT_BANK_CMD:-}"
+  [ -n "$_bc" ] || _bc=$(bank_words "$_self" "$BANK_URL" "$RES" "${LIVE_PICK_H:-}" "$MODE")
+  _bc="SLIPMAT_BANK_READY=$(printf '%q' "$_br") SLIPMAT_LIVE_ASK=0 SLIPMAT_LIVE_FROM_START=0 SLIPMAT_LIVE_BACK=0 $_bc"
+  logln "  bank: the new window runs: $_bc"
+  if ! osascript - "$_bc" >/dev/null 2>&1 <<'AS'
+on run argv
+  tell application "Terminal"
+    do script (item 1 of argv)
+  end tell
+end run
+AS
+  then
+    bank_say "not banked: Terminal would not open a window for the new capture — this one keeps recording, nothing was cut"
+    rm -f "$LIVE_BANK" 2>/dev/null; return 0
+  fi
+  _bn=0
+  while [ "$_bn" -lt 90 ]; do
+    [ -f "$LIVE_STOP" ] && return 0
+    [ -f "$_br" ] && break
+    sleep 2; _bn=$((_bn+1))
+  done
+  if [ ! -f "$_br" ]; then
+    bank_say "not banked: the new capture did not begin recording in 3 minutes — this one keeps recording, nothing was cut"
+    rm -f "$LIVE_BANK" 2>/dev/null; return 0
+  fi
+  sleep 4   # the new file is growing; a few more seconds of both is the overlap
+  [ -f "$LIVE_STOP" ] && return 0
+  _bp=$(pgrep -P $$ -f 'live-rewind\.py' 2>/dev/null | head -1)
+  if [ -n "$_bp" ]; then logln "  bank: the new capture is recording; stopping this one"; kill -USR1 "$_bp" 2>/dev/null
+  else bank_say "not banked: this capture's recorder was not found — it keeps recording, and so does the new window"; rm -f "$LIVE_BANK" 2>/dev/null; fi
+  return 0
+}
 # live-rewind.py disarms the terminal's Ctrl-C (and echo) on the first press; the
 # engine re-arms it here, once the capture is sealed and measured — never earlier,
 # or a third press lands on the receipt (proven 10.5.26 eve). Idempotent.
@@ -4144,6 +4209,7 @@ live_receipt_notes() {
       box_line "stop    stopped $_lg short of live — video and audio end together"
     fi
   fi
+  [ "${LIVE_BANKED:-0}" = "1" ] && box_line "banked  the recording goes on in its own window; the two files share a few seconds"
   if [ -n "${LIVE_PICK_H:-}" ]; then
     _gh=$("$FFPROBE" -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$PRODUCED" 2>/dev/null | head -1 | tr -dc '0-9')
     if [ -n "$_gh" ] && [ "$_gh" -gt "$LIVE_PICK_H" ] 2>/dev/null; then
@@ -4491,6 +4557,7 @@ if f and f.get("url"):
   # the keys while it records — shown, not hidden (10.5.26 night): x = stop, asked
   # once. Ctrl-C (the emergency exit, never printed) still stops at once; both
   # take the same seal path (live-rewind.py).
+  LIVE_BANK=""; LIVE_BANK_ASK_TEXT=""; LIVE_BANKED=0; unset SLIPMAT_LIVE_BANK_FLAG
   LIVE_ASK=""; LIVE_ASK_TEXT=""; LIVE_STOP_TEXT="$G_OK stopping · sealing into one mp4 — keys are off until it is done (closing the window abandons it)"   # said ONCE, at the press (live-rewind.py prints it as a finished line); the REC line then shows the seal's own clock
   if [ "$IS_TTY" = "1" ] && [ -n "$LIVE_PY" ]; then
     LIVE_ASK="$WORKDIR/live.ask"; rm -f "$LIVE_ASK" 2>/dev/null
@@ -4498,6 +4565,14 @@ if f and f.get("url"):
     say ""
     frame_rail "${C_Q}while it records${C_RESET}"
     frame_rail "$(chip x) stop — it asks once, then seals one playable mp4"
+    if bank_can; then   # 11.17.26: b = bank what is recorded so far, the recording goes on in a new file
+      LIVE_BANK="$WORKDIR/live.bank"; rm -f "$LIVE_BANK" "$WORKDIR/bank.said" 2>/dev/null
+      LIVE_BANK_ASK_TEXT="${C_Q}bank what is recorded so far?${C_RESET} $(chip b) again = bank it, the recording goes on · any other key = leave it"
+      export SLIPMAT_LIVE_BANK_FLAG="$LIVE_BANK" SLIPMAT_LIVE_BANK_ASK_TEXT="  $LIVE_BANK_ASK_TEXT"
+      export SLIPMAT_LIVE_BANK_TEXT="  $C_GRN$G_OK banking · a new capture of this stream is starting in its own window; this file is sealed once that one is recording$C_RESET"$'\n'
+      export SLIPMAT_LIVE_BANK_STOP_TEXT="  $C_GRN$G_OK banked · the new capture is recording · sealing this file into one mp4 — keys are off until it is done$C_RESET"$'\n'
+      frame_rail "$(chip b) bank — it asks once, then this file is finished and the recording goes on in a new one"
+    fi
     say ""
   else
     note "press Ctrl-C to stop — yt-dlp finalizes a clean, playable file."
@@ -4565,6 +4640,8 @@ if f and f.get("url"):
           done
         fi
         { [ "$_sz" -gt 0 ] 2>/dev/null && [ -z "$_ff" ]; } && _ff="$_f"
+        # this run is a banked capture's successor: once real bytes are landing, the first capture may stop
+        if [ -n "${SLIPMAT_BANK_READY:-}" ] && [ "$_sz" -gt 200000 ] 2>/dev/null; then : > "$SLIPMAT_BANK_READY" 2>/dev/null; SLIPMAT_BANK_READY=""; fi
         if [ "$_sz" -gt 0 ] 2>/dev/null; then
           if   [ "$_sz" -ge 1073741824 ]; then printf -v _hs '%d.%02dGB' $((_sz/1073741824)) $(( (_sz % 1073741824) * 100 / 1073741824 ))
           elif [ "$_sz" -ge 1048576 ];    then _hs="$(( _sz / 1048576 ))MB"
@@ -4611,6 +4688,11 @@ if f and f.get("url"):
         fi
         # V4.1: time · size lead, then the stream, then the start clock; the stop
         # key sits at the end the whole time (10.5.26 night: shown, not hidden)
+        if [ -n "$LIVE_BANK" ] && [ ! -f "$LIVE_STOP" ]; then
+          if [ -f "$LIVE_BANK" ] && [ -z "${_bk:-}" ]; then _bk=1; _two=0; ( live_bank_handoff ) & fi   # b b: the sentence was said at the press; the hand-over runs beside this line
+          [ -n "${_bk:-}" ] && [ ! -f "$LIVE_BANK" ] && _bk=""   # declined, or the new capture never began: the key works again
+          [ -f "$WORKDIR/bank.said" ] && { rm -f "$WORKDIR/bank.said" 2>/dev/null; _two=0; }
+        fi
         if [ -f "$LIVE_STOP" ]; then   # the stop landed (x or Ctrl-C): the sentence was said once at the press; this line is the seal's own clock and the newest file's size, in place
           _two=0   # the stop sentence took the rewind row and moved on; the REC row above is history now
           [ -n "${_sl0:-}" ] || _sl0=$SECONDS
@@ -4624,12 +4706,13 @@ if f and f.get("url"):
           sleep 1; continue
         fi
         if [ -n "$LIVE_ASK" ] && [ -f "$LIVE_ASK" ]; then   # x was pressed once: the question stays up until answered (5 s)
-          live_line "$LIVE_ASK_TEXT"
+          _aw=""; read -r _aw < "$LIVE_ASK" 2>/dev/null
+          if [ "$_aw" = "b" ]; then live_line "$LIVE_BANK_ASK_TEXT"; else live_line "$LIVE_ASK_TEXT"; fi
           sleep 1; continue
         fi
         [ "$_two" = "1" ] && printf '\033[A' > /dev/tty 2>/dev/null   # back up onto the REC row
         live_line "$(printf '%s%s REC%s %s · %s · since %s%s' \
-          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$LIVE_QL" "$_clk" "${LIVE_ASK:+ · $(chip x) stop}")"
+          "$C_YEL" "$G_REC" "$C_RESET" "$_mid" "$LIVE_QL" "$_clk" "${LIVE_ASK:+ · $(chip x) stop}${LIVE_BANK:+ · $(chip b) bank}")"
         if [ -n "$_l2" ]; then printf '\n' > /dev/tty 2>/dev/null; live_line "${C_MAG}↳${C_RESET} $_l2"; _two=1; else _two=0; fi
         sleep 2
       done
@@ -4784,6 +4867,7 @@ i=max(0,min(len(d)-1,int(sys.argv[3])-2-first)); print(i, int(sum(d[i:])))' "$LI
   if [ -f "$LIVE_STOP" ]; then
     _how=$(head -c 12 "$LIVE_STOP" 2>/dev/null | tr -dc 'a-zA-Z-'); [ -n "$_how" ] || _how="Ctrl-C"
     logln "  stopped by $_how at $(fmt_dur "$LIVE_EL") (wall clock); later presses were disarmed"
+    [ "$_how" = "bank" ] && LIVE_BANKED=1
     read_live_lag && logln "  at the stop: video ${LIVE_LAG_V:-?}s behind live · audio ${LIVE_LAG_A:-?}s behind live"
   fi
   # stop the status line the instant capture ends (finalize happens inside yt-dlp)
