@@ -259,7 +259,13 @@ as given at the same size (`bank_words`; `SLIPMAT_BANK_CMD` replaces the command
 from now, with `SLIPMAT_BANK_READY` naming a flag the new run touches once its
 file holds 200 KB. Four seconds after that flag the first recorder gets SIGUSR1
 (`live-rewind.py`: the first-Ctrl-C path, named `bank`), seals, and its receipt
-says `banked`. Declined while `live.lag` says more than 15 s behind; a window that
+says `banked`. A playlist capture reads one to three of the playlist's pieces behind
+live at any moment (12 to 36 s where pieces are 12 s), so the line is three pieces,
+15 s at least (`bank_line`; the piece length is `hls_history`'s sixth field). A capture
+that reads further behind is banked with the new one begun that far back plus one
+piece (`bank_back` → `SLIPMAT_LIVE_BACK`), when the playlist listed that much and it
+is no more than `SLIPMAT_BANK_BACK_MAX` (180 s); the run log says both numbers.
+Declined past that, with the sentence as before; a window that
 does not open or a new capture with no bytes in 3 minutes leaves the first one
 recording and frees the key. `SLIPMAT_BANK=0` takes the key away.
 
@@ -270,6 +276,9 @@ HOME=$H TERM_PROGRAM=Apple_Terminal PTY_COLS=150 SLIPMAT_LIVE_ASK=0 \
   python3 tools/ptydrive.py /tmp/bank.raw 210 -- '<live playlist>' best -- KEY@35:b KEY@1:b
 # proven 11.17.26: file one 1:12, file two began 36.0 s before file one ended; those
 # 1,078 frames are the same in both (ffmpeg -c copy -f framemd5), in one unbroken run
+# proven 11.21.26 (12 s pieces, begun 2:00 back): banked at 12 s behind, the same 36.0 s shared;
+# with the recorder's ffmpeg held 38 s (kill -STOP, then -CONT) the capture read 0:43 behind,
+# over the 36 s line: banked, the new one begun 0:56 back, 72.0 s (2,158 frames) in both files
 ```
 
 ### A recorder that ends by itself (11.17.26)

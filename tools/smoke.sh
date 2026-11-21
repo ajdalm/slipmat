@@ -509,8 +509,8 @@ done
 _hh() { PYTHON="$(command -v python3)" bash -c "$_hf; hls_history \"\$1\" \"\$2\" \"\$3\"" _ "$S/hls/$1.json" "$2" "$3" 2>/dev/null; }
 _h1=$(_hh whole -1 ""); _h2=$(_hh whole 0 hls-1); _h3=$(_hh whole 120 hls-1); _h4=$(_hh whole 900 hls-1)
 _h5=$(_hh slide 0 hls-1); _h6=$(_hh ended 0 hls-1); _h7=$(_hh whole 0 file-0)
-if [ "$_h1" = "600 1 0 0 600" ] && [ "$_h2" = "600 1 0 0 600" ] && [ "$_h3" = "600 1 -66 -66 132" ] && [ "$_h4" = "600 1 0 0 600" ] \
-   && [ "$_h5" = "600 5000 3 3 594" ] && [ -z "$_h6" ] && [ -z "$_h7" ] \
+if [ "$_h1" = "600 1 0 0 600 2" ] && [ "$_h2" = "600 1 0 0 600 2" ] && [ "$_h3" = "600 1 -66 -66 132 2" ] && [ "$_h4" = "600 1 0 0 600 2" ] \
+   && [ "$_h5" = "600 5000 3 3 594 2" ] && [ -z "$_h6" ] && [ -z "$_h7" ] \
    && grep -q 'live_start_index \$_hi1' "$ENGINE" && grep -q 'LIVE_HLS_DA\[@\]+' "$ENGINE" \
    && grep -q "SLIPMAT_LIVE_HLS" "$REPO/tools/live-rewind.py" && grep -q 'out_time_us=' "$REPO/tools/live-rewind.py" \
    && ! grep -q 'only works on YouTube' "$ENGINE"; then
@@ -526,9 +526,13 @@ _b1=$(bash -c "$_bw"$'\n''bank_words "$@"' _ /e/slipmat-video 'https://x.example
 _b2=$(bash -c "$_bw"$'\n''bank_words "$@"' _ /e/slipmat-video 'https://x.example/l' max 720 best)
 _b3=$(bash -c "$_bw"$'\n''bank_words "$@"' _ /e/slipmat-video 'https://x.example/l' 1080 "" auto)
 _bh=$(sed -n '/^live_bank_handoff() {/,/^}/p' "$ENGINE")
+_bln=$(sed -n '/^bank_line() {/,/^}/p' "$ENGINE"); _bbk=$(sed -n '/^bank_back() {/,/^}/p' "$ENGINE")
+_bl=$(bash -c "$_bln"$'\n''for p in 12 6 2 "" x; do printf "%s " "$(bank_line "$p")"; done' _)
+_bk=$(bash -c "$_bbk"$'\n''printf "[%s][%s][%s][%s][%s]" "$(bank_back 28 12 120)" "$(bank_back 28 12 50)" "$(bank_back 600 12 14400)" "$(bank_back 28 "" 120)" "$(bank_back 17 6 96)"' _)
 if [ "$_b1" = 'SLIPMAT_WINDOW=1 /e/slipmat-video https://x.example/a\ b\?c=1 max auto' ] && [ "$_b2" = 'SLIPMAT_WINDOW=1 /e/slipmat-video https://x.example/l 720 best' ] \
    && [ "$_b3" = 'SLIPMAT_WINDOW=1 /e/slipmat-video https://x.example/l 1080 auto' ] \
-   && printf '%s' "$_bh" | grep -q 'LIVE_LAG_V" -gt 15' && printf '%s' "$_bh" | grep -q 'SLIPMAT_LIVE_FROM_START=0 SLIPMAT_LIVE_BACK=0' \
+   && [ "$_bl" = "36 18 15 15 15 " ] && [ "$_bk" = "[40][][][][23]" ] \
+   && printf '%s' "$_bh" | grep -q 'LIVE_LAG_V" -gt "$(bank_line "${LIVE_PIECE:-}")"' && printf '%s' "$_bh" | grep -q 'SLIPMAT_LIVE_FROM_START=0 SLIPMAT_LIVE_BACK=$_bback' \
    && [ "$(printf '%s' "$_bh" | grep -n 'bank.ready\|kill -USR1' | tail -1 | grep -c 'kill -USR1')" = "1" ] \
    && printf '%s' "$_bh" | grep -q '\[ ! -f "\$_br" \]' \
    && grep -q 'SLIPMAT_BANK_READY:-}" \] && \[ "\$_sz" -gt 200000 \]' "$ENGINE" \
@@ -536,8 +540,8 @@ if [ "$_b1" = 'SLIPMAT_WINDOW=1 /e/slipmat-video https://x.example/a\ b\?c=1 max
    && grep -q "if was == b'b' and k in (b'b', b'B'):" "$REPO/tools/keys.py" \
    && grep -q 'signal.signal(signal.SIGUSR1, _on_bank)' "$REPO/tools/live-rewind.py" && grep -q "_stop.how = 'bank'" "$REPO/tools/live-rewind.py" \
    && grep -q 'frame_rail "$(chip b) bank' "$ENGINE" && grep -q 'box_line "banked ' "$ENGINE"; then
-  pass "bank: the new window runs the engine on the link as given at the picked size (a menu or STUDIO run becomes a plain one); the first capture is stopped only after the new one says it is writing, never while a rewind is behind live; b is asked once and is deaf while a bank is under way"
-else fail "bank: words '$_b1' · '$_b2' · '$_b3' · or the hand-over's order, the lag guard, the ready flag, the key thread or the recorder's signal"; fi
+  pass "bank: the new window runs the engine on the link as given at the picked size (a menu or STUDIO run becomes a plain one); the first capture is stopped only after the new one says it is writing, never while a rewind is far behind live; the line is three of the playlist's pieces (15 s at least) and a capture further behind is banked with the new one begun that far back plus a piece; b is asked once and is deaf while a bank is under way"
+else fail "bank: words '$_b1' · '$_b2' · '$_b3' · the line '$_bl' · the start back '$_bk' · or the hand-over's order, the lag guard, the ready flag, the key thread or the recorder's signal"; fi
 
 # ---- 3c6b2. a recorder that ended by itself keeps what it wrote (11.17.26): NAME.mp4.part is sealed in place
 # (streams copied), checked against the raw file's length, the raw file removed only then; a raw file that

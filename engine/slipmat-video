@@ -45,7 +45,7 @@ set -u
 [ "${LC_ALL:-}" = "C" ] && unset LC_ALL
 export LC_CTYPE="en_US.UTF-8"
 
-VERSION="4.40"          # 11.17.26 — a live recorder that ends by itself (ffmpeg killed, a crash, a connection gone for good) no longer loses its capture to "produced no file": what it wrote is sealed there and then, checked against the raw file's length, and placed like any stopped capture
+VERSION="4.41"          # 11.21.26 — bank no longer declines by luck on a playlist of long pieces: the line a capture may read behind live and still be banked is three of the playlist's own pieces (never under 15 s), and a capture that reads further behind is banked with the new capture begun that far back, so the two files overlap; a rewind still far behind declines as before
 #VERSION 4.39             # 11.17.26 — bank: b, asked once, on any live capture finishes the file so far and the recording goes on in a new one; a second capture of the same stream is started in its own window and the first is stopped only once that one is writing, so the two files share a few seconds and nothing between them is lost
 #VERSION 4.38             # 11.13.26 — a playlist rewind is recorded by sequence number: the backlog is fetched several pieces at a time and written in order, then the same recorder keeps going piece by piece at the live edge (thirty minutes of 1080p reach live in under a minute, where ffmpeg, one piece at a time, took ten); it takes only a plain playlist of MPEG-TS pieces, declines anything else before a byte is written, and at the first piece or playlist that will not come hands the capture back to the one-piece-at-a-time recorder, whose part is joined to the first and counted packet for packet
 #VERSION 4.16             # 10.29.26 — the output folder only ever gains finished files: every name reservation, growing capture and seal lives in its "_in progress" folder, and a finished file is placed whole; the closing line takes x or Enter to close now, any other key keeps the window
@@ -367,7 +367,7 @@ done
 case "$LIVE_BACK" in ''|*[!0-9]*) LIVE_BACK=0 ;; esac
 LIVE_WIN=""   # the rewind window in words, said once per screen
 if [ "$LIVE_BACK" -gt 0 ]; then
-  if [ $((LIVE_BACK % 3600)) -eq 0 ]; then LIVE_WIN="last $((LIVE_BACK / 3600))h"; else LIVE_WIN="last $((LIVE_BACK / 60))m"; fi
+  if [ $((LIVE_BACK % 3600)) -eq 0 ]; then LIVE_WIN="last $((LIVE_BACK / 3600))h"; elif [ "$LIVE_BACK" -lt 60 ]; then LIVE_WIN="last ${LIVE_BACK}s"; else LIVE_WIN="last $((LIVE_BACK / 60))m"; fi
 elif [ "$LIVE_FROM_START" = "1" ]; then LIVE_WIN="from the start"; fi
 
 # ---- tiny helpers -----------------------------------------------------------
@@ -3887,7 +3887,8 @@ live_rows() {
 # the end unless told otherwise (-live_start_index): 0 = the oldest piece listed,
 # -K = K pieces from the end. This reads the playlist once (a plain fetch, the
 # headers the probe recorded) and prints
-#     <reach s> <first sequence> <index input 1> <index input 2> <start point's distance behind the head, s>
+#     <reach s> <first sequence> <index input 1> <index input 2> <start point's distance behind the head, s> <piece length, s>
+# (the piece length is the playlist's target duration, else its longest piece, rounded up: the bank's line is measured in it)
 # or nothing: no playlist format, a pick that is not a playlist, a master, a
 # stream that ended, a failed fetch. Every caller treats nothing as "no rewind".
 #   $1 = the probe dump · $2 = -1 measure only | 0 from the start | N seconds back
@@ -3916,7 +3917,7 @@ else:
     picked = [max(c, key=lambda f: (f.get("height") or 0, f.get("tbr") or 0))]
 PAD = 12    # seconds added to a last-N window: the playlist grows while the capture connects
 SKIP = 3    # pieces in from the oldest on a sliding window: the oldest expire first
-reach = None; seq0 = None; out = []
+reach = None; seq0 = None; out = []; piece = 0
 for f in picked[:2]:
     try:
         hdr = {k: v for k, v in (f.get("http_headers") or {}).items() if isinstance(k, str) and isinstance(v, str)}
@@ -3929,6 +3930,8 @@ for f in picked[:2]:
     m = re.search(r'#EXT-X-MEDIA-SEQUENCE:\s*(\d+)', txt)
     seq = int(m.group(1)) if m else 0
     total = sum(durs)
+    td = re.search(r'#EXT-X-TARGETDURATION:\s*([0-9.]+)', txt)
+    piece = max(piece, int(-(-(float(td.group(1)) if td else max(durs)) // 1)))
     if back > 0 and back + PAD < total:
         acc = 0.0; k = 0
         for x in reversed(durs):
@@ -3942,7 +3945,7 @@ for f in picked[:2]:
     if seq0 is None: seq0 = seq
     out.append((idx, behind))
 i2 = out[1][0] if len(out) > 1 else out[0][0]
-print("%d %d %d %d %d" % (int(reach), seq0, out[0][0], i2, int(out[0][1])))
+print("%d %d %d %d %d %d" % (int(reach), seq0, out[0][0], i2, int(out[0][1]), piece))
 PYHLS
 }
 # "25m" · "3h" · "1:30" · "90" (minutes) · "start" → seconds into LIVE_BACK / LIVE_FROM_START; 1 = didn't parse
@@ -3964,7 +3967,7 @@ parse_live_window() {
 live_window_words() {   # LIVE_BACK / LIVE_FROM_START → LIVE_WIN ("last 2h" · "last 90m" · "from the start" · "")
   LIVE_WIN=""
   if [ "$LIVE_BACK" -gt 0 ]; then
-    if [ $((LIVE_BACK % 3600)) -eq 0 ]; then LIVE_WIN="last $((LIVE_BACK / 3600))h"; else LIVE_WIN="last $((LIVE_BACK / 60))m"; fi
+    if [ $((LIVE_BACK % 3600)) -eq 0 ]; then LIVE_WIN="last $((LIVE_BACK / 3600))h"; elif [ "$LIVE_BACK" -lt 60 ]; then LIVE_WIN="last ${LIVE_BACK}s"; else LIVE_WIN="last $((LIVE_BACK / 60))m"; fi
   elif [ "$LIVE_FROM_START" = "1" ]; then LIVE_WIN="from the start"; fi
 }
 tty_flush() {   # drop keys typed into the terminal but never entered (after a timer lands)
@@ -3976,8 +3979,12 @@ tty_flush() {   # drop keys typed into the terminal but never entered (after a t
 # started in its own window, and only once that one is writing is this one
 # stopped and sealed. The two files overlap by a few seconds (a from-now capture
 # of a playlist begins a few pieces back; any other begins before this one
-# stops), so nothing between them is lost. Declined while a rewind is still
-# catching up: the new capture begins at live, and the stretch this one has not
+# stops), so nothing between them is lost. A capture of a playlist reads one to
+# three of the playlist's pieces behind live at any moment, so the line it may
+# read behind and still be banked from now is three pieces (bank_line; 15 s where
+# no piece length is known). Further behind than that, the new capture is begun
+# that far back plus one piece (bank_back), where the playlist still lists it.
+# Declined while a rewind is still far behind: the stretch this one has not
 # reached yet would be in neither file. SLIPMAT_BANK=0 takes the key away;
 # SLIPMAT_BANK_CMD = the command the new window runs (a wrapper that names its
 # own files); otherwise the engine itself on the link as given, at the same size.
@@ -3985,6 +3992,16 @@ bank_words() {   # $1 engine · $2 link · $3 res · $4 picked height or "" · $
   _bw_r="$3"; [ -n "$4" ] && _bw_r="$4"; case "$_bw_r" in ask|"") _bw_r="max" ;; esac
   _bw_m="$5"; case "$_bw_m" in best|auto) ;; *) _bw_m="auto" ;; esac
   printf 'SLIPMAT_WINDOW=1 %q %q %s %s' "$1" "$2" "$_bw_r" "$_bw_m"
+}
+bank_line() {   # $1 the playlist's piece length in seconds ("" = unknown) → the seconds behind live a capture may read and still be banked from now (pure; smoke-tested)
+  case "$1" in ''|*[!0-9]*) echo 15; return 0 ;; esac
+  _bl3=$(( $1 * 3 )); [ "$_bl3" -lt 15 ] && _bl3=15; echo "$_bl3"
+}
+bank_back() {   # $1 seconds behind live · $2 piece length · $3 seconds the playlist listed → how far back the new capture begins, or nothing when a rewound start cannot hold it (pure; smoke-tested)
+  case "$1" in ''|*[!0-9]*) return 0 ;; esac; case "$2" in ''|0|*[!0-9]*) return 0 ;; esac; case "$3" in ''|*[!0-9]*) return 0 ;; esac
+  _bb=$(( $1 + $2 ))
+  if [ "$_bb" -le "${SLIPMAT_BANK_BACK_MAX:-180}" ] && [ $(( _bb + 12 )) -lt "$3" ]; then echo "$_bb"; fi
+  return 0
 }
 bank_can() {
   [ "${SLIPMAT_BANK:-1}" != "0" ] && [ "$IS_TTY" = "1" ] && [ -n "${LIVE_PY:-}" ] || return 1
@@ -3996,15 +4013,20 @@ bank_say() {   # a finished line from beside the REC line; the flag tells the RE
   : > "$WORKDIR/bank.said" 2>/dev/null; logln "  $1"
 }
 live_bank_handoff() {   # runs beside the REC line, never in the capture's way
-  if read_live_lag && [ -n "${LIVE_LAG_V:-}" ] && [ "$LIVE_LAG_V" -gt 15 ] 2>/dev/null; then
+  _bback=0
+  if read_live_lag && [ -n "${LIVE_LAG_V:-}" ] && [ "$LIVE_LAG_V" -gt "$(bank_line "${LIVE_PIECE:-}")" ] 2>/dev/null; then
     lag_clock _bl "$LIVE_LAG_V"
-    bank_say "not banked: this capture is still $_bl behind live and a new one begins at live — bank once it has caught up"
-    rm -f "$LIVE_BANK" 2>/dev/null; return 0
+    _bback=""; [ "${LIVE_HLS:-0}" = "1" ] && _bback=$(bank_back "$LIVE_LAG_V" "${LIVE_PIECE:-}" "${LIVE_HLS_REACH:-}")
+    if [ -z "$_bback" ]; then
+      bank_say "not banked: this capture is still $_bl behind live and a new one begins at live — bank once it has caught up"
+      rm -f "$LIVE_BANK" 2>/dev/null; return 0
+    fi
+    lag_clock _bl2 "$_bback"; logln "  bank: this capture reads $_bl behind live; the new one begins $_bl2 back"
   fi
   _br="$WORKDIR/bank.ready"; rm -f "$_br" 2>/dev/null
   _bc="${SLIPMAT_BANK_CMD:-}"
   [ -n "$_bc" ] || _bc=$(bank_words "$_self" "$BANK_URL" "$RES" "${LIVE_PICK_H:-}" "$MODE")
-  _bc="SLIPMAT_BANK_READY=$(printf '%q' "$_br") SLIPMAT_LIVE_ASK=0 SLIPMAT_LIVE_FROM_START=0 SLIPMAT_LIVE_BACK=0 $_bc"
+  _bc="SLIPMAT_BANK_READY=$(printf '%q' "$_br") SLIPMAT_LIVE_ASK=0 SLIPMAT_LIVE_FROM_START=0 SLIPMAT_LIVE_BACK=$_bback $_bc"
   logln "  bank: the new window runs: $_bc"
   if ! osascript - "$_bc" >/dev/null 2>&1 <<'AS'
 on run argv
@@ -4460,11 +4482,11 @@ if [ "$IS_LIVE" = "1" ]; then
   # on YouTube always; on any other site only when its live playlist keeps a
   # history worth rewinding (11.12.26) — measured once, before the question, and
   # the question says how far back the stream reaches.
-  LIVE_HLS=0; LIVE_HLS_REACH=0; LIVE_HLS_SEQ=0; LIVE_HLS_BEHIND=0; LIVE_HLS_T0=0; LIVE_PROG=""; LIVE_REACH_WORDS=""; LIVE_HLS_DA=()
+  LIVE_HLS=0; LIVE_PIECE=""; LIVE_HLS_REACH=0; LIVE_HLS_SEQ=0; LIVE_HLS_BEHIND=0; LIVE_HLS_T0=0; LIVE_PROG=""; LIVE_REACH_WORDS=""; LIVE_HLS_DA=()
   _lask=0
   [ -z "$LIVE_WIN" ] && [ "$IS_TTY" = "1" ] && [ -t 0 ] && [ "${SLIPMAT_Z_AUTO:-0}" != "1" ] && [ "${SLIPMAT_LIVE_ASK:-1}" != "0" ] && _lask=1
   if [ "$LIVE_YT" != "1" ] && { [ -n "$LIVE_WIN" ] || [ "$_lask" = "1" ]; }; then
-    read -r LIVE_HLS_REACH LIVE_HLS_SEQ _hi1 _hi2 _hbh <<EOF
+    read -r LIVE_HLS_REACH LIVE_HLS_SEQ _hi1 _hi2 _hbh _hpc <<EOF
 $(hls_history "${INFO:-}" -1 "")
 EOF
     case "$LIVE_HLS_REACH" in ''|*[!0-9]*) LIVE_HLS_REACH=0 ;; esac
@@ -4548,9 +4570,10 @@ EOF
     _hfid=$("$YTDLP" --load-info-json "$INFO" -f "$LIVE_F" --skip-download --no-warnings --print '%(format_id)s' 2>/dev/null | head -1)
     _hh=""; [ -n "$_hfid" ] && _hh=$(hls_history "$INFO" "$_hb" "$_hfid")
     if [ -n "$_hh" ]; then
-      read -r _hr _hs _hi1 _hi2 LIVE_HLS_BEHIND <<EOF
+      read -r _hr _hs _hi1 _hi2 LIVE_HLS_BEHIND LIVE_PIECE <<EOF
 $_hh
 EOF
+      case "$LIVE_PIECE" in ''|*[!0-9]*) LIVE_PIECE="" ;; esac
       LIVE_HLS_T0=$(date +%s); LIVE_PROG="$WORKDIR/live.progress"; rm -f "$LIVE_PROG" 2>/dev/null
       LIVE_HLS_DA=(--downloader-args "ffmpeg_i1:-loglevel error -live_start_index $_hi1" \
                    --downloader-args "ffmpeg_i2:-loglevel error -live_start_index $_hi2" \
